@@ -34,3 +34,66 @@ def detect_contours(
     contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     return [c for c in contours if min_blob_size <= cv2.contourArea(c) <= max_blob_size]
+
+
+from dataclasses import dataclass, field
+from typing import Optional
+
+
+@dataclass
+class BlobRecord:
+    centroid: tuple[int, int]
+    area: float
+    bbox: tuple[int, int, int, int]  # x, y, w, h
+    contour: Optional[np.ndarray]
+    id: Optional[int] = None
+
+
+def contours_to_blobs(
+    contours: list[np.ndarray], *, frame_shape: tuple[int, int, int]
+) -> list["BlobRecord"]:
+    """Compute centroid, area, and bbox for each contour."""
+    blobs: list[BlobRecord] = []
+    for c in contours:
+        m = cv2.moments(c)
+        if m["m00"] == 0:
+            x, y, w, h = cv2.boundingRect(c)
+            cx, cy = x + w // 2, y + h // 2
+        else:
+            cx = int(m["m10"] / m["m00"])
+            cy = int(m["m01"] / m["m00"])
+        x, y, w, h = cv2.boundingRect(c)
+        area = float(cv2.contourArea(c))
+        blobs.append(BlobRecord(centroid=(cx, cy), area=area, bbox=(x, y, w, h), contour=c))
+    return blobs
+
+
+class CentroidTracker:
+    """Simple nearest-centroid ID tracker.
+
+    For each frame, assign each blob the ID of the nearest blob from the
+    previous frame within `max_distance`. Otherwise assign a fresh ID.
+    """
+
+    def __init__(self, frame_diagonal: float, distance_ratio: float = 0.05):
+        self.max_distance = frame_diagonal * distance_ratio
+        self._next_id = 0
+        self._prev: list[BlobRecord] = []
+
+    def update(self, blobs: list[BlobRecord]) -> list[BlobRecord]:
+        for b in blobs:
+            best_id, best_dist = None, self.max_distance
+            for p in self._prev:
+                dx = b.centroid[0] - p.centroid[0]
+                dy = b.centroid[1] - p.centroid[1]
+                d = (dx * dx + dy * dy) ** 0.5
+                if d < best_dist:
+                    best_dist = d
+                    best_id = p.id
+            if best_id is None:
+                b.id = self._next_id
+                self._next_id += 1
+            else:
+                b.id = best_id
+        self._prev = blobs
+        return blobs
