@@ -21,6 +21,12 @@ def detect_contours(
     """
     if blur_kernel < 1 or blur_kernel % 2 == 0:
         raise ValueError(f"blur_kernel must be odd and >= 1, got {blur_kernel}")
+    if canny_low >= canny_high:
+        raise ValueError(f"canny_low ({canny_low}) must be < canny_high ({canny_high})")
+    if min_blob_size > max_blob_size:
+        raise ValueError(
+            f"min_blob_size ({min_blob_size}) must be <= max_blob_size ({max_blob_size})"
+        )
 
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (blur_kernel, blur_kernel), 0)

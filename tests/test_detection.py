@@ -44,3 +44,28 @@ def test_detect_contours_filters_large_blobs():
         blur_kernel=3,
     )
     assert len(contours) == 0
+
+
+import pytest
+
+
+def test_detect_contours_rejects_inverted_canny_thresholds():
+    frame = np.zeros((100, 100, 3), dtype=np.uint8)
+    with pytest.raises(ValueError, match="canny_low"):
+        detect_contours(
+            frame,
+            canny_low=200, canny_high=100,
+            min_blob_size=10, max_blob_size=10000,
+            blur_kernel=3,
+        )
+
+
+def test_detect_contours_rejects_inverted_size_bounds():
+    frame = np.zeros((100, 100, 3), dtype=np.uint8)
+    with pytest.raises(ValueError, match="min_blob_size"):
+        detect_contours(
+            frame,
+            canny_low=50, canny_high=150,
+            min_blob_size=5000, max_blob_size=100,
+            blur_kernel=3,
+        )
