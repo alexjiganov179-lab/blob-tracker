@@ -1,35 +1,34 @@
-# Blob Tracker — Streamlit App for Reels VFX
+# Contour VFX Overlay — Streamlit App for Reels
 
-**Status:** Design approved, ready for implementation plan
+**Status:** Design approved (revised after review), ready for implementation plan
 **Date:** 2026-05-02
 
 ## Purpose
 
-Local Streamlit application for adding "blob tracking" visual overlays to videos, with the goal of producing Instagram Reels in the "everything looks better with blob tracking on it" aesthetic. Inspired by paid web tools like artkit.cc/baby-track and whenistheweekend.com/vfx.html, but free and runs locally.
+Local Streamlit application that adds a "computer-vision debug" visual overlay to videos — Canny-based contours, semi-transparent fills, bounding boxes, ID labels and motion trails — for producing Instagram Reels in the "everything looks better with blob tracking on it" aesthetic. Inspired by paid web tools like artkit.cc/baby-track and whenistheweekend.com/vfx.html, but free and runs locally.
 
-The user uploads a video file, configures the visual tracking style through a parameter panel with live preview, and exports the result as an MP4 with the original audio preserved.
+The user uploads a video file, picks a preset and tweaks parameters with a downscaled live preview, and exports the result as an MP4 with the original audio preserved.
+
+### Honest framing
+
+This is a **contour VFX overlay**, not a stable object tracker. Canny + contour finding will latch onto clothing seams, textures, shadows and background edges. ID numbers and trails will flicker and reassign as contours appear/disappear between frames. That instability is part of the aesthetic. The app delivers a stylistic effect, not reliable object identity.
 
 ## Non-Goals
 
 - Webcam / live capture (file-only input)
-- Skeleton / pose tracking (MediaPipe-style) — this is contour-based blob tracking only
-- Multi-user / cloud deployment — single-user local app
-- Plugin / preset marketplace
-- Mobile UI
-
-## Scope: Tracking Style
-
-- **Aesthetic:** contour and silhouette overlays (cyan/neon outlines, semi-transparent fills, bounding boxes, ID labels) — the "computer vision debug output" look
-- **Detection method:** edge detection (Canny) + contour finding, filtered by blob size. Tracks any object with sufficient edge contrast, not just movement. No background subtraction in v1.
+- Skeleton / pose tracking (MediaPipe-style)
+- Background subtraction or motion-only filtering (planned for v2)
+- Stable object tracking with persistent identity
+- Multi-user / cloud deployment
+- Plugin / preset marketplace, batch processing, mobile UI
 
 ## User Flow
 
 1. User launches the app via `streamlit run app.py`
-2. User drags an MP4/MOV/MKV file into the upload area
-3. App auto-crops the video to 9:16 vertical (center crop) and runs initial detection (~10 sec)
-4. A looping video preview appears, showing the result with default parameters
-5. User adjusts parameters in the right-side panel; preview re-renders within 1–2 sec on changes
-6. User clicks "Export MP4" → final video with audio is rendered (~10–20 sec) and offered as a download
+2. User drops an MP4/MOV/MKV file into the upload area
+3. App probes metadata, builds a downscaled preview clip (~540×960, full duration), shows looping preview with the default preset
+4. User picks a preset or adjusts parameters; preview re-renders within ~1–2 sec on changes
+5. User clicks "Export MP4" → full-resolution streaming render with audio (~10–30 sec depending on length) → download button
 
 ## Architecture
 
@@ -39,118 +38,221 @@ The user uploads a video file, configures the visual tracking style through a pa
 - Streamlit (UI)
 - OpenCV (`opencv-python`) — frame processing, edge detection, contour finding, drawing
 - NumPy — frames as arrays
-- FFmpeg (system binary, already installed) — video decode, 9:16 crop, final encode with audio passthrough
+- FFmpeg (system binary, already installed) — video probe, crop, encode, audio mux
 - `ffmpeg-python` wrapper for cleaner subprocess calls
 
 ### File Structure
 
 ```
-blob-tracker/
+blob_tracker/
 ├── app.py                  # Streamlit entrypoint, wires UI ↔ pipeline
 ├── requirements.txt
 ├── README.md
+├── presets.json            # Default presets (Neon Debug, Minimal White, ...)
 ├── processing/             # Pure logic, no Streamlit imports
 │   ├── __init__.py
-│   ├── detection.py        # Edge detection, contour finding, ID tracking
-│   ├── rendering.py        # Layer drawing (contour/fill/box/labels/centroid/trail)
-│   ├── pipeline.py         # frame → detect → render → output frame
-│   └── export.py           # ffmpeg encoding with audio passthrough
+│   ├── detection.py        # Canny edge detection, contour finding, ID tracking
+│   ├── rendering.py        # Layer drawing (contour/fill/box/labels/trail/centroid)
+│   ├── pipeline.py         # Streaming frame iterator → detect → render → output frame
+│   ├── preview.py          # Build downscaled preview clip, cache key helpers
+│   └── export.py           # Full-resolution streaming export with audio preservation
 ├── ui/                     # Streamlit components only
 │   ├── __init__.py
-│   ├── sections.py         # Collapsible parameter sections
-│   └── preview.py          # Video preview component
+│   ├── sections.py         # Collapsible parameter sections + preset bar
+│   └── player.py           # Looping video preview component
 ├── .streamlit/
 │   └── config.toml         # Theme, layout
 └── tests/
     ├── fixtures/           # Short test videos
-    └── test_processing.py  # Unit tests for processing/
+    └── test_processing.py  # Unit tests
 ```
 
 ### Separation of Concerns
 
-- `processing/` is pure functions on numpy arrays and config dicts. No Streamlit imports. Unit-testable. Re-usable from a future CLI or other UI.
-- `ui/` only contains Streamlit widget code. Reads / writes `st.session_state`. Does not call OpenCV directly.
-- `app.py` glues them together: reads parameter values from session_state, calls the pipeline, displays results.
+- `processing/` is pure functions on numpy arrays / file paths / parameter dicts. No Streamlit imports. Unit-testable. Re-usable from a future CLI.
+- `ui/` only contains Streamlit widget code. Reads / writes `st.session_state["params"]`. Does not call OpenCV directly.
+- `app.py` glues them together.
 
 ## Processing Pipeline
+
+The pipeline is **streaming** — frames flow through `cv2.VideoCapture` (or an ffmpeg pipe) one at a time. The app never holds all frames of the source video in RAM at once.
+
+There are two pipelines: **preview** (downscaled, cached) and **export** (full-res, streaming, on-demand).
 
 ### On Video Upload
 
 ```
 upload mp4
-  → ffprobe metadata (fps, frame count, dims, audio stream presence)
-  → ffmpeg auto-crop to 9:16 center (writes temp_cropped.mp4)
-  → extract all frames into numpy array [N, H, W, 3]   (cached by file hash)
-  → store original audio extracted to temp_audio.aac for later muxing
+  → ffprobe → metadata: fps, frame count, duration, src_width, src_height,
+                        has_audio, audio_codec
+  → store original at temp_source.mp4 (used as audio source on export)
+  → BUILD PREVIEW CLIP (one-time per file + crop_offset):
+      ffmpeg -i temp_source.mp4
+             -vf "crop=ih*9/16:ih:offset_x:0,scale=540:960"
+             -an -c:v libx264 -preset ultrafast -crf 23
+             temp_preview_src.mp4
+      → preview is full duration, downscaled to 540×960, no audio
 ```
 
-### On Detection Parameter Change
+The 540×960 preview is the entire video at low resolution. All interactive editing happens against this clip. Memory at any moment: a handful of in-flight frames, not the whole array.
+
+### On Detection Parameter Change (preview path)
 
 ```
-frames + detection_params
-  → for each frame:
-      grayscale → Gaussian blur → Canny edges → findContours
-      → filter contours by min_size and max_size
-  → derive per-blob attributes: centroid, bbox, area
-  → run simple centroid tracker to assign persistent IDs across frames
-  → result: List[List[BlobRecord]]  one list per frame
-  (cached by file_hash + detection_params)
+temp_preview_src.mp4 (file path) + detection_params
+  → cv2.VideoCapture, iterate frames:
+      grayscale → GaussianBlur(odd kernel) → Canny(low, high)
+      → findContours(RETR_EXTERNAL, CHAIN_APPROX_SIMPLE)
+      → filter contours where min_blob_size ≤ area ≤ max_blob_size
+  → derive per-blob: centroid, bbox, area
+  → run centroid tracker (see ID Tracking section)
+  → result: List[List[BlobRecord]] for the preview clip only
+  (cached by (preview_path_hash, detection_params))
 ```
 
-### On Render Parameter Change
+The preview is at most 540×960 × N frames worth of detection data — small.
+
+### On Render Parameter Change (preview path)
 
 ```
-frames + per-frame blobs + render_params
+preview frames (from VideoCapture, streamed) + cached blobs + render_params
   → for each frame, draw enabled layers in order:
-      1. fill (alpha-blend filled polygons)
-      2. contour (drawContours, optional convex_hull / approxPolyDP)
+      1. fill        (alpha-blend filled polygons onto a copy)
+      2. contour     (drawContours, optional convex_hull, approxPolyDP)
       3. bounding box (rectangle)
-      4. centroid (filled circle)
-      5. trail (polyline through centroid history per ID, fading alpha)
-      6. labels (putText for ID / area / coords)
-  → encode rendered frames to a temp MP4 (no audio, H.264, fast preset)
-  → return Path to temp MP4
-  (cached by file_hash + detection_params + render_params)
-  → st.video(path, loop=True, autoplay=True)
+      4. trail       (overlay-decay technique, see Trail Implementation)
+      5. centroid    (filled circle)
+      6. labels      (putText for ID / area / coords)
+  → encode rendered frames to temp_preview_render.mp4
+     (H.264, ultrafast preset, CRF 23, yuv420p)
+  → return Path
+  (cached by (preview_path_hash, detection_params, render_params))
 ```
 
-### Caching Strategy
+A change to a render-only parameter (color, thickness, toggle) reuses the cached blobs and only re-runs rendering.
 
-Three-tier `@st.cache_data` keyed progressively:
+### On Export (full-resolution streaming)
 
-1. `extract_frames(file_hash)` — invalidates only on new file
-2. `detect_contours(file_hash, detection_params)` — invalidates on new file or detection-param change
-3. `render_preview_video(file_hash, detection_params, render_params)` — invalidates on any change
+Triggered by the "Export MP4" button. Does NOT use `st.cache_data` — exports are one-shot with progress UI and explicit temp-file management.
 
-A change to a render-only parameter (color, thickness, toggle) triggers only step 3.
+```
+temp_source.mp4 + crop_offset + detection_params + render_params
+  → ffmpeg crop to 9:16 at FULL resolution, pipe rawvideo to stdin of:
+  → Python streaming worker:
+      for each frame from the pipe:
+          run detection (Canny + contours + filter)
+          update centroid tracker (running state)
+          draw enabled layers
+          write frame to ffmpeg encoder pipe (H.264, CRF 18)
+          yield progress to st.progress
+  → output: temp_export_video.mp4 (silent)
+  → audio mux pass:
+      try: ffmpeg -i temp_export_video.mp4 -i temp_source.mp4 \
+                  -map 0:v -map 1:a? -c:v copy -c:a copy output.mp4
+      on failure (incompatible audio codec): re-run with -c:a aac -b:a 192k
+  → st.download_button("Download", "output.mp4")
+```
 
-### Performance Targets (Ryzen 5 1600X, 16GB RAM, 1080p 15s clip)
+Audio is preserved by stream-copy when possible, transcoded to AAC only as a fallback. Memory during export stays bounded — only a small frame buffer ever lives in Python.
 
-- Initial upload + detection: ≤ 13 seconds
-- Render parameter change: 1–2 seconds
-- Detection parameter change: 3–5 seconds
-- Final export with audio: 10–20 seconds
+### Caching Strategy (preview only)
+
+```python
+@st.cache_data
+def build_preview_clip(source_hash, crop_offset) -> Path:
+    """Returns path to temp_preview_src.mp4 (540×960, full duration, no audio)."""
+
+@st.cache_data
+def detect_contours_for_preview(preview_path, detection_params) -> list[list[BlobRecord]]:
+    """Per-frame blob records for the preview clip."""
+
+@st.cache_data
+def render_preview_video(preview_path, detection_params, render_params) -> Path:
+    """Returns path to rendered preview MP4."""
+```
+
+Hierarchy:
+- Change `crop_offset` → invalidates everything (new preview source)
+- Change `detection_params` → invalidates step 2 and 3
+- Change `render_params` only → invalidates only step 3
+
+Export does not flow through `st.cache_data`.
+
+### Performance Targets (Ryzen 5 1600X, 16GB RAM)
+
+For a 15-second 1080p source clip:
+
+- Preview clip build: ≤ 5 sec (one-time per file + crop)
+- Detection on preview (540×960, ~450 frames): ≤ 4 sec
+- Render preview: 1–2 sec
+- Final full-resolution export: 15–30 sec (one-pass streaming + audio mux)
+
+For 60-second sources, the preview path scales linearly (~16 sec detection); export ~60–120 sec. RAM usage stays under 1 GB at all times because frames stream.
 
 ## ID Tracking
 
 A simple centroid tracker (~50 lines in `detection.py`):
 
 - For each new frame, compute centroids of all detected blobs
-- For each centroid, find the nearest centroid in the previous frame within `max_distance` pixels
-- If found → carry over the ID
-- If not found → assign a new ID
-- Maintain a per-ID history of last `trail_length` centroids for the trail feature
+- For each centroid, find the nearest centroid in the previous frame within `max_distance`
+- If found → carry over the ID; if not → assign a new ID
+- Maintain per-ID centroid history of last `trail_length` points
 
-Configurable in code (not exposed in UI v1): `max_distance = 80` px, `trail_length = 30` frames.
+`max_distance` is computed at runtime as `0.05 × frame_diagonal_pixels` (5% of the frame diagonal). Hardcoded constant in `detection.py`, not exposed in UI v1.
+
+Limitation acknowledged: ID assignment is unstable for fast motion or noisy contours; flicker and renumbering are expected.
+
+## Trail Implementation
+
+Naive per-segment polyline drawing with varying alpha is O(N) draw calls per frame. Instead, use the **decaying-overlay technique**:
+
+- Keep a separate persistent `trail_overlay` numpy array, same dims as the frame, initialized to zeros (transparent black)
+- Per frame, before drawing the trail layer:
+  - Multiply the overlay by a `trail_decay_factor` (e.g., 0.92) → old marks fade
+  - Draw new line segments from each blob's previous centroid to its current centroid onto the overlay (one `cv2.line` call per blob, full opacity)
+- Composite `trail_overlay` onto the rendered frame with additive or alpha blend
+
+This gives a continuous fading trail at constant cost per frame regardless of trail length. `trail_decay_factor` is derived from the UI's `trail_length`: `decay = exp(-1 / trail_length)`.
 
 ## UI Structure
 
 ### Layout
 
-Two-column layout:
+```
+┌─────────────────────────────┬─────────────────────┐
+│ [Upload]                    │ Presets:            │
+│                             │ [Neon] [White] [..] │
+│ ┌───────────────────────┐   │                     │
+│ │  Looping preview      │   │ ▼ Detection         │
+│ │  (540×960 downscaled) │   │   Crop offset: ──●  │
+│ │                       │   │   Canny low:   ──●  │
+│ │                       │   │   Canny high:  ──●  │
+│ └───────────────────────┘   │   Min size:    ──●  │
+│ ⏱ Looping (built-in)        │   Max size:    ──●  │
+│                             │   Blur:        ──●  │
+│ [⬇ Export Full-Res MP4]     │                     │
+│                             │ ▼ Contour    [ON]   │
+│                             │ ▶ Fill       [OFF]  │
+│                             │ ▶ Bounding box [ON] │
+│                             │ ▶ Trail      [OFF]  │
+│                             │ ▶ Centroid   [OFF]  │
+│                             │ ▶ Labels     [ON]   │
+│                             │                     │
+│                             │ [Reset to defaults] │
+└─────────────────────────────┴─────────────────────┘
+```
 
-- **Left (1.5fr):** upload area, looping video preview (9:16), playback controls, "Export MP4" button
-- **Right (1fr):** scrollable parameter panel with collapsible sections
+The preview uses Streamlit's built-in `st.video(path, loop=True, autoplay=True, muted=True)`. No custom playback controls — Streamlit's HTML5 video element provides play/pause/seek built-in.
+
+### Presets
+
+A row of preset buttons sits at the top of the parameter panel. Clicking a preset writes its full parameter dict into `st.session_state["params"]` and reruns. Defaults shipped in `presets.json`:
+
+- **Neon Debug** — bright cyan contours, magenta bboxes, ID + area labels, no fill
+- **Minimal White** — thin white contours only, no labels, no bboxes
+- **Bounding Boxes** — yellow bboxes + IDs, no contours
+- **Blob Fill** — semi-transparent magenta fills, thin contour, no labels
+- **Glitch** — multicolor contours (color cycles per ID), heavy trails, no labels
 
 ### Parameter Sections
 
@@ -158,69 +260,57 @@ Each section after Detection has a master toggle. When off, that layer is skippe
 
 | Section | Always-on? | Parameters |
 |---|---|---|
-| **Detection** | yes (foundation) | Canny lower threshold, Canny upper threshold, min_blob_size, max_blob_size, blur_amount |
-| **Contour** | toggle | color (picker), thickness (1–10), smoothing (approxPolyDP epsilon 0–0.05), use_convex_hull (bool) |
-| **Fill** | toggle | color (picker), opacity (0–1) |
-| **Bounding box** | toggle | color (picker), thickness (1–6) |
-| **Labels** | toggle | show_id, show_area, show_coords, font_size (8–24), text_color, bg_color (with alpha) |
+| **Detection** | yes | crop_offset (-1.0..+1.0, default 0), canny_low (0–255), canny_high (0–255), min_blob_size (px²), max_blob_size (px²), blur_kernel (odd, 1–31, step 2) |
+| **Contour** | toggle | color, thickness (1–10), epsilon_ratio (0.0–0.05, fraction of arcLength), use_convex_hull (bool) |
+| **Fill** | toggle | color, opacity (0.0–1.0) |
+| **Bounding box** | toggle | color, thickness (1–6) |
+| **Trail** | toggle | length_frames (5–60, controls decay factor), color (or "match contour"), thickness (1–6) |
 | **Centroid** | toggle | color, radius (2–20) |
-| **Trail** | toggle | length_frames (5–60), color, thickness, fade (bool) |
+| **Labels** | toggle | show_id, show_area, show_coords, font_size (8–24), text_color, bg_color (RGBA) |
+
+`crop_offset = 0` is center crop; -1 is hard left, +1 is hard right (clamped so the crop stays inside the source).
 
 ### State Management
 
-All parameter values stored in `st.session_state` under a single dict key `params`. Each widget reads/writes its corresponding key. The pipeline takes `params` as input.
-
-A "Reset to defaults" button at the bottom of the panel clears `st.session_state["params"]` and reruns.
-
-(Save/load preset to JSON is a nice-to-have but out of scope for v1.)
-
-## Export
-
-```
-user clicks Export
-  → st.progress bar appears
-  → render all frames using current params (re-uses cache if available)
-  → ffmpeg encodes frames into rendered.mp4 (H.264, CRF 18, yuv420p)
-  → second ffmpeg pass mux:
-      ffmpeg -i rendered.mp4 -i temp_cropped.mp4 \
-             -map 0:v -map 1:a? -c:v copy -c:a aac \
-             output.mp4
-    (the `?` makes the audio map optional — works for silent inputs)
-  → st.download_button("Download", "output.mp4")
-```
-
-Progress bar updates per frame during the rendering step.
+All parameter values live in `st.session_state["params"]` as a single dict. Each widget's `key=` reads/writes its corresponding entry. The pipeline functions take `params` as input. "Reset to defaults" clears the dict and reruns.
 
 ## Error Handling
 
 | Condition | Behavior |
 |---|---|
-| Non-video file uploaded | `st.error("Не удалось прочитать видео. Поддерживаются mp4, mov, mkv.")` |
-| Video has no audio stream | Export proceeds without audio, info banner shown |
-| FFmpeg not found in PATH | `st.error` with link to install instructions |
-| Video longer than 120 seconds | Warning banner with confirm-to-proceed checkbox |
-| Detection produces 0 blobs on a frame | Frame rendered with no overlays (silent, expected behavior) |
-| Out of memory during frame extraction | `st.error("Видео слишком большое для оперативной памяти. Попробуй короче или меньше разрешением.")` |
+| Non-video file uploaded | `st.error("Failed to read video. Supported: mp4, mov, mkv.")` |
+| Source has no audio stream | Export skips audio mux, info banner shown |
+| FFmpeg not found in PATH | `st.error` with install hint |
+| Source longer than 120 sec | Warning banner + "Proceed anyway" checkbox |
+| Frame extraction returns 0 blobs | Frame rendered with no overlays (silent) |
+| Audio stream-copy fails | Automatic fallback to AAC re-encode (logged in UI as info) |
+| Crop offset would push crop outside source | Clamp to valid range silently |
+
+Memory pressure is not an expected error condition because the pipeline is streaming. If it occurs anyway (e.g., unreasonably high resolution), it's an OS-level error and not specifically handled.
 
 ## Testing
 
-- **Unit tests** in `tests/test_processing.py` for pure functions in `processing/`:
-  - `detect_contours` filters out blobs below `min_size` and above `max_size`
-  - `render_frame` correctly skips layers when their toggle is off
-  - Centroid tracker assigns the same ID to a blob that moves a small distance, and a new ID to one that teleports
-- **Test fixtures:** 2 short videos (~2 seconds, 480p) committed to `tests/fixtures/`
-- **No UI automation** — Streamlit is verified manually
+- **Unit tests** in `tests/test_processing.py`:
+  - `detect_contours` filters by `min_blob_size` and `max_blob_size`
+  - `render_frame` skips layers when their toggle is off (compare pixel-equal to baseline)
+  - Centroid tracker assigns the same ID to a slowly-moving blob and a new ID to one that teleports beyond `max_distance`
+  - Trail overlay decays over multiple frames (alpha after N steps within tolerance of `decay^N`)
+  - Crop offset clamping stays within valid range for edge cases
+- **Integration test:** end-to-end on a 2-second fixture video — verify the export produces a valid MP4 with audio that ffprobe can read
+- **Test fixtures:** 2 short videos (~2 sec, 480p) committed to `tests/fixtures/`
+- **No UI automation** — Streamlit verified manually
 
 ## Out of Scope (potential v2)
 
-- Save / load presets to JSON
+- Save / load custom user presets to disk
 - Webcam input
-- Background subtraction (MOG2/KNN) detection mode
-- Color-based filtering (only track objects of a specific color)
+- Background subtraction (MOG2/KNN) detection mode for motion-only filtering
+- Color-based filtering (track only objects of a specific color)
 - Skeleton / pose tracking via MediaPipe
 - Batch processing multiple files
 - Audio-reactive parameter modulation
+- Manual ID re-assignment / locking
 
 ## Open Questions
 
-None at design approval time. All clarifications resolved during brainstorming.
+None at design approval time.
