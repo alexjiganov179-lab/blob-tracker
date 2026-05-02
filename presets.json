@@ -1,0 +1,62 @@
+{
+  "Neon Debug": {
+    "detection": {"crop_offset": 0.0, "canny_low": 50, "canny_high": 150,
+                  "min_blob_size": 300, "max_blob_size": 200000, "blur_kernel": 5},
+    "contour": {"enabled": true, "color": [0, 255, 255], "thickness": 2,
+                "epsilon_ratio": 0.005, "use_convex_hull": false},
+    "fill": {"enabled": false, "color": [0, 0, 255], "opacity": 0.3},
+    "bbox": {"enabled": true, "color": [255, 0, 255], "thickness": 1},
+    "trail": {"enabled": false, "length_frames": 30, "color": [0, 255, 255], "thickness": 2},
+    "centroid": {"enabled": false, "color": [0, 255, 255], "radius": 4},
+    "labels": {"enabled": true, "show_id": true, "show_area": true, "show_coords": false,
+               "font_size": 12, "text_color": [255, 255, 255], "bg_color": [0, 0, 0, 180]}
+  },
+  "Minimal White": {
+    "detection": {"crop_offset": 0.0, "canny_low": 80, "canny_high": 200,
+                  "min_blob_size": 500, "max_blob_size": 200000, "blur_kernel": 5},
+    "contour": {"enabled": true, "color": [255, 255, 255], "thickness": 1,
+                "epsilon_ratio": 0.01, "use_convex_hull": false},
+    "fill": {"enabled": false, "color": [255, 255, 255], "opacity": 0.2},
+    "bbox": {"enabled": false, "color": [255, 255, 255], "thickness": 1},
+    "trail": {"enabled": false, "length_frames": 20, "color": [255, 255, 255], "thickness": 1},
+    "centroid": {"enabled": false, "color": [255, 255, 255], "radius": 3},
+    "labels": {"enabled": false, "show_id": false, "show_area": false, "show_coords": false,
+               "font_size": 10, "text_color": [255, 255, 255], "bg_color": [0, 0, 0, 0]}
+  },
+  "Bounding Boxes": {
+    "detection": {"crop_offset": 0.0, "canny_low": 50, "canny_high": 150,
+                  "min_blob_size": 800, "max_blob_size": 200000, "blur_kernel": 5},
+    "contour": {"enabled": false, "color": [0, 255, 0], "thickness": 1,
+                "epsilon_ratio": 0.0, "use_convex_hull": false},
+    "fill": {"enabled": false, "color": [0, 0, 255], "opacity": 0.3},
+    "bbox": {"enabled": true, "color": [0, 220, 255], "thickness": 2},
+    "trail": {"enabled": false, "length_frames": 30, "color": [0, 220, 255], "thickness": 2},
+    "centroid": {"enabled": false, "color": [0, 220, 255], "radius": 4},
+    "labels": {"enabled": true, "show_id": true, "show_area": false, "show_coords": false,
+               "font_size": 14, "text_color": [0, 0, 0], "bg_color": [0, 220, 255, 230]}
+  },
+  "Blob Fill": {
+    "detection": {"crop_offset": 0.0, "canny_low": 50, "canny_high": 150,
+                  "min_blob_size": 500, "max_blob_size": 200000, "blur_kernel": 7},
+    "contour": {"enabled": true, "color": [255, 0, 200], "thickness": 1,
+                "epsilon_ratio": 0.01, "use_convex_hull": true},
+    "fill": {"enabled": true, "color": [255, 0, 200], "opacity": 0.35},
+    "bbox": {"enabled": false, "color": [255, 0, 200], "thickness": 1},
+    "trail": {"enabled": false, "length_frames": 30, "color": [255, 0, 200], "thickness": 2},
+    "centroid": {"enabled": false, "color": [255, 255, 255], "radius": 3},
+    "labels": {"enabled": false, "show_id": false, "show_area": false, "show_coords": false,
+               "font_size": 10, "text_color": [255, 255, 255], "bg_color": [0, 0, 0, 0]}
+  },
+  "Glitch": {
+    "detection": {"crop_offset": 0.0, "canny_low": 30, "canny_high": 100,
+                  "min_blob_size": 200, "max_blob_size": 200000, "blur_kernel": 3},
+    "contour": {"enabled": true, "color": [0, 255, 0], "thickness": 1,
+                "epsilon_ratio": 0.0, "use_convex_hull": false},
+    "fill": {"enabled": false, "color": [255, 0, 255], "opacity": 0.2},
+    "bbox": {"enabled": false, "color": [255, 0, 0], "thickness": 1},
+    "trail": {"enabled": true, "length_frames": 50, "color": [0, 255, 200], "thickness": 2},
+    "centroid": {"enabled": true, "color": [255, 0, 0], "radius": 3},
+    "labels": {"enabled": false, "show_id": false, "show_area": false, "show_coords": false,
+               "font_size": 10, "text_color": [255, 255, 255], "bg_color": [0, 0, 0, 0]}
+  }
+}

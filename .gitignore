@@ -9,3 +9,5 @@ temp_*.mp4
 *.mov
 output.mp4
 .streamlit/secrets.toml
+.claude/
+.qwen/
