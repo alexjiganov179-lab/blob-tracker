@@ -1,5 +1,7 @@
 """Contour detection pipeline: blur → Canny → findContours → size filter."""
 from __future__ import annotations
+from dataclasses import dataclass
+from typing import Optional
 
 import cv2
 import numpy as np
@@ -34,10 +36,6 @@ def detect_contours(
     contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     return [c for c in contours if min_blob_size <= cv2.contourArea(c) <= max_blob_size]
-
-
-from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass
@@ -81,19 +79,23 @@ class CentroidTracker:
         self._prev: list[BlobRecord] = []
 
     def update(self, blobs: list[BlobRecord]) -> list[BlobRecord]:
+        consumed: set[int] = set()
         for b in blobs:
-            best_id, best_dist = None, self.max_distance
-            for p in self._prev:
+            best_idx, best_dist = None, self.max_distance
+            for i, p in enumerate(self._prev):
+                if i in consumed:
+                    continue
                 dx = b.centroid[0] - p.centroid[0]
                 dy = b.centroid[1] - p.centroid[1]
                 d = (dx * dx + dy * dy) ** 0.5
                 if d < best_dist:
                     best_dist = d
-                    best_id = p.id
-            if best_id is None:
+                    best_idx = i
+            if best_idx is None:
                 b.id = self._next_id
                 self._next_id += 1
             else:
-                b.id = best_id
+                b.id = self._prev[best_idx].id
+                consumed.add(best_idx)
         self._prev = blobs
         return blobs

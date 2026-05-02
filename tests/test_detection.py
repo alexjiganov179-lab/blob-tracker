@@ -107,3 +107,20 @@ def test_centroid_tracker_assigns_new_id_for_far_blob():
 
     assert tracked1.id == 0
     assert tracked2.id == 1
+
+
+def test_centroid_tracker_no_id_reuse_within_frame():
+    """Two current blobs near the same previous blob must get different IDs."""
+    tracker = CentroidTracker(frame_diagonal=1000.0)  # max_distance = 50
+
+    # Frame 1: one blob at (100, 100)
+    p1 = BlobRecord(centroid=(100, 100), area=10, bbox=(95, 95, 10, 10), contour=None, id=None)
+    tracker.update([p1])
+
+    # Frame 2: two blobs both within range of (100,100)
+    c1 = BlobRecord(centroid=(110, 100), area=10, bbox=(105, 95, 10, 10), contour=None, id=None)
+    c2 = BlobRecord(centroid=(105, 100), area=10, bbox=(100, 95, 10, 10), contour=None, id=None)
+    tracked = tracker.update([c1, c2])
+
+    ids = {b.id for b in tracked}
+    assert len(ids) == 2, f"Expected 2 unique IDs, got {ids}"
