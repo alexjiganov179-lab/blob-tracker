@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import pytest
+import subprocess
 from pathlib import Path
 
 
@@ -15,6 +16,11 @@ def synthetic_video(tmp_path):
 
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
     writer = cv2.VideoWriter(str(path), fourcc, fps, (width, height))
+    if not writer.isOpened():
+        raise RuntimeError(
+            f"cv2.VideoWriter failed to open '{path}'. "
+            "Check that OpenCV was built with mp4v/ffmpeg codec support."
+        )
 
     for i in range(n_frames):
         frame = np.zeros((height, width, 3), dtype=np.uint8)
@@ -31,7 +37,6 @@ def synthetic_video(tmp_path):
 @pytest.fixture
 def synthetic_video_with_audio(tmp_path, synthetic_video):
     """Same as synthetic_video but with a silent audio track muxed in via ffmpeg."""
-    import subprocess
     out = tmp_path / "synthetic_audio.mp4"
     subprocess.run(
         [
