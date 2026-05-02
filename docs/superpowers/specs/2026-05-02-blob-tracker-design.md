@@ -158,7 +158,7 @@ Each section after Detection has a master toggle. When off, that layer is skippe
 
 | Section | Always-on? | Parameters |
 |---|---|---|
-| **Detection** | yes (foundation) | method (edge/threshold), Canny lower threshold, Canny upper threshold, min_blob_size, max_blob_size, blur_amount |
+| **Detection** | yes (foundation) | Canny lower threshold, Canny upper threshold, min_blob_size, max_blob_size, blur_amount |
 | **Contour** | toggle | color (picker), thickness (1–10), smoothing (approxPolyDP epsilon 0–0.05), use_convex_hull (bool) |
 | **Fill** | toggle | color (picker), opacity (0–1) |
 | **Bounding box** | toggle | color (picker), thickness (1–6) |
