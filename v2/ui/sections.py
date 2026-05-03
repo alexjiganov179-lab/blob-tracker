@@ -99,3 +99,44 @@ def render_detection_section(d: dict) -> None:
             "Кадрирование", -1.0, 1.0, float(d["crop_offset"]), 0.05, key="det_crop"
         )
         st.caption("← левее · правее →")
+
+
+def render_layer_sections(p: dict) -> None:
+    """Five layer expanders with basic params only."""
+
+    # Контур
+    c = p["contour"]
+    with st.expander("✏️ Контур", expanded=bool(c["enabled"])):
+        c["enabled"] = st.toggle("Включить", value=c["enabled"], key="c_on")
+        c["color"] = _hex_to_bgr(st.color_picker("Цвет", _bgr_to_hex(c["color"]), key="c_col"))
+        c["thickness"] = st.slider("Толщина", 1, 10, int(c["thickness"]), key="c_thick")
+
+    # Заливка
+    f = p["fill"]
+    with st.expander("🎨 Заливка", expanded=bool(f["enabled"])):
+        f["enabled"] = st.toggle("Включить", value=f["enabled"], key="f_on")
+        f["color"] = _hex_to_bgr(st.color_picker("Цвет", _bgr_to_hex(f["color"]), key="f_col"))
+        f["opacity"] = st.slider("Прозрачность", 0.0, 1.0, float(f["opacity"]), 0.05, key="f_op")
+
+    # Рамки
+    b = p["bbox"]
+    with st.expander("📦 Рамки", expanded=bool(b["enabled"])):
+        b["enabled"] = st.toggle("Включить", value=b["enabled"], key="b_on")
+        b["color"] = _hex_to_bgr(st.color_picker("Цвет", _bgr_to_hex(b["color"]), key="b_col"))
+        b["thickness"] = st.slider("Толщина", 1, 6, int(b["thickness"]), key="b_thick")
+
+    # Трейл
+    t = p["trail"]
+    with st.expander("🌀 Трейл", expanded=bool(t["enabled"])):
+        t["enabled"] = st.toggle("Включить", value=t["enabled"], key="t_on")
+        t["length_frames"] = st.slider("Длина трейла (кадры)", 5, 60, int(t["length_frames"]), key="t_len")
+        t["color"] = _hex_to_bgr(st.color_picker("Цвет", _bgr_to_hex(t["color"]), key="t_col"))
+        t["thickness"] = st.slider("Толщина", 1, 6, int(t["thickness"]), key="t_thick")
+
+    # Подписи
+    l = p["labels"]
+    with st.expander("🏷 Подписи", expanded=bool(l["enabled"])):
+        l["enabled"] = st.toggle("Включить", value=l["enabled"], key="l_on")
+        l["show_id"] = st.checkbox("Показывать ID", value=l["show_id"], key="l_id")
+        l["show_area"] = st.checkbox("Показывать площадь", value=l["show_area"], key="l_area")
+        l["font_size"] = st.slider("Размер текста", 8, 24, int(l["font_size"]), key="l_font")
