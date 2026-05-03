@@ -61,3 +61,28 @@ def test_russian_preset_names_cover_all_presets():
     presets = load_presets()
     for original_name in presets:
         assert original_name in RUSSIAN_PRESET_NAMES, f"Missing Russian name for preset: {original_name}"
+
+
+from v2.ui.sections import _active_layer_pills
+
+
+def test_active_layer_pills_returns_enabled_only():
+    params = {
+        "contour": {"enabled": True},
+        "fill": {"enabled": False},
+        "bbox": {"enabled": True},
+        "trail": {"enabled": False},
+        "centroid": {"enabled": False},
+        "labels": {"enabled": True},
+    }
+    pills = _active_layer_pills(params)
+    assert "✏️ Контур" in pills
+    assert "📦 Рамки" in pills
+    assert "🏷 Подписи" in pills
+    assert "🎨 Заливка" not in pills
+    assert "🌀 Трейл" not in pills
+
+
+def test_active_layer_pills_empty_when_all_disabled():
+    params = {k: {"enabled": False} for k in ["contour", "fill", "bbox", "trail", "centroid", "labels"]}
+    assert _active_layer_pills(params) == []

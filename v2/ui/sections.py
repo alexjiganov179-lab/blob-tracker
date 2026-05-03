@@ -173,3 +173,59 @@ def render_advanced_section(p: dict) -> None:
             st.color_picker("Цвет", _bgr_to_hex(ct["color"]), key="adv_ct_col")
         )
         ct["radius"] = st.slider("Радиус", 2, 20, int(ct["radius"]), key="adv_ct_rad")
+
+
+_ACTIVE_LAYER_PILLS: dict[str, str] = {
+    "contour":  "✏️ Контур",
+    "fill":     "🎨 Заливка",
+    "bbox":     "📦 Рамки",
+    "trail":    "🌀 Трейл",
+    "centroid": "⊙ Центроид",
+    "labels":   "🏷 Подписи",
+}
+
+
+def _active_layer_pills(params: dict) -> list[str]:
+    """Return list of human-readable labels for all enabled layers."""
+    return [
+        label
+        for key, label in _ACTIVE_LAYER_PILLS.items()
+        if params.get(key, {}).get("enabled", False)
+    ]
+
+
+def render_active_layers_indicator(params: dict) -> None:
+    """Render a row of colored pills showing which layers are active."""
+    pills = _active_layer_pills(params)
+    if not pills:
+        st.caption("Нет активных слоёв")
+        return
+    st.markdown(
+        " &nbsp; ".join(
+            f'<span style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);'
+            f'color:#ccc;padding:2px 10px;border-radius:12px;font-size:12px">{p}</span>'
+            for p in pills
+        ),
+        unsafe_allow_html=True,
+    )
+
+
+def render_param_panel() -> dict:
+    """Render full parameter panel, return current params dict."""
+    if "params" not in st.session_state:
+        st.session_state["params"] = load_presets()["Neon Debug"]
+    p = st.session_state["params"]
+
+    render_preset_bar()
+    st.divider()
+    render_detection_section(p["detection"])
+    st.divider()
+    render_layer_sections(p)
+    render_advanced_section(p)
+    st.divider()
+
+    if st.button("🔄 Сбросить настройки"):
+        st.session_state["params"] = load_presets()["Neon Debug"]
+        st.rerun()
+
+    return p
