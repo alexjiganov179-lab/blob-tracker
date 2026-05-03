@@ -28,6 +28,14 @@ _SENSITIVITY_LABELS = {
     "high": "Много объектов",
 }
 
+RUSSIAN_PRESET_NAMES: dict[str, str] = {
+    "Neon Debug":     "Неон",
+    "Minimal White":  "Минимал",
+    "Bounding Boxes": "Рамки",
+    "Blob Fill":      "Заливка",
+    "Glitch":         "Глитч",
+}
+
 
 def _sensitivity_level(d: dict) -> str:
     """Return which sensitivity preset matches detection params, or 'custom'."""

@@ -24,6 +24,7 @@ def test_roundtrip():
 
 
 from v2.ui.sections import SENSITIVITY_PRESETS, _sensitivity_level
+from processing.presets import load_presets
 
 
 def test_sensitivity_level_detects_low():
@@ -51,3 +52,12 @@ def test_sensitivity_presets_have_required_keys():
         assert "canny_low" in preset
         assert "canny_high" in preset
         assert "blur_kernel" in preset
+
+
+from v2.ui.sections import RUSSIAN_PRESET_NAMES
+
+
+def test_russian_preset_names_cover_all_presets():
+    presets = load_presets()
+    for original_name in presets:
+        assert original_name in RUSSIAN_PRESET_NAMES, f"Missing Russian name for preset: {original_name}"
