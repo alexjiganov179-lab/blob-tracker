@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import shutil
 import sys
 import tempfile
@@ -16,6 +17,7 @@ from processing.preview import build_preview_clip
 from processing.pipeline import detect_blobs_for_clip, render_clip
 from processing.export import export_video
 from processing.presets import load_presets
+from ui.player import render_preview
 from v2.ui.sections import render_param_panel, render_active_layers_indicator
 
 
@@ -132,7 +134,7 @@ if source_path is not None:
     ))
 
     blobs_key = hashlib.sha1(
-        f"{preview_src.name}-{detection_params}".encode()
+        f"{preview_src.name}-{json.dumps(detection_params, sort_keys=True)}".encode()
     ).hexdigest()[:12]
 
     rendered = Path(_render(
@@ -144,10 +146,7 @@ if source_path is not None:
     preview_path = rendered
 
 with preview_placeholder.container():
-    if preview_path is not None:
-        st.video(str(preview_path), loop=True, autoplay=True, muted=True)
-    else:
-        st.info("Загрузи видео чтобы увидеть превью")
+    render_preview(preview_path)
 
 with layers_placeholder.container():
     render_active_layers_indicator(params)
