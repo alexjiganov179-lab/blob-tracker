@@ -45,3 +45,14 @@ def _sensitivity_level(d: dict) -> str:
                 d["blur_kernel"] == preset["blur_kernel"]):
             return level
     return "custom"
+
+
+def render_preset_bar() -> None:
+    """Row of preset buttons with Russian labels."""
+    presets = load_presets()
+    cols = st.columns(len(presets))
+    for col, (original_name, params) in zip(cols, presets.items()):
+        label = RUSSIAN_PRESET_NAMES.get(original_name, original_name)
+        if col.button(label, use_container_width=True, key=f"preset_{original_name}"):
+            st.session_state["params"] = params
+            st.rerun()
