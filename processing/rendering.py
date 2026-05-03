@@ -191,18 +191,68 @@ def render_frame(
 
     if params["contour"].get("enabled"):
         p = params["contour"]
-        out = draw_contour_layer(
-            out, blobs,
-            color=p["color"], thickness=p["thickness"],
-            epsilon_ratio=p["epsilon_ratio"], use_convex_hull=p["use_convex_hull"],
-        )
+        # Handle per-ID color cycling for Glitch preset
+        if p.get("color_cycle_per_id", False):
+            for b in blobs:
+                if b.id is not None:
+                    # Generate color based on ID (simple algorithm)
+                    r = (b.id * 123) % 256
+                    g = (b.id * 231) % 256
+                    bb = (b.id * 312) % 256
+                    color = (int(r), int(g), int(bb))
+                    # Draw contour for this specific blob
+                    single_blob_out = draw_contour_layer(
+                        out, [b],
+                        color=color, thickness=p["thickness"],
+                        epsilon_ratio=p["epsilon_ratio"], use_convex_hull=p["use_convex_hull"],
+                    )
+                    # Blend this back into the output
+                    mask = (single_blob_out != out).any(axis=2)
+                    out[mask] = single_blob_out[mask]
+        else:
+            out = draw_contour_layer(
+                out, blobs,
+                color=p["color"], thickness=p["thickness"],
+                epsilon_ratio=p["epsilon_ratio"], use_convex_hull=p["use_convex_hull"],
+            )
 
     if params["bbox"].get("enabled"):
         p = params["bbox"]
         out = draw_bbox_layer(out, blobs, color=p["color"], thickness=p["thickness"])
 
     if params["trail"].get("enabled"):
-        out = trail_renderer.draw(out, blobs)
+        # Handle per-ID color cycling for trails
+        if params["contour"].get("color_cycle_per_id", False):
+            # For each blob, draw its trail with its own color
+            for b in blobs:
+                if b.id is not None:
+                    # Generate color based on ID (same algorithm as contour)
+                    r = (b.id * 123) % 256
+                    g = (b.id * 231) % 256
+                    bb = (b.id * 312) % 256
+                    color = (int(r), int(g), int(bb))
+                    
+                    # Create a temporary trail renderer for this specific ID
+                    temp_trail = TrailRenderer(
+                        shape=out.shape,
+                        decay=trail_renderer.decay,
+                        color=color,
+                        thickness=params["trail"]["thickness"]
+                    )
+                    # Copy the previous centroid state for this ID
+                    prev_pos = trail_renderer._prev_centroids.get(b.id)
+                    if prev_pos is not None:
+                        temp_trail._prev_centroids[b.id] = prev_pos
+                    
+                    # Draw trail for this blob only
+                    out = temp_trail.draw(out, [b])
+                    
+                    # Update the main trail renderer state
+                    trail_renderer._prev_centroids[b.id] = b.centroid
+        else:
+            out = trail_renderer.draw(out, blobs)
+            # Update the trail renderer's state after drawing
+            trail_renderer._prev_centroids = {b.id: b.centroid for b in blobs if b.id is not None}
     else:
         # still advance the renderer state so prev_centroids stay current
         trail_renderer._prev_centroids = {b.id: b.centroid for b in blobs if b.id is not None}

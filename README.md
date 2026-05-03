@@ -1,53 +1,67 @@
-# Contour VFX Overlay
+# Contour VFX Overlay — Blob Tracker
 
-Local Streamlit app that adds Canny-based contour overlays to videos in the
-"everything looks better with blob tracking" aesthetic. Inspired by
-artkit.cc/baby-track and whenistheweekend.com/vfx.html, but free and offline.
+Browser-based real-time editor for Canny-based contour overlays on videos.
+Inspired by artkit.cc/baby-track and whenistheweekend.com/vfx.html, free and offline.
 
 ## Features
 
-- Upload mp4 / mov / mkv → 9:16 auto-crop → looping preview
-- Live preview at 540×960 (downscaled for speed)
-- Layers: contour, fill, bounding box, trail, centroid, ID/area labels
-- 5 presets: Neon Debug, Minimal White, Bounding Boxes, Blob Fill, Glitch
-- Full-resolution streaming export with original audio preserved
+- **Real-time preview** — drop a video, instant Canvas playback with live param control
+- **No render needed** — color, thickness, trails, lines, labels all update on Canvas
+- **9:16 crop for Instagram Reels** — center-crop or blob-follow, export at native 1080×1920
+- **Connecting lines** — nearest, all-to-all, chain, or waveform between blobs
+- **14+ basic effects** + **14 filter effects** — cross, frame, glitch, thermal, CRT, etc.
+- **Re-detect** — refine Canny/blur/blob params without re-uploading
+- **Export to WebM or MP4** — WebM via MediaRecorder (all browsers), MP4 via WebCodecs (Chrome/Edge)
 
-## Requirements
+## Getting Started
 
-- Python 3.11+
-- FFmpeg installed and on PATH
-- Windows / macOS / Linux
+Open `index.html` in Chrome/Edge. OpenCV.js loads from CDN.
 
-## Setup
+1. **Drop a video** anywhere on the page (or click Upload / Load sample)
+2. **Tweak parameters** in the right panel — changes render instantly
+3. **Click Export** → select format → file downloads automatically
 
-```bash
-python -m venv .venv
-.venv\Scripts\activate          # Windows
-# source .venv/bin/activate     # macOS/Linux
-pip install -r requirements.txt
-```
+## Parameter Overview
 
-## Run
+| Section | Controls |
+|---|---|
+| **Video Speed** | 0.5× / 1× / 2× / 4× playback |
+| **Shape** | Contour / Circle / BBox |
+| **Region Style** | Fill regions, random shapes |
+| **Basic Effects** | Basic, Cross, Frame, L-Frame, X-Frame, Grid, Particle, Dash, Scope, Win2K, Glow, Backdrop, Outline, Label |
+| **Filter Effects** | Inv, Glitch, Thermal, Pixel, Tone, Blur, Dither, Zoom, X-Ray, Water, Mask, CRT, Edge |
+| **Connection** | 4 line styles + rate (0–full) |
+| **Stroke Width** | 0.5–10px |
+| **Blob Size** | Min/max area filters |
+| **Detection** | Canny low/high, Gaussian blur |
+| **Crop** | Full / Center 9:16 / Follow 9:16 + Preview or Instagram resolution |
+| **Color & Text** | 18-color palette, crazy mode, text position/content/font size |
+| **Trail** | Fade trail with adjustable length |
+| **Centroid** | Show tracking dots |
 
-```bash
-streamlit run app.py
-```
+## Export Formats
 
-## Tests
+| Format | Engine | Resolution | Bitrate | Best for |
+|---|---|---|---|---|
+| **WebM (Preview)** | MediaRecorder | Canvas size (~540p) | 8 Mbps | Quick previews |
+| **MP4 (Preview)** | WebCodecs H.264 | Canvas size (~540p) | 8 Mbps | Desktop playback |
+| **MP4 (Instagram)** | WebCodecs H.264 High Profile | **1080×1920** (9:16) | **20 Mbps** | Instagram Reels |
+| **WebM (Instagram)** | MediaRecorder | **1080×1920** (9:16) | 8 Mbps | Instagram (may need conversion) |
 
-```bash
-pytest
-```
+### Instagram Reels Setup
 
-## Project layout
+For best Instagram Reels results:
 
-- `app.py` — Streamlit entrypoint
-- `processing/` — pure-function pipeline (detect, render, preview, export)
-- `ui/` — Streamlit components
-- `presets.json` — preset definitions
-- `tests/` — pytest suite (synthetic video fixtures, no binary blobs)
+1. Set **Crop → Center 9:16** (static) or **Follow 9:16** (tracks first blob)
+2. Set **Mode → Instagram** (outputs 1080×1920)
+3. Export as **MP4** — encoded with H.264 High Profile @ 20 Mbps
+4. File saves as `contour_vfx_reels.mp4`, ready to upload
 
-## Known limitations
+Instagram Reels specs: 1080×1920, H.264, 30fps, max 90 seconds.
 
-This is a **contour VFX effect**, not a stable object tracker. ID numbers and
-trails will flicker — that's expected and part of the look.
+## Known Limitations
+
+- **Contour tracking, not object tracking** — IDs flicker between frames, that's expected
+- **MP4 export requires Chrome/Edge** — WebCodecs API not available in Firefox/Safari
+- **Preview resolution is ~540p** — full-res export only via Instagram mode or Streamlit version (`app.py`)
+- **OpenCV.js loads from CDN** — needs internet on first load

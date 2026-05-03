@@ -1,0 +1,1496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contour VFX Overlay — Blob Tracker</title>
+    <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0d0d12; color: #e0e0e0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      display: flex; height: 100vh; overflow: hidden;
+    }
+    #viewer {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      position: relative; min-width: 0;
+    }
+    #drop-zone {
+      width: 70vmin; height: 50vmin; border: 2px dashed #222; border-radius: 12px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 16px; transition: border-color .2s;
+    }
+    #drop-zone.drag-over { border-color: #f3ac03; background: rgba(249,115,22,.06); }
+    #drop-zone.hidden { display: none; }
+    #upload-btn, #sample-btn {
+      background: #1a1a24; color: #d0d0d0; border: 1px solid #333;
+      border-radius: 8px; padding: 10px 22px; font-size: 14px; cursor: pointer;
+    }
+    #upload-btn:hover, #sample-btn:hover { background: #24242e; border-color: #555; }
+    #sample-btn { padding: 6px 14px; font-size: 12px; background: transparent; color: #555; }
+    #file-input { display: none; }
+    #canvas-wrap { position: relative; }
+    video { display: none; }
+    canvas { display: block; max-height: 94vh; max-width: 100%; border-radius: 4px; }
+    #crop-overlay {
+      position: absolute; top: 0; left: 0; pointer-events: none; display: none; z-index: 5;
+    }
+    #crop-overlay.visible { display: block; }
+    #progress-bar {
+      position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,.85); border-radius: 8px; padding: 8px 16px;
+      display: none; align-items: center; gap: 10px; font-size: 12px; min-width: 260px; z-index: 50;
+    }
+    #progress-bar.visible { display: flex; }
+    #progress-track { flex: 1; height: 5px; background: #1e1e28; border-radius: 3px; overflow: hidden; }
+    #progress-fill { width: 0%; height: 100%; background: #f3ac03; border-radius: 3px; transition: width .15s; }
+    #export-overlay {
+      position: absolute; top: 12px; right: 12px; display: none;
+      gap: 6px; align-items: center; z-index: 60;
+    }
+    #export-overlay.visible { display: flex; }
+    #export-btn {
+      background: #f3ac03; color: #fff; border: none; border-radius: 8px;
+      padding: 9px 16px; font-size: 12px; font-weight: 600; cursor: pointer;
+    }
+    #export-btn:hover { background: #e29a03; }
+    #export-btn:disabled { background: #333; color: #666; cursor: not-allowed; }
+    #export-format {
+      padding: 7px 5px; border: 1px solid #333; border-radius: 6px;
+      background: #1a1a24; color: #d0d0d0; font-size: 11px; cursor: pointer;
+    }
+    #export-format option { background: #1a1a24; }
+    #redetect-btn {
+      padding: 7px 12px; border: 1px solid #333; border-radius: 8px;
+      background: #1a1a24; color: #a0a0a8; font-size: 11px; cursor: pointer;
+    }
+    #redetect-btn:hover { border-color: #f3ac03; }
+    .export-status {
+      position: absolute; top: 56px; right: 12px; display: none;
+      background: rgba(0,0,0,.85); border-radius: 8px; padding: 7px 12px;
+      font-size: 12px; color: #fff; z-index: 60;
+    }
+    .export-status.visible { display: block; }
+    .spinner {
+      width: 12px; height: 12px; border: 2px solid #f3ac03;
+      border-top-color: transparent; border-radius: 50%;
+      animation: spin .5s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* === PANEL === */
+    #panel {
+      width: 340px; min-width: 310px; max-width: 360px;
+      background: linear-gradient(180deg, #111118 0%, #0d0d12 100%);
+      border-left: 1px solid #1a1a22;
+      overflow-y: auto; padding: 0; scrollbar-width: thin; scrollbar-color: #2a2a34 transparent;
+    }
+    #panel::-webkit-scrollbar { width: 5px; }
+    #panel::-webkit-scrollbar-thumb { background: #2a2a34; border-radius: 3px; }
+
+    .panel-header {
+      position: sticky; top: 0; z-index: 10;
+      background: linear-gradient(180deg, #111118 80%, transparent);
+      padding: 14px 14px 10px;
+    }
+    .panel-title { font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 2px; letter-spacing: -.01em; }
+    .panel-subtitle { font-size: 10px; color: #444; text-transform: uppercase; letter-spacing: .04em; }
+
+    .card {
+      margin: 4px 8px; background: rgba(255,255,255,.02);
+      border: 1px solid rgba(255,255,255,.055);
+      border-radius: 10px; padding: 11px 13px;
+    }
+    .card-label {
+      font-size: 10px; font-weight: 600; color: #555;
+      text-transform: uppercase; letter-spacing: .06em;
+      margin-bottom: 7px; display: flex; align-items: center; gap: 5px;
+    }
+
+    /* Segmented */
+    .seg {
+      display: flex; gap: 3px; background: rgba(0,0,0,.3);
+      border-radius: 7px; padding: 3px;
+    }
+    .seg button {
+      flex: 1; padding: 5px 8px; border: none; border-radius: 6px;
+      background: transparent; color: #777; font-size: 11px; font-weight: 500;
+      cursor: pointer; transition: all .15s;
+    }
+    .seg button.active { background: #1e1b24; color: #f0f0f0; }
+    .seg button:hover:not(.active) { background: rgba(255,255,255,.04); }
+
+    /* Icon radio buttons */
+    .icon-row { display: flex; gap: 6px; }
+    .icon-btn {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      gap: 5px; padding: 7px 4px; border: 1px solid #1e1e28;
+      border-radius: 7px; background: rgba(0,0,0,.15);
+      color: #777; font-size: 11px; cursor: pointer; transition: all .15s;
+    }
+    .icon-btn svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2; }
+    .icon-btn.active { border-color: #f3ac03; background: rgba(249,115,22,.08); color: #f3ac03; }
+    .icon-btn:hover:not(.active) { border-color: #2a2a34; }
+
+    /* Grid buttons */
+    .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+    .grid.w3 { grid-template-columns: repeat(3, 1fr); }
+    .gbtn {
+      position: relative; padding: 6px 3px; border: 1px solid #1e1e28;
+      border-radius: 6px; background: rgba(0,0,0,.12);
+      color: #888; font-size: 9px; font-weight: 500; text-align: center;
+      cursor: pointer; transition: all .15s; line-height: 1.3;
+      user-select: none;
+    }
+    .gbtn.active { border-color: #f3ac03; background: rgba(249,115,22,.08); color: #f3ac03; }
+    .gbtn:hover:not(.active) { border-color: #2a2a34; color: #bbb; }
+    .gbtn .dot {
+      position: absolute; top: 3px; right: 3px;
+      width: 5px; height: 5px; border-radius: 50%; background: #f3ac03;
+    }
+
+    /* Checkboxes */
+    .checks { display: flex; gap: 14px; margin-bottom: 6px; }
+    .ck { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #888; cursor: pointer; user-select: none; }
+    .ck input[type="checkbox"] { accent-color: #f3ac03; width: 13px; height: 13px; }
+
+    .pro-row { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; }
+    .pro-label { font-size: 11px; color: #666; }
+    .sw { position: relative; width: 32px; height: 16px; cursor: pointer; }
+    .sw input { opacity: 0; width: 0; height: 0; }
+    .sl {
+      position: absolute; inset: 0; background: #1e1e28;
+      border-radius: 8px; transition: .2s;
+    }
+    .sl::before {
+      content: ""; position: absolute; width: 11px; height: 11px;
+      left: 3px; bottom: 3px; background: #444; border-radius: 50%; transition: .2s;
+    }
+    .sw input:checked + .sl { background: #f3ac03; }
+    .sw input:checked + .sl::before { transform: translateX(16px); background: #fff; }
+    /* SVG line icons */
+    .line-row { display: flex; gap: 5px; }
+    .lbtn {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      padding: 7px 3px; border: 1px solid #1e1e28; border-radius: 6px;
+      background: rgba(0,0,0,.12); color: #777; cursor: pointer; transition: all .15s;
+    }
+    .lbtn.active { border-color: #f3ac03; background: rgba(249,115,22,.08); color: #f3ac03; }
+    .lbtn svg { width: 22px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.5; }
+
+    /* Slider */
+    .srow { display: flex; align-items: center; gap: 8px; }
+    .srow input[type="range"] { flex: 1; accent-color: #f3ac03; height: 4px; }
+    .sv { font-size: 10px; color: #f3ac03; font-variant-numeric: tabular-nums; min-width: 28px; text-align: right; }
+
+    /* Sub label */
+    .sub {
+      font-size: 9px; color: #444; margin-bottom: 5px; margin-top: 7px;
+      text-transform: uppercase; letter-spacing: .04em;
+    }
+
+    /* Options row */
+    .opts { display: flex; gap: 3px; flex-wrap: wrap; }
+    .obtn {
+      padding: 4px 10px; border: 1px solid #1e1e28; border-radius: 5px;
+      background: rgba(0,0,0,.12); color: #777; font-size: 10px;
+      cursor: pointer; transition: all .15s;
+    }
+    .obtn.active { border-color: #f3ac03; background: rgba(249,115,22,.08); color: #f3ac03; }
+    .obtn:hover:not(.active) { border-color: #2a2a34; }
+
+    /* Color palette */
+    .palette { display: grid; grid-template-columns: repeat(9, 1fr); gap: 3px; }
+    .cs {
+      aspect-ratio: 1; border: 2px solid transparent; border-radius: 5px;
+      cursor: pointer; transition: all .12s; position: relative;
+    }
+    .cs.active { border-color: #fff; box-shadow: 0 0 0 1px rgba(255,255,255,.25); }
+    .cs:hover:not(.active) { border-color: #333; }
+    .cs::after {
+      content: "✓"; position: absolute; inset: 0; display: none;
+      align-items: center; justify-content: center;
+      font-size: 9px; color: rgba(0,0,0,.5); font-weight: 700;
+    }
+    .cs.active::after { display: flex; }
+
+    /* Tooltip */
+    .tip {
+      position: relative; display: inline-flex; align-items: center; justify-content: center;
+      width: 16px; height: 16px; border-radius: 50%; background: rgba(255,255,255,.06);
+      color: #555; font-size: 10px; font-weight: 700; cursor: pointer; margin-left: 6px;
+      flex-shrink: 0; transition: background .15s, color .15s;
+    }
+    .tip:hover { background: rgba(249,115,22,.15); color: #f3ac03; }
+    #tip-popup {
+      position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%);
+      background: #1a1a24; color: #ccc; font-size: 11px; line-height: 1.6;
+      padding: 10px 14px; border-radius: 10px; max-width: 340px; white-space: pre-line;
+      box-shadow: 0 4px 20px rgba(0,0,0,.5); z-index: 200; display: none;
+    }
+    #tip-popup.visible { display: block; }
+    /* Footer */
+    .pfooter {
+      margin: 8px; padding: 8px; border-top: 1px solid #1a1a22;
+      display: flex; gap: 6px;
+    }
+    .pfooter button {
+      flex: 1; padding: 7px; border-radius: 7px; font-size: 11px;
+      cursor: pointer; border: 1px solid #2a2a34;
+      background: #1a1a24; color: #777; transition: all .15s;
+    }
+    .pfooter button:hover { border-color: #f3ac03; color: #ccc; }
+  </style>
+</head>
+<body>
+
+<div id="viewer">
+  <div id="drop-zone">
+    <span style="font-size:32px">🎬</span>
+    <div style="text-align:center; line-height:1.6">
+      <div style="font-size:15px; color:#c0c0c8">Drop a video file anywhere</div>
+      <div style="font-size:12px; color:#666; margin-top:4px">MP4, MOV, MKV</div>
+    </div>
+    <button id="upload-btn">Upload Video</button>
+    <input type="file" id="file-input" accept="video/*" />
+    <button id="sample-btn">Load sample video</button>
+  </div>
+
+  <div id="canvas-wrap">
+    <video id="video" playing muted playsinline></video>
+    <canvas id="canvas"></canvas>
+    <canvas id="crop-overlay"></canvas>
+    <div id="progress-bar">
+      <div class="spinner"></div>
+      <span id="progress-label">Detecting…</span>
+      <div id="progress-track"><div id="progress-fill"></div></div>
+    </div>
+  </div>
+
+  <div id="export-overlay">
+    <button id="redetect-btn" title="Re-run blob detection with current params">🔄 Re-detect</button>
+    <button id="export-btn" title="Record canvas to video file">⬇ Export MP4</button>
+  </div>
+  <div class="export-status" id="export-status"></div>
+</div>
+
+  <div id="panel">
+    <div class="panel-header">
+      <div class="panel-title">Contour VFX Overlay</div>
+      <div class="panel-subtitle">Real-time blob tracking editor</div>
+    </div>
+
+    <!-- 1. Video Speed -->
+    <div class="card"><div class="card-label">Video Speed</div>
+      <div class="seg" id="video-speed">
+        <button data-val="0.5">0.5×</button>
+        <button data-val="1" class="active">1×</button>
+        <button data-val="2">2×</button>
+        <button data-val="4">4×</button>
+      </div>
+    </div>
+
+    <!-- 2. Shape -->
+    <div class="card"><div class="card-label">Shape</div>
+      <div class="icon-row" id="shape-selector">
+        <button class="icon-btn active" data-value="contour">
+          <svg viewBox="0 0 16 16"><polygon points="2,2 14,2 14,14 2,14"/></svg> Contour
+        </button>
+        <button class="icon-btn" data-value="circle">
+          <svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/></svg> Circle
+        </button>
+        <button class="icon-btn" data-value="rect">
+          <svg viewBox="0 0 16 16"><rect x="2" y="4" width="12" height="8"/></svg> BBox
+        </button>
+      </div>
+    </div>
+
+    <!-- 3. Region Style -->
+    <div class="card"><div class="card-label">Region Style</div>
+      <div class="pro-row">
+        <span class="pro-label">Fill Regions</span>
+        <label class="sw"><input type="checkbox" id="fill-enabled"><span class="sl"></span></label>
+      </div>
+      <div class="pro-row" style="margin-top:4px">
+        <span class="pro-label">Random Shapes</span>
+        <label class="sw"><input type="checkbox" id="random-enabled"><span class="sl"></span></label>
+      </div>
+    </div>
+
+    <!-- 4. Basic Effects -->
+    <div class="card"><div class="card-label">Basic Effects</div>
+      <div class="grid w3" id="basic-effects">
+        <button class="gbtn active" data-val="Basic">Basic<span class="dot"></span></button>
+        <button class="gbtn" data-val="Cross">Cross</button>
+        <button class="gbtn" data-val="Label">Label<span class="dot"></span></button>
+        <button class="gbtn" data-val="Frame">Frame</button>
+        <button class="gbtn" data-val="L-Frame">L-Frame</button>
+        <button class="gbtn" data-val="X-Frame">X-Frame</button>
+        <button class="gbtn" data-val="Grid">Grid</button>
+        <button class="gbtn" data-val="Particle">Particle</button>
+        <button class="gbtn" data-val="Dash">Dash</button>
+        <button class="gbtn" data-val="Scope">Scope</button>
+        <button class="gbtn" data-val="Win2K">Win2K</button>
+        <button class="gbtn" data-val="Glow">Glow</button>
+        <button class="gbtn" data-val="Backdrop">Backdrop<span class="dot"></span></button>
+        <button class="gbtn" data-val="Outline">Outline</button>
+      </div>
+    </div>
+
+    <!-- 5. Connection -->
+    <div class="card"><div class="card-label">Connection</div>
+      <div class="sub">Line Style</div>
+      <div class="line-row" id="connection-style">
+        <button class="lbtn active" data-val="nearest" title="Nearest neighbors">
+          <svg viewBox="0 0 24 20"><line x1="4" y1="4" x2="10" y2="16"/><line x1="10" y1="16" x2="20" y2="6"/></svg>
+        </button>
+        <button class="lbtn" data-val="all" title="All connections">
+          <svg viewBox="0 0 24 20"><line x1="4" y1="4" x2="12" y2="4"/><line x1="4" y1="4" x2="12" y2="16"/><line x1="4" y1="4" x2="20" y2="10"/><line x1="12" y1="4" x2="12" y2="16"/><line x1="12" y1="4" x2="20" y2="10"/><line x1="12" y1="16" x2="20" y2="10"/></svg>
+        </button>
+        <button class="lbtn" data-val="chain" title="Chain">
+          <svg viewBox="0 0 24 20"><polyline points="2,10 8,4 14,16 22,8"/></svg>
+        </button>
+        <button class="lbtn" data-val="wave" title="Waveform">
+          <svg viewBox="0 0 24 20"><path d="M2,10 Q6,2 12,10 T22,10"/></svg>
+        </button>
+      </div>
+      <div class="sub" style="margin-top:8px">Connection Rate</div>
+      <div class="seg" id="connection-rate">
+        <button data-val="0">None</button>
+        <button data-val="0.25">0.25</button>
+        <button data-val="0.5" class="active">0.5</button>
+        <button data-val="0.75">0.75</button>
+        <button data-val="1">Full</button>
+      </div>
+    </div>
+
+    <!-- 7. Stroke Width -->
+    <div class="card"><div class="card-label">Stroke Width</div>
+      <div class="srow">
+        <input type="range" id="stroke-width" min="0.5" max="10" step="0.5" value="2"/>
+        <span class="sv" id="stroke-width-val">2px</span>
+      </div>
+    </div>
+
+    <!-- 8. Blob Size -->
+    <div class="card"><div class="card-label">Blob Size<span class="tip" id="tip-blob">?</span></div>
+      <div class="srow" style="margin-bottom:4px">
+        <span style="font-size:9px;color:#444;min-width:24px">Min</span>
+        <input type="range" id="blob-min" min="100" max="5000" step="100" value="300"/>
+        <span class="sv" id="blob-min-val">300</span>
+      </div>
+      <div class="srow">
+        <span style="font-size:9px;color:#444;min-width:24px">Max</span>
+        <input type="range" id="blob-max" min="5000" max="500000" step="5000" value="200000"/>
+        <span class="sv" id="blob-max-val">200k</span>
+      </div>
+      <div class="pro-row" style="margin-top:6px">
+        <span class="pro-label">Same Size</span>
+        <label class="sw"><input type="checkbox" id="same-size"><span class="sl"></span></label>
+      </div>
+    </div>
+
+    <!-- 9. Detection -->
+    <div class="card"><div class="card-label">Detection<span class="tip" id="tip-detect">?</span></div>
+      <div class="srow" style="margin-bottom:4px">
+        <span style="font-size:9px;color:#444;min-width:28px">C-Low</span>
+        <input type="range" id="canny-low" min="0" max="255" step="5" value="50"/>
+        <span class="sv" id="canny-low-val">50</span>
+      </div>
+      <div class="srow" style="margin-bottom:4px">
+        <span style="font-size:9px;color:#444;min-width:28px">C-High</span>
+        <input type="range" id="canny-high" min="0" max="255" step="5" value="150"/>
+        <span class="sv" id="canny-high-val">150</span>
+      </div>
+      <div class="srow">
+        <span style="font-size:9px;color:#444;min-width:28px">Blur</span>
+        <input type="range" id="blur-kernel" min="1" max="31" step="2" value="5"/>
+        <span class="sv" id="blur-kernel-val">5</span>
+      </div>
+    </div>
+
+    <!-- 10. Crop -->
+    <div class="card"><div class="card-label">Crop</div>
+      <div class="sub">Aspect Ratio</div>
+      <div class="seg" id="crop-mode">
+        <button data-val="full" class="active">Full</button>
+        <button data-val="center">Center 9:16</button>
+        <button data-val="blob">Follow 9:16</button>
+      </div>
+      <div class="sub" style="margin-top:6px">Mode</div>
+      <div class="seg" id="export-resolution">
+        <button data-val="preview" class="active">Preview</button>
+        <button data-val="instagram">Instagram</button>
+      </div>
+      <div class="sub" style="margin-top:4px;font-size:8px;color:#333">Instagram = 1080×1920 · Full = canvas size</div>
+    </div>
+
+    <!-- 10. Color & Text -->
+    <div class="card"><div class="card-label">Color & Text</div>
+      <div class="checks">
+        <label class="ck"><input type="checkbox" id="text-enabled" checked> Text</label>
+      </div>
+      <div class="sub">Text Position</div>
+      <div class="seg" id="text-position">
+        <button data-val="center" class="active">Center</button>
+        <button data-val="top">Top</button>
+        <button data-val="bottom">Bottom</button>
+      </div>
+      <div class="sub">Text Content</div>
+      <div class="seg" id="text-content">
+        <button data-val="random" class="active">Random</button>
+        <button data-val="position">Position</button>
+        <button data-val="count">Count</button>
+      </div>
+      <div class="sub">Font Size</div>
+      <div class="seg" id="font-size">
+        <button data-val="8">8</button><button data-val="10">10</button>
+        <button data-val="12" class="active">12</button>
+        <button data-val="16">16</button><button data-val="20">20</button>
+      </div>
+      <div class="sub">Color</div>
+      <div class="palette" id="color-palette"></div>
+      <div class="pro-row" style="margin-top:6px">
+        <span class="pro-label">Separate Colors</span>
+        <label class="sw"><input type="checkbox" id="separate-colors"><span class="sl"></span></label>
+      </div>
+    </div>
+
+    <!-- Trail -->
+    <div class="card"><div class="card-label">Trail</div>
+      <div class="pro-row">
+        <span class="pro-label">Enabled</span>
+        <label class="sw"><input type="checkbox" id="trail-enabled"><span class="sl"></span></label>
+      </div>
+      <div class="srow" style="margin-top:4px">
+        <span style="font-size:9px;color:#444;min-width:28px">Length</span>
+        <input type="range" id="trail-length" min="5" max="60" step="1" value="30"/>
+        <span class="sv" id="trail-length-val">30</span>
+      </div>
+    </div>
+
+    <!-- Centroid -->
+    <div class="card"><div class="card-label">Centroid</div>
+      <div class="pro-row">
+        <span class="pro-label">Show dots</span>
+        <label class="sw"><input type="checkbox" id="centroid-enabled"><span class="sl"></span></label>
+      </div>
+    </div>
+
+    <div class="pfooter">
+      <button id="reset-btn">↺ Reset to defaults</button>
+      <button id="debug-log-btn">📋 Copy debug log</button>
+    </div>
+  </div> <!-- end panel -->
+  <div id="tip-popup">
+    <span id="tip-popup-text"></span>
+  </div>
+</div>
+
+<script async src="https://docs.opencv.org/4.x/opencv.js" onload="onCvReady()" onerror="onCvError()"></script>
+<script>
+  import("https://unpkg.com/mp4-muxer@5.1.3/build/mp4-muxer.mjs").then(m => {
+    window.MP4Muxer = m;
+    console.log("MP4Muxer loaded");
+  }).catch(e => console.warn("MP4Muxer not available", e));
+</script>
+<script>
+// ============================
+// STATE
+// ============================
+let cvReady = false;
+let activePreset = null;
+
+const video = document.getElementById("video");
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const tempCanvas = document.createElement("canvas");
+const tempCtx = tempCanvas.getContext("2d", { willReadFrequently: true });
+const dropZone = document.getElementById("drop-zone");
+const canvasWrap = document.getElementById("canvas-wrap");
+const progressBar = document.getElementById("progress-bar");
+const progressFill = document.getElementById("progress-fill");
+const progressLabel = document.getElementById("progress-label");
+const exportOverlay = document.getElementById("export-overlay");
+const exportBtn = document.getElementById("export-btn");
+const redetectBtn = document.getElementById("redetect-btn");
+const exportStatus = document.getElementById("export-status");
+const cropOverlay = document.getElementById("crop-overlay");
+const cropCtx = cropOverlay.getContext("2d");
+const exportCanvas = document.createElement("canvas");
+const exportCtx = exportCanvas.getContext("2d");
+
+const PROCESSING_FPS = 20;
+const MAX_PREVIEW_DIM = 540;
+
+let all_frame_data = [];
+let isProcessing = false;
+let isExporting = false;
+let currentVideoURL = null;
+
+// ============================
+// DEBUG LOGGER
+// ============================
+const LOG_MAX = 300;
+const logBuffer = [];
+function log(tag, msg, extra) {
+  const entry = {
+    t: new Date().toISOString(),
+    tag, msg,
+    ...(extra || {}),
+  };
+  if (extra && extra.params) entry.params = cleanParams(extra.params);
+  logBuffer.push(entry);
+  if (logBuffer.length > LOG_MAX) logBuffer.shift();
+  localStorage.setItem("blb_log", JSON.stringify(logBuffer));
+}
+function cleanParams(p) {
+  const c = {};
+  for (const [k,v] of Object.entries(p)) {
+    if (typeof v !== "function" && !(v instanceof HTMLElement) && !(v instanceof CanvasRenderingContext2D)) c[k] = v;
+  }
+  return c;
+}
+function getLogText() {
+  let out = "=== BLOB TRACKER DEBUG LOG ===\n";
+  out += `Generated: ${new Date().toISOString()}\n`;
+  out += `UserAgent: ${navigator.userAgent}\n`;
+  out += "cvReady: " + cvReady + "\n\n";
+  for (const e of logBuffer) {
+    out += `[${e.t}] [${e.tag}] ${e.msg}`;
+    if (e.params) out += " | params: " + JSON.stringify(e.params);
+    out += "\n";
+  }
+  return out;
+}
+log("init", "App started");
+let detectionParamsSnapshot = null;
+let trailOverlay = null;
+let trailPrevCentroids = {};
+
+// === PARAM STATE ===
+let P = {
+  playbackSpeed: 1,
+  shape: "contour",
+  fillEnabled: false,
+  randomShapes: false,
+  selectedEffect: "Basic",
+  connectionStyle: "nearest",
+  connectionRate: 0.5,
+  strokeWidth: 2,
+  contourColor: "#f3ac03",
+  cannyLow: 50,
+  cannyHigh: 150,
+  blurKernel: 5,
+  blobMin: 300,
+  blobMax: 200000,
+  sameSize: false,
+  textEnabled: true,
+  textPosition: "center",
+  textContent: "random",
+  fontSize: 12,
+  separateColors: false,
+  trailEnabled: false,
+  trailLength: 30,
+  centroidEnabled: false,
+  useConvexHull: false,
+  cropMode: "full",
+  exportResolution: "preview",
+};
+
+const COLORS = [
+  "#ffffff","#f3ac03","#ef4444","#f59e0b","#84cc16","#22c55e","#06b6d4","#3b82f6","#8b5cf6",
+  "#ec4899","#000000","#d4d4d4","#9a9a9a","#666666","#333333","#1a1a1a","#a855f7","#6366f1"
+];
+
+function idToColor(id) {
+  return "rgb("+(id*123%256)+","+(id*231%256)+","+(id*312%256)+")";
+}
+
+// ============================
+// CV HELPERS
+// ============================
+function onCvReady() { cvReady=true; console.log("OpenCV loaded"); }
+function onCvError() { log("opencv", "OpenCV.js failed to load"); console.error("OpenCV failed"); }
+
+// ============================
+// UI: segmented controls
+// ============================
+function setupSeg(container, stateKey, parse) {
+  const el = document.getElementById(container);
+  if (!el) return;
+  el.querySelectorAll("button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      el.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      P[stateKey] = parse(btn.dataset.val);
+    });
+  });
+}
+
+// ============================
+// UI: icon radio buttons
+// ============================
+function setupIconRow(container, stateKey) {
+  const el = document.getElementById(container);
+  if (!el) return;
+  el.querySelectorAll("button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      el.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      P[stateKey] = btn.dataset.value;
+    });
+  });
+}
+
+// ============================
+// UI: grid buttons (single select)
+// ============================
+function setupGrid(container, stateKey) {
+  const el = document.getElementById(container);
+  if (!el) return;
+  el.querySelectorAll("button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      el.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      P[stateKey] = btn.dataset.val;
+    });
+  });
+}
+
+// ============================
+// UI: toggle checkboxes
+// ============================
+function setupToggle(id, stateKey) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener("change", () => { P[stateKey] = el.checked; });
+}
+
+// ============================
+// UI: sliders
+// ============================
+function setupSlider(id, stateKey, valId, format) {
+  const el = document.getElementById(id);
+  const ve = document.getElementById(valId);
+  if (!el) return;
+  el.addEventListener("input", () => {
+    const v = parseFloat(el.value);
+    P[stateKey] = v;
+    if (ve) ve.textContent = format ? format(v) : v;
+  });
+}
+
+// ============================
+// UI: color palette
+// ============================
+function buildPalette() {
+  const el = document.getElementById("color-palette");
+  if (!el) return;
+  el.innerHTML = "";
+  COLORS.forEach(c => {
+    const sw = document.createElement("div");
+    sw.className = "cs" + (c === P.contourColor ? " active" : "");
+    sw.style.background = c;
+    sw.addEventListener("click", () => {
+      P.contourColor = c;
+      el.querySelectorAll(".cs").forEach(s => s.classList.remove("active"));
+      sw.classList.add("active");
+    });
+    el.appendChild(sw);
+  });
+}
+
+// ============================
+// UI: init
+// ============================
+function setupControls() {
+  // Segmented
+  setupSeg("video-speed", "playbackSpeed", parseFloat);
+  setupSeg("connection-rate", "connectionRate", parseFloat);
+  setupSeg("text-position", "textPosition", String);
+  setupSeg("text-content", "textContent", String);
+  setupSeg("font-size", "fontSize", parseInt);
+  setupSeg("crop-mode", "cropMode", String);
+  setupSeg("export-resolution", "exportResolution", String);
+
+  // Icon rows
+  setupIconRow("shape-selector", "shape");
+  setupIconRow("connection-style", "connectionStyle");
+
+  // Grids
+  setupGrid("basic-effects", "selectedEffect");
+
+  // Toggles
+  setupToggle("fill-enabled", "fillEnabled");
+  setupToggle("random-enabled", "randomShapes");
+  setupToggle("same-size", "sameSize");
+  setupToggle("text-enabled", "textEnabled");
+  setupToggle("trail-enabled", "trailEnabled");
+  setupToggle("trail-length-toggle", "trailEnabled");
+  setupToggle("centroid-enabled", "centroidEnabled");
+
+  // Sliders
+  setupSlider("stroke-width", "strokeWidth", "stroke-width-val", v => v+"px");
+  setupSlider("blob-min", "blobMin", "blob-min-val", v => v);
+  setupSlider("blob-max", "blobMax", "blob-max-val", v => (v>=1000?Math.round(v/1000)+"k":v));
+  setupSlider("canny-low", "cannyLow", "canny-low-val", v => v);
+  setupSlider("canny-high", "cannyHigh", "canny-high-val", v => v);
+  setupSlider("blur-kernel", "blurKernel", "blur-kernel-val", v => v);
+  setupSlider("trail-length", "trailLength", "trail-length-val", v => v);
+
+  // Color palette
+  buildPalette();
+
+  // Reset
+  document.getElementById("reset-btn")?.addEventListener("click", () => {
+    document.querySelectorAll(".seg button:first-child, .icon-btn:first-child, .gbtn:first-child, .lbtn:first-child").forEach(b => {
+      b.parentElement.querySelectorAll("button").forEach(bb => bb.classList.remove("active"));
+      b.classList.add("active");
+    });
+    P = {
+      playbackSpeed:1, shape:"contour", fillEnabled:false, randomShapes:false,
+      selectedEffect:"Basic",
+      connectionStyle:"nearest", connectionRate:0.5, strokeWidth:2,
+      contourColor:"#f3ac03", cannyLow:50, cannyHigh:150, blurKernel:5,
+      blobMin:300, blobMax:200000, sameSize:false, textEnabled:true,
+      textPosition:"center", textContent:"random", fontSize:12,
+      separateColors:false, trailEnabled:false, trailLength:30,
+      centroidEnabled:false, useConvexHull:false,
+      cropMode:"full", exportResolution:"preview",
+    };
+    // Reset checkboxes
+    document.querySelectorAll("input[type='checkbox']").forEach(cb => {
+      if (cb.id === "text-enabled") cb.checked = true;
+      else cb.checked = false;
+    });
+    // Reset sliders
+    document.getElementById("stroke-width").value = 2;
+    document.getElementById("blob-min").value = 300;
+    document.getElementById("blob-max").value = 200000;
+    document.getElementById("canny-low").value = 50;
+    document.getElementById("canny-high").value = 150;
+    document.getElementById("blur-kernel").value = 5;
+    document.getElementById("trail-length").value = 30;
+    document.getElementById("stroke-width-val").textContent = "2px";
+    document.getElementById("blob-min-val").textContent = "300";
+    document.getElementById("blob-max-val").textContent = "200k";
+    document.getElementById("canny-low-val").textContent = "50";
+    document.getElementById("canny-high-val").textContent = "150";
+    document.getElementById("blur-kernel-val").textContent = "5";
+    document.getElementById("trail-length-val").textContent = "30";
+    buildPalette();
+    if (all_frame_data.length) { trailPrevCentroids = {}; }
+    log("params", "Reset to defaults");
+  });
+
+  // Debug log button
+  document.getElementById("debug-log-btn")?.addEventListener("click", () => {
+    const text = getLogText();
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById("debug-log-btn");
+      btn.textContent = "✅ Copied!";
+      setTimeout(() => { btn.textContent = "📋 Copy debug log"; }, 2500);
+      log("debug", "Log copied to clipboard");
+    }).catch(() => {
+      // Fallback: download as file
+      const blob = new Blob([text], { type: "text/plain" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "blob-tracker-debug-log.txt";
+      a.click();
+      log("debug", "Log downloaded as file");
+    });
+  });
+
+  log("init", "Controls initialized");
+}
+
+// ============================
+// DRAG & DROP
+// ============================
+window.addEventListener("dragover", e => { e.preventDefault(); dropZone.classList.add("drag-over"); });
+window.addEventListener("dragleave", () => dropZone.classList.remove("drag-over"));
+window.addEventListener("drop", e => {
+  e.preventDefault();
+  dropZone.classList.remove("drag-over");
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith("video/")) loadFile(file);
+});
+document.getElementById("upload-btn").addEventListener("click", () => document.getElementById("file-input").click());
+document.getElementById("file-input").addEventListener("change", e => {
+  const file = e.target.files[0];
+  if (file && file.type.startsWith("video/")) loadFile(file);
+});
+document.getElementById("sample-btn").addEventListener("click", () => {
+  progressBar.classList.add("visible");
+  progressLabel.textContent = "Loading sample…";
+  startProcessing("https://www.w3schools.com/html/mov_bbb.mp4");
+});
+function loadFile(file) { startProcessing(URL.createObjectURL(file)); }
+
+// ============================
+// VIDEO LOADING + DETECTION
+// ============================
+async function startProcessing(videoURL) {
+  if (!cvReady) { alert("OpenCV.js is still loading — wait then retry."); return; }
+  log("video", "startProcessing called", { params: {...P} });
+  currentVideoURL = videoURL;
+  all_frame_data = [];
+  video.src = videoURL;
+  dropZone.classList.add("hidden");
+  canvasWrap.style.display = "block";
+  progressBar.classList.add("visible");
+  progressFill.style.width = "0%";
+  progressLabel.textContent = "Loading video…";
+  exportOverlay.classList.remove("visible");
+  await new Promise(r => { video.onloadedmetadata = r; });
+
+  const vw = video.videoWidth, vh = video.videoHeight;
+  const scale = MAX_PREVIEW_DIM / Math.min(vw, vh);
+  const targetW = Math.round(vw * scale), targetH = Math.round(vh * scale);
+  canvas.width = targetW;
+  canvas.height = targetH;
+  tempCanvas.width = targetW;
+  tempCanvas.height = targetH;
+
+  await detectBlobs();
+  detectionParamsSnapshot = { cl:P.cannyLow, ch:P.cannyHigh, bk:P.blurKernel, mi:P.blobMin, ma:P.blobMax };
+  const dur = video.duration;
+  const tf = Math.floor(dur * PROCESSING_FPS);
+  for (let i=0;i<all_frame_data.length;i++) all_frame_data[i].time = i/PROCESSING_FPS;
+
+  isProcessing = false;
+  progressBar.classList.remove("visible");
+  resetTrail(targetW, targetH);
+  video.muted = true;
+  video.currentTime = 0;
+  await new Promise(r => { video.onseeked = r; video.currentTime = 0; });
+  exportOverlay.classList.add("visible");
+  video.playbackRate = P.playbackSpeed;
+  video.play();
+  video.loop = true;
+  requestAnimationFrame(drawLoop);
+}
+
+// ============================
+// BLOB DETECTION
+// ============================
+function detectContours(frameMat) {
+  const gray = new cv.Mat();
+  cv.cvtColor(frameMat, gray, cv.COLOR_RGBA2GRAY);
+  let blurred;
+  if (P.blurKernel>1) {
+    blurred = new cv.Mat();
+    cv.GaussianBlur(gray, blurred, new cv.Size(P.blurKernel, P.blurKernel), 0);
+  } else { blurred = gray; }
+  const edges = new cv.Mat();
+  cv.Canny(blurred, edges, P.cannyLow, P.cannyHigh);
+  const contours = new cv.MatVector();
+  const hierarchy = new cv.Mat();
+  cv.findContours(edges, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+  const result = [];
+  for (let i=0;i<contours.size();i++) {
+    const c = contours.get(i);
+    const area = cv.contourArea(c);
+    if (area<P.blobMin||area>P.blobMax) continue;
+    const m = cv.moments(c);
+    let cx,cy;
+    if (m.m00===0){const r=cv.boundingRect(c);cx=r.x+r.width/2;cy=r.y+r.height/2;}
+    else {cx=Math.round(m.m10/m.m00);cy=Math.round(m.m01/m.m00);}
+    const rect = cv.boundingRect(c);
+    const pts = [];
+    for (let j=0;j<c.rows;j++) pts.push({x:c.data32S[j*2],y:c.data32S[j*2+1]});
+    result.push({x:cx,y:cy,area,bx:rect.x,by:rect.y,bw:rect.width,bh:rect.height,pts});
+  }
+  edges.delete();contours.delete();hierarchy.delete();
+  if (blurred!==gray) blurred.delete();
+  return result;
+}
+
+class CentroidTracker {
+  constructor(d){this.maxD=d*0.05;this.nextId=0;this.prev=[];}
+  update(blobs){
+    const consumed=new Set();
+    for (const b of blobs){
+      let bestIdx=null,bestDist=this.maxD;
+      for (let i=0;i<this.prev.length;i++){
+        if(consumed.has(i))continue;
+        const dx=b.x-this.prev[i].x,dy=b.y-this.prev[i].y,d=Math.sqrt(dx*dx+dy*dy);
+        if(d<bestDist){bestDist=d;bestIdx=i;}
+      }
+      if(bestIdx===null){b.id=this.nextId++;}
+      else{b.id=this.prev[bestIdx].id;consumed.add(bestIdx);}
+    }
+    this.prev=blobs;return blobs;
+  }
+}
+
+async function detectBlobs(){
+  isProcessing=true;
+  const t0 = performance.now();
+  log("detect", "detectBlobs started", { params: {...P}, dim: canvas.width + "x" + canvas.height });
+  const tf=Math.floor(video.duration*PROCESSING_FPS);
+  all_frame_data=[];
+  let lastTs = Date.now();
+  const tracker=new CentroidTracker(Math.hypot(canvas.width,canvas.height));
+  for (let i=0;i<=tf;i++){
+    video.currentTime=i/PROCESSING_FPS;
+    await new Promise(r=>{let a=0;const ch=()=>{if(!video.seeking)r();else if(a++>500)r();else setTimeout(ch,10);};video.onseeked=ch;ch();});
+    tempCtx.drawImage(video,0,0,canvas.width,canvas.height);
+    let mat;try{mat=cv.imread(tempCanvas);}catch(e){log("detect","cv.imread failed frame "+i);continue;}
+    const cts=detectContours(mat);mat.delete();
+    const blobs=tracker.update(cts);
+    all_frame_data.push({time:i/PROCESSING_FPS,blobs:JSON.parse(JSON.stringify(blobs)),frameIndex:i});
+    const pc=Math.round(i/tf*100);
+    progressFill.style.width=pc+"%";
+    progressLabel.textContent="Detecting… "+pc+"%";
+    // detect timeout: log if stuck
+    const now = Date.now();
+    if (now - lastTs > 10000) {
+      log("detect", "Still running after 10s", { frame: i, total: tf, pct: pc });
+      lastTs = now;
+    }
+  }
+  const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
+  log("detect", "detectBlobs complete", { frames: all_frame_data.length, blobs_total: all_frame_data.reduce((s,f)=>s+f.blobs.length,0), elapsed_s: elapsed });
+}
+
+// ============================
+// TRAIL
+// ============================
+function resetTrail(w,h){trailOverlay=document.createElement("canvas");trailOverlay.width=w;trailOverlay.height=h;trailPrevCentroids={};}
+function TrailDecay(f){return f<=0?0:Math.exp(-1/Math.max(1,f));}
+
+function drawTrail(ctx2d,blobs){
+  if (!trailOverlay) return;
+  const tc=trailOverlay.getContext("2d");
+  if (!P.trailEnabled){tc.clearRect(0,0,trailOverlay.width,trailOverlay.height);trailPrevCentroids={};return;}
+  const decay=TrailDecay(P.trailLength);
+  tc.save();tc.globalCompositeOperation="destination-out";tc.globalAlpha=1-decay;
+  tc.fillStyle="rgba(0,0,0,1)";tc.fillRect(0,0,trailOverlay.width,trailOverlay.height);tc.restore();
+  for (const b of blobs){
+    if(b.id==null)continue;
+    const prev=trailPrevCentroids[b.id];
+    if(prev){
+      tc.strokeStyle=P.contourColor;
+      tc.lineWidth=P.strokeWidth*.6;tc.lineCap="round";
+      tc.beginPath();tc.moveTo(prev.x,prev.y);tc.lineTo(b.x,b.y);tc.stroke();
+    }
+  }
+  ctx2d.drawImage(trailOverlay,0,0);
+  trailPrevCentroids={};
+  for (const b of blobs){if(b.id!=null)trailPrevCentroids[b.id]={x:b.x,y:b.y};}
+}
+
+// ============================
+// FRAME INTERPOLATION
+// ============================
+function findBracketingFrames(time){
+  if(all_frame_data.length<2)return{prev:all_frame_data[0]||null,next:null};
+  let lt=all_frame_data[all_frame_data.length-1].time;
+  if(lt>0)time=time%lt;
+  for(let i=0;i<all_frame_data.length-1;i++){
+    if(time>=all_frame_data[i].time&&time<all_frame_data[i+1].time)return{prev:all_frame_data[i],next:all_frame_data[i+1]};
+  }
+  return{prev:all_frame_data[all_frame_data.length-1],next:null};
+}
+function lerp(a,b,t){return a+(b-a)*t;}
+function interpolateBlobs(prev,next,time){
+  if(!prev||!prev.blobs.length)return[];
+  if(!next||next.time===prev.time)return prev.blobs;
+  const pM=new Map(prev.blobs.map(b=>[b.id,b]));
+  const nM=new Map(next.blobs.map(b=>[b.id,b]));
+  const result=[];
+  for(const[id,pb]of pM){
+    const nb=nM.get(id);
+    if(nb){
+      const t=(time-prev.time)/(next.time-prev.time);
+      result.push({id,x:Math.round(lerp(pb.x,nb.x,t)),y:Math.round(lerp(pb.y,nb.y,t)),
+        area:lerp(pb.area,nb.area,t),bx:pb.x,by:pb.y,bw:pb.bw,bh:pb.bh,pts:pb.pts});
+    }else{
+      result.push({id,x:pb.x,y:pb.y,area:pb.area,bx:pb.bx,by:pb.by,bw:pb.bw,bh:pb.bh,pts:pb.pts});
+    }
+  }
+  return result;
+}
+
+// ============================
+// CROP
+// ============================
+function getCropRegion(w, h, blobs) {
+  if (P.cropMode === "full") return { sx: 0, sy: 0, sw: w, sh: h };
+  const targetAspect = 9 / 16;
+  const src_aspect = w / h;
+  // If source is already taller than 9:16, just center crop
+  let cropW, cropH;
+  if (src_aspect > targetAspect) {
+    // source wider than 9:16 — crop width
+    cropH = h;
+    cropW = h * targetAspect;
+  } else {
+    // source taller than 9:16 — crop height  
+    cropW = w;
+    cropH = w / targetAspect;
+  }
+  let cx, cy;
+  if (P.cropMode === "blob" && blobs.length > 0) {
+    cx = blobs[0].x;
+    cy = blobs[0].y;
+  } else {
+    cx = w / 2;
+    cy = h / 2;
+  }
+  let sx = Math.round(cx - cropW / 2);
+  let sy = Math.round(cy - cropH / 2);
+  sx = Math.max(0, Math.min(w - cropW, sx));
+  sy = Math.max(0, Math.min(h - cropH, sy));
+  return { sx, sy, sw: Math.round(cropW), sh: Math.round(cropH) };
+}
+
+function drawCropOverlay() {
+  if (P.cropMode === "full") { cropOverlay.classList.remove("visible"); return; }
+  cropOverlay.classList.add("visible");
+  if (canvas.width !== cropOverlay.width || canvas.height !== cropOverlay.height) {
+    cropOverlay.width = canvas.width;
+    cropOverlay.height = canvas.height;
+  }
+  const { sx, sy, sw, sh } = getCropRegion(canvas.width, canvas.height, []);
+  cropCtx.clearRect(0, 0, canvas.width, canvas.height);
+  cropCtx.fillStyle = "rgba(0,0,0,0.7)";
+  cropCtx.fillRect(0, 0, canvas.width, canvas.height);
+  // Cut out the crop region — composite-out a rectangle
+  cropCtx.globalCompositeOperation = "destination-out";
+  cropCtx.fillRect(sx, sy, sw, sh);
+  cropCtx.globalCompositeOperation = "source-over";
+  // Draw border
+  cropCtx.strokeStyle = "rgba(255,255,255,0.5)";
+  cropCtx.lineWidth = 2;
+  cropCtx.strokeRect(sx, sy, sw, sh);
+  // Draw grid lines (rule of thirds)
+  cropCtx.strokeStyle = "rgba(255,255,255,0.15)";
+  cropCtx.lineWidth = 1;
+  for (let i = 1; i < 3; i++) {
+    cropCtx.beginPath();
+    cropCtx.moveTo(sx + sw * i / 3, sy);
+    cropCtx.lineTo(sx + sw * i / 3, sy + sh);
+    cropCtx.stroke();
+    cropCtx.beginPath();
+    cropCtx.moveTo(sx, sy + sh * i / 3);
+    cropCtx.lineTo(sx + sw, sy + sh * i / 3);
+    cropCtx.stroke();
+  }
+}
+
+// ============================
+// CANVAS RENDERING
+// ============================
+function getContourPts(b){
+  if(!b.pts||b.pts.length<3)return null;
+  return b.pts;
+}
+
+function drawEffectLayer(ctx2d,blobs){
+  if(!blobs.length)return;
+  const col=P.contourColor;
+  const sw=P.strokeWidth;
+
+  if(P.selectedEffect==="Basic"){
+    if(P.shape==="circle"){
+      ctx2d.strokeStyle=col;ctx2d.lineWidth=sw;ctx2d.lineJoin="round";
+      for(const b of blobs){ctx2d.beginPath();ctx2d.arc(b.x,b.y,Math.max(b.bw,b.bh)/2,0,Math.PI*2);ctx2d.stroke();}
+    }else if(P.shape==="rect"){
+      ctx2d.strokeStyle=col;ctx2d.lineWidth=sw;
+      for(const b of blobs)ctx2d.strokeRect(b.bx,b.by,b.bw,b.bh);
+    }else{
+      ctx2d.strokeStyle=col;ctx2d.lineWidth=sw;ctx2d.lineJoin="round";
+      for(const b of blobs){
+        const pts=getContourPts(b);if(!pts)continue;
+        ctx2d.beginPath();ctx2d.moveTo(pts[0].x,pts[0].y);
+        for(let i=1;i<pts.length;i++)ctx2d.lineTo(pts[i].x,pts[i].y);
+        ctx2d.closePath();ctx2d.stroke();
+      }
+    }
+  }else if(P.selectedEffect==="Cross"){
+    ctx2d.strokeStyle=col;ctx2d.lineWidth=sw;
+    for(const b of blobs){
+      const cx=b.x,cy=b.y,w=b.bw,h=b.bh;
+      ctx2d.beginPath();ctx2d.moveTo(cx-w/4,cy);ctx2d.lineTo(cx+w/4,cy);
+      ctx2d.moveTo(cx,cy-h/4);ctx2d.lineTo(cx,cy+h/4);ctx2d.stroke();
+    }
+  }else if(P.selectedEffect==="Frame"){
+    ctx2d.strokeStyle=col;ctx2d.lineWidth=sw;
+    for(const b of blobs){
+      const m=10,x=b.bx,y=b.by,w=b.bw,h=b.bh;
+      [[x,y,1,1],[x+w,y,-1,1],[x,y+h,1,-1],[x+w,y+h,-1,-1]].forEach(([cx,cy,dx,dy])=>{
+        ctx2d.beginPath();ctx2d.moveTo(cx,cy+dy*m);ctx2d.lineTo(cx,cy);ctx2d.lineTo(cx+dx*m,cy);ctx2d.stroke();
+      });
+    }
+  }else if(P.selectedEffect==="L-Frame"){
+    ctx2d.strokeStyle=col;ctx2d.lineWidth=sw;
+    for(const b of blobs){
+      const m=15,x=b.bx,y=b.by,w=b.bw,h=b.bh;
+      ctx2d.beginPath();ctx2d.moveTo(x,y+m);ctx2d.lineTo(x,y);ctx2d.lineTo(x+m,y);
+      ctx2d.moveTo(x+w-m,y);ctx2d.lineTo(x+w,y);ctx2d.lineTo(x+w,y+m);ctx2d.stroke();
+    }
+  }else if(P.selectedEffect==="X-Frame"){
+    ctx2d.strokeStyle=col;ctx2d.lineWidth=sw;
+    for(const b of blobs){
+      const x=b.bx,y=b.by,w=b.bw,h=b.bh;
+      ctx2d.beginPath();ctx2d.moveTo(x,y);ctx2d.lineTo(x+w,y+h);
+      ctx2d.moveTo(x+w,y);ctx2d.lineTo(x,y+h);ctx2d.stroke();
+    }
+  }else if(P.selectedEffect==="Grid"){
+    ctx2d.strokeStyle=col;ctx2d.lineWidth=sw*.5;const gs=20;
+    for(const b of blobs){
+      for(let gx=b.bx;gx<b.bx+b.bw;gx+=gs){ctx2d.beginPath();ctx2d.moveTo(gx,b.by);ctx2d.lineTo(gx,b.by+b.bh);ctx2d.stroke();}
+      for(let gy=b.by;gy<b.by+b.bh;gy+=gs){ctx2d.beginPath();ctx2d.moveTo(b.bx,gy);ctx2d.lineTo(b.bx+b.bw,gy);ctx2d.stroke();}
+    }
+  }else if(P.selectedEffect==="Particle"){
+    ctx2d.fillStyle=col;
+    for(const b of blobs){for(let i=0;i<8;i++){const px=b.x+(Math.random()-.5)*b.bw*1.5,py=b.y+(Math.random()-.5)*b.bh*1.5,r=1+Math.random()*2;ctx2d.beginPath();ctx2d.arc(px,py,r,0,Math.PI*2);ctx2d.fill();}}
+  }else if(P.selectedEffect==="Dash"){
+    ctx2d.strokeStyle=col;ctx2d.lineWidth=sw;ctx2d.setLineDash([6,4]);
+    for(const b of blobs){
+      const pts=getContourPts(b);if(!pts)continue;
+      ctx2d.beginPath();ctx2d.moveTo(pts[0].x,pts[0].y);for(let i=1;i<pts.length;i++)ctx2d.lineTo(pts[i].x,pts[i].y);ctx2d.closePath();ctx2d.stroke();
+    }
+    ctx2d.setLineDash([]);
+  }else if(P.selectedEffect==="Scope"){
+    ctx2d.strokeStyle=col;ctx2d.lineWidth=sw;
+    for(const b of blobs){
+      const r=Math.max(b.bw,b.bh)/1.8;
+      ctx2d.beginPath();ctx2d.arc(b.x,b.y,r,0,Math.PI*2);ctx2d.stroke();
+      ctx2d.beginPath();ctx2d.moveTo(b.x-r,b.y);ctx2d.lineTo(b.x+r,b.y);ctx2d.moveTo(b.x,b.y-r);ctx2d.lineTo(b.x,b.y+r);ctx2d.stroke();
+    }
+  }else if(P.selectedEffect==="Win2K"){
+    ctx2d.font="10px monospace";
+    for(const b of blobs){
+      ctx2d.fillStyle=col;ctx2d.fillText("ID:"+b.id,b.bx,b.by-5);
+      ctx2d.strokeStyle=col;ctx2d.lineWidth=sw;ctx2d.strokeRect(b.bx-2,b.by-2,b.bw+4,b.bh+4);
+    }
+  }else if(P.selectedEffect==="Glow"){
+    ctx2d.shadowColor=col;ctx2d.shadowBlur=12;ctx2d.strokeStyle=col;ctx2d.lineWidth=sw;
+    for(const b of blobs){
+      const pts=getContourPts(b);if(!pts)continue;
+      ctx2d.beginPath();ctx2d.moveTo(pts[0].x,pts[0].y);for(let i=1;i<pts.length;i++)ctx2d.lineTo(pts[i].x,pts[i].y);ctx2d.closePath();ctx2d.stroke();
+    }
+    ctx2d.shadowBlur=0;
+  }else if(P.selectedEffect==="Backdrop"){
+    ctx2d.save();ctx2d.fillStyle="rgba(0,0,0,.3)";
+    for(const b of blobs){const pts=getContourPts(b);if(!pts)continue;ctx2d.beginPath();ctx2d.moveTo(pts[0].x,pts[0].y);for(let i=1;i<pts.length;i++)ctx2d.lineTo(pts[i].x,pts[i].y);ctx2d.closePath();ctx2d.fill();}
+    ctx2d.restore();
+    ctx2d.strokeStyle=col;ctx2d.lineWidth=sw;
+    for(const b of blobs){const pts=getContourPts(b);if(!pts)continue;ctx2d.beginPath();ctx2d.moveTo(pts[0].x,pts[0].y);for(let i=1;i<pts.length;i++)ctx2d.lineTo(pts[i].x,pts[i].y);ctx2d.closePath();ctx2d.stroke();}
+  }else if(P.selectedEffect==="Outline"){
+    ctx2d.strokeStyle=col;ctx2d.lineWidth=sw;
+    for(const b of blobs)ctx2d.strokeRect(b.bx-3,b.by-3,b.bw+6,b.bh+6);
+  }else if(P.selectedEffect==="Label"){
+    drawLabelsLayer(ctx2d,blobs);
+  }
+}
+
+function drawFillLayer(ctx2d,blobs){
+  if(!P.fillEnabled)return;
+  ctx2d.save();ctx2d.globalAlpha=0.25;ctx2d.fillStyle=P.contourColor;
+  for(const b of blobs){
+    const pts=getContourPts(b);if(!pts)continue;
+    ctx2d.beginPath();ctx2d.moveTo(pts[0].x,pts[0].y);for(let i=1;i<pts.length;i++)ctx2d.lineTo(pts[i].x,pts[i].y);ctx2d.closePath();ctx2d.fill();
+  }
+  ctx2d.restore();
+}
+
+function drawLinesLayer(ctx2d,blobs){
+  if(P.connectionRate===0||blobs.length<2)return;
+  const col=P.contourColor;
+  ctx2d.save();ctx2d.globalAlpha=P.connectionRate;ctx2d.strokeStyle=col;
+  ctx2d.lineWidth=P.strokeWidth*.5;ctx2d.lineCap="round";
+  const maxDist=200,n=blobs.length;
+
+  if(P.connectionStyle==="all"){
+    for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){
+      ctx2d.beginPath();ctx2d.moveTo(blobs[i].x,blobs[i].y);ctx2d.lineTo(blobs[j].x,blobs[j].y);ctx2d.stroke();
+    }
+  }else if(P.connectionStyle==="chain"){
+    const sorted=[...blobs].sort((a,bb)=>(a.id||0)-(bb.id||0));
+    for(let i=0;i<sorted.length-1;i++){
+      const a=sorted[i],b=sorted[i+1];
+      const dx=a.x-b.x,dy=a.y-b.y,d=Math.sqrt(dx*dx+dy*dy);
+      if(d<maxDist){
+        ctx2d.beginPath();ctx2d.moveTo(a.x,a.y);ctx2d.lineTo(b.x,b.y);ctx2d.stroke();
+      }
+    }
+  }else if(P.connectionStyle==="wave"){
+    const sorted=[...blobs].sort((a,bb)=>(a.id||0)-(bb.id||0));
+    for(let i=0;i<sorted.length-1;i++){
+      const a=sorted[i],b=sorted[i+1];
+      const mx=(a.x+b.x)/2,my=(a.y+b.y)/2;
+      ctx2d.beginPath();ctx2d.moveTo(a.x,a.y);ctx2d.quadraticCurveTo(mx,my-30,b.x,b.y);ctx2d.stroke();
+    }
+  }else{
+    for(let i=0;i<n;i++){
+      const a=blobs[i],dists=[];
+      for(let j=0;j<n;j++){if(j===i)continue;const b=blobs[j],dx=a.x-b.x,dy=a.y-b.y,d=dx*dx+dy*dy;if(d<maxDist*maxDist)dists.push({idx:j,dist:d});}
+      dists.sort((a,b)=>a.dist-b.dist);
+      for(let k=0;k<Math.min(2,dists.length);k++){const b=blobs[dists[k].idx];ctx2d.beginPath();ctx2d.moveTo(a.x,a.y);ctx2d.lineTo(b.x,b.y);ctx2d.stroke();}
+    }
+  }
+  ctx2d.restore();
+}
+
+function drawLabelsLayer(ctx2d,blobs){
+  if(!P.textEnabled)return;
+  const fs=Math.max(8,P.fontSize);ctx2d.font=fs+"px monospace";
+  for(const b of blobs){
+    let text="";
+    if(P.textContent==="random")text=String(Math.floor(1000+Math.random()*9000));
+    else if(P.textContent==="position")text=b.x+","+b.y;
+    else text=String(blobs.length);
+    let tx=b.x-fs*1.2,ty=b.y-3;
+    if(P.textPosition==="top")ty=b.y-Math.max(b.bh,b.bw)/2-fs;
+    else if(P.textPosition==="bottom")ty=b.by+b.bh+fs+4;
+    ctx2d.fillStyle=P.contourColor;
+    ctx2d.fillText(text,tx,ty);
+  }
+}
+
+function drawCentroidDots(ctx2d,blobs){
+  if(!P.centroidEnabled||!blobs.length)return;
+  ctx2d.fillStyle=P.contourColor;ctx2d.beginPath();
+  for(const b of blobs){ctx2d.moveTo(b.x+3,b.y);ctx2d.arc(b.x,b.y,3,0,Math.PI*2);}
+  ctx2d.fill();
+}
+
+function drawFilterLayer(ctx2d) { }
+
+// ============================
+// MAIN DRAW LOOP
+// ============================
+function drawLoop(){
+  if(!video||video.readyState<2){requestAnimationFrame(drawLoop);return;}
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.drawImage(video,0,0,canvas.width,canvas.height);
+  const time=video.currentTime;
+  const{prev,next}=findBracketingFrames(time);
+  const blobs=interpolateBlobs(prev,next,time);
+  if(time<0.1){trailPrevCentroids={};if(trailOverlay)trailOverlay.getContext("2d").clearRect(0,0,trailOverlay.width,trailOverlay.height);}
+
+  drawFillLayer(ctx,blobs);
+  drawEffectLayer(ctx,blobs);
+  drawLinesLayer(ctx,blobs);
+  drawTrail(ctx,blobs);
+  drawCentroidDots(ctx,blobs);
+  drawLabelsLayer(ctx,blobs);
+  drawFilterLayer(ctx);
+  drawCropOverlay();
+
+  requestAnimationFrame(drawLoop);
+}
+
+// ============================
+// EXPORT MP4
+// ============================
+async function seekTo(t) {
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => { video.onseeked = null; resolve(); }, 5000);
+    video.onseeked = () => { clearTimeout(timeout); video.onseeked = null; resolve(); };
+    if (Math.abs(video.currentTime - t) < 0.01) { clearTimeout(timeout); resolve(); return; }
+    video.currentTime = t;
+  });
+}
+
+function getExportDimensions() {
+  if (P.exportResolution === "instagram") return { ew: 1080, eh: 1920 };
+  return { ew: canvas.width, eh: canvas.height };
+}
+
+async function startExportMP4() {
+  if (!window.MP4Muxer) { alert("MP4 muxer not loaded. Wait a moment and try again."); return; }
+  if (typeof VideoEncoder === "undefined") { alert("WebCodecs not supported. Please use Chrome or Edge."); return; }
+
+  isExporting = true;
+  exportBtn.disabled = true;
+  exportBtn.textContent = "⏹ Stop";
+  progressBar.classList.add("visible");
+  progressLabel.textContent = "Starting MP4…";
+  progressFill.style.width = "0%";
+
+  const { ew, eh } = getExportDimensions();
+  const w = canvas.width, h = canvas.height;
+  const fps = 30;
+  const dur = video.duration;
+  const totalFrames = Math.ceil(dur * fps);
+  
+  // Reset trail for sequential rendering
+  resetTrail(w, h);
+  exportCanvas.width = ew;
+  exportCanvas.height = eh;
+
+  let muxer;
+  try {
+    muxer = new window.MP4Muxer.Muxer({
+      target: new window.MP4Muxer.ArrayBufferTarget(),
+      video: { codec: "avc", width: ew, height: eh },
+      firstTimestampBehavior: "offset",
+      fastStart: false
+    });
+  } catch (e) {
+    alert("Muxer init error: " + e.message);
+    isExporting = false;
+    progressBar.classList.remove("visible");
+    exportBtn.disabled = false;
+    exportBtn.textContent = "⬇ Export MP4";
+    return;
+  }
+
+  const encoder = new VideoEncoder({
+    output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+    error: e => console.error("Encoder error:", e)
+  });
+  
+  // avc1.640028 = H.264 High Profile @ Level 4.0 (max compatibility for Instagram)
+  const codecStr = P.exportResolution === "instagram" ? "avc1.640028" : "avc1.42001f";
+  // Higher bitrate for Instagram (20 Mbps for 1080p)
+  const bitrate = P.exportResolution === "instagram" ? 20000000 : 8000000;
+  
+  try {
+    await encoder.configure({ codec: codecStr, width: ew, height: eh, bitrate: bitrate, framerate: fps });
+  } catch (e) {
+    alert("Encoder configure error: " + e.message);
+    isExporting = false;
+    progressBar.classList.remove("visible");
+    exportBtn.disabled = false;
+    exportBtn.textContent = "⬇ Export MP4";
+    return;
+  }
+
+  video.pause();
+
+  try {
+    for (let i = 0; i < totalFrames; i++) {
+      if (!isExporting) break;
+
+      const targetTime = i / fps;
+      await seekTo(targetTime);
+
+      // Draw fresh frame on canvas
+      ctx.clearRect(0, 0, w, h);
+      ctx.drawImage(video, 0, 0, w, h);
+
+      const time = video.currentTime;
+      const { prev, next } = findBracketingFrames(time);
+      const blobs = interpolateBlobs(prev, next, time);
+
+      drawFillLayer(ctx, blobs);
+      drawEffectLayer(ctx, blobs);
+      drawLinesLayer(ctx, blobs);
+      drawTrail(ctx, blobs);
+      drawCentroidDots(ctx, blobs);
+      drawLabelsLayer(ctx, blobs);
+
+      // Crop and resize to export canvas
+      if (P.cropMode === "full") {
+        exportCtx.clearRect(0, 0, ew, eh);
+        exportCtx.drawImage(canvas, 0, 0, ew, eh);
+      } else {
+        const crop = getCropRegion(w, h, blobs);
+        exportCtx.clearRect(0, 0, ew, eh);
+        exportCtx.drawImage(canvas, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, ew, eh);
+      }
+
+      const frame = new VideoFrame(exportCanvas, { timestamp: i * (1000000 / fps) });
+      await encoder.queueReady;
+      encoder.encode(frame, { keyFrame: i % 30 === 0 });
+      frame.close();
+
+      const p = Math.round((i + 1) / totalFrames * 100);
+      progressFill.style.width = p + "%";
+      const resLabel = P.exportResolution === "instagram" ? "Instagram 1080×1920" : `${ew}×${eh}`;
+      progressLabel.textContent = "Encoding MP4 (${resLabel})… " + p + "% (frame " + (i + 1) + "/" + totalFrames + ")";
+    }
+
+    if (isExporting) {
+      progressLabel.textContent = "Finalizing…";
+      await encoder.flush();
+      muxer.finalize();
+      const buf = muxer.target.buffer;
+      const suffix = P.exportResolution === "instagram" ? "_reels" : "";
+      downloadBlob(new Blob([buf], { type: "video/mp4" }), "contour_vfx" + suffix + ".mp4");
+      progressBar.classList.remove("visible");
+      exportStatus.textContent = "✅ MP4 exported!";
+      exportStatus.classList.add("visible");
+      setTimeout(() => exportStatus.classList.remove("visible"), 3000);
+    }
+  } catch (e) {
+    log("export", "MP4 export failed", { error: e.message, stack: e.stack, params: {...P} });
+    console.error("MP4 export crashed:", e);
+    alert("MP4 export failed: " + e.message);
+    progressBar.classList.remove("visible");
+  }
+
+  exportBtn.disabled = false;
+  exportBtn.textContent = "⬇ Export MP4";
+  isExporting = false;
+  try { encoder.close(); } catch (e) {}
+  resetTrail(w, h);
+}
+
+function startExport(){
+  if(!isExporting){log("export", "Export started", { params: {...P} });startExportMP4();}
+  else {log("export","Export stopped");stopExport();}
+}
+function stopExport(){
+  isExporting=false;progressLabel.textContent="MP4 export stopped";setTimeout(()=>progressBar.classList.remove("visible"),2000);
+  exportBtn.disabled=false;exportBtn.textContent="⬇ Export MP4";
+}
+function downloadBlob(blob,filename){
+  const url=URL.createObjectURL(blob),a=document.createElement("a");
+  a.href=url;a.download=filename;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+}
+
+exportBtn.addEventListener("click",startExport);
+redetectBtn.addEventListener("click",async()=>{if(isProcessing||!currentVideoURL)return;if(!video.src)return;await reDetect();});
+
+async function reDetect(){
+  log("redetect", "Re-detect triggered", { params: {...P} });
+  isProcessing=true;progressBar.classList.add("visible");exportOverlay.style.display="none";
+  const t0 = performance.now();
+  await detectBlobs();
+  const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
+  log("redetect", "Re-detect complete", { frames: all_frame_data.length, elapsed_s: elapsed });
+  detectionParamsSnapshot={cl:P.cannyLow,ch:P.cannyHigh,bk:P.blurKernel,mi:P.blobMin,ma:P.blobMax};
+  const dur=video.duration,tf=Math.floor(dur*PROCESSING_FPS);
+  for(let i=0;i<all_frame_data.length;i++)all_frame_data[i].time=i/PROCESSING_FPS;
+  isProcessing=false;progressBar.classList.remove("visible");exportOverlay.style.display="flex";
+  resetTrail(canvas.width,canvas.height);video.currentTime=0;video.play();
+}
+
+// ============================
+// TOOLTIPS
+// ============================
+const TIPS = {
+  "tip-detect": "More blobs  ↓ C-Low, ↓ Blur, ↓ Blob Min\nFewer blobs  ↑ C-High, ↑ Blur, ↑ Blob Max\nC-Low/C-High = Canny edge detection thresholds (0–255)",
+  "tip-blob": "Min = smallest blob area (px²)\nMax = largest blob area (px²)\nLower Min → more small blobs detected\nToo low → noise and artifacts get picked up",
+};
+const tipPopup = document.getElementById("tip-popup");
+const tipPopupText = document.getElementById("tip-popup-text");
+
+function showTip(el) {
+  const msg = TIPS[el.id];
+  if (!msg) return;
+  tipPopupText.textContent = msg;
+  tipPopup.classList.add("visible");
+}
+function hideTip() { tipPopup.classList.remove("visible"); }
+
+Object.keys(TIPS).forEach(id => {
+  const el = document.getElementById(id);
+  if (el) { el.addEventListener("mouseenter", () => showTip(el)); el.addEventListener("mouseleave", hideTip); el.addEventListener("touchstart", (e) => { e.preventDefault(); showTip(el); setTimeout(hideTip, 3000); }); }
+});
+
+// ============================
+// INIT
+// ============================
+setupControls();
+</script>
+</html>

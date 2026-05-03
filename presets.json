@@ -51,7 +51,7 @@
     "detection": {"crop_offset": 0.0, "canny_low": 30, "canny_high": 100,
                   "min_blob_size": 200, "max_blob_size": 200000, "blur_kernel": 3},
     "contour": {"enabled": true, "color": [0, 255, 0], "thickness": 1,
-                "epsilon_ratio": 0.0, "use_convex_hull": false},
+                "epsilon_ratio": 0.0, "use_convex_hull": false, "color_cycle_per_id": true},
     "fill": {"enabled": false, "color": [255, 0, 255], "opacity": 0.2},
     "bbox": {"enabled": false, "color": [255, 0, 0], "thickness": 1},
     "trail": {"enabled": true, "length_frames": 50, "color": [0, 255, 200], "thickness": 2},

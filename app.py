@@ -16,6 +16,9 @@ from ui.sections import render_param_panel
 from ui.player import render_preview
 
 
+st.set_page_config(page_title="Contour VFX Overlay", layout="wide")
+
+
 def _check_ffmpeg() -> None:
     if shutil.which("ffmpeg") is None:
         st.error(
@@ -26,8 +29,6 @@ def _check_ffmpeg() -> None:
 
 
 _check_ffmpeg()
-
-st.set_page_config(page_title="Contour VFX Overlay", layout="wide")
 
 # --- Session-scoped temp directory ----------------------------------------
 if "session_dir" not in st.session_state:
@@ -61,7 +62,10 @@ def _detect(preview_path: str, detection_params: dict):
 def _render(preview_path: str, _detection_params: dict, render_params: dict, blobs_key: str):
     """`blobs_key` ties this cache entry to the detection result."""
     blobs = _detect(preview_path, _detection_params)
-    dst = SESSION_DIR / f"render_{blobs_key}_{abs(hash(str(render_params)))}.mp4"
+    # Create a deterministic filename based on the parameters
+    import hashlib
+    param_hash = hashlib.sha256(str(render_params).encode()).hexdigest()[:16]
+    dst = SESSION_DIR / f"render_{blobs_key}_{param_hash}.mp4"
     render_clip(
         src=Path(preview_path),
         dst=dst,

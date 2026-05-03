@@ -72,20 +72,37 @@ def render_clip(
         thickness=render_params["trail"]["thickness"],
     )
 
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-    writer = cv2.VideoWriter(str(dst), fourcc, fps, (width, height))
-
+    # Use FFmpeg pipe for proper H.264 encoding
+    import subprocess
+    cmd = [
+        "ffmpeg", "-y",
+        "-f", "rawvideo",
+        "-vcodec", "rawvideo",
+        "-s", f"{width}x{height}",
+        "-pix_fmt", "bgr24",
+        "-r", str(fps),
+        "-i", "-",  # Input from stdin
+        "-vcodec", "libx264",
+        "-crf", "23",  # For preview
+        "-pix_fmt", "yuv420p",
+        "-preset", "ultrafast",
+        str(dst)
+    ]
+    
+    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
+    
     try:
         for i in range(n_frames):
             ok, frame = cap.read()
             if not ok:
                 break
             rendered = render_frame(frame, per_frame_blobs[i], render_params, trail_renderer=trail)
-            writer.write(rendered)
+            proc.stdin.write(rendered.tobytes())
             if progress_callback is not None:
                 progress_callback(i + 1, n_frames)
     finally:
         cap.release()
-        writer.release()
+        proc.stdin.close()
+        proc.wait()
 
     return dst

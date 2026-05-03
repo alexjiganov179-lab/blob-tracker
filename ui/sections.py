@@ -101,7 +101,7 @@ def render_param_panel() -> dict:
         l["bg_color"] = (bgr[0], bgr[1], bgr[2], bg_alpha)
 
     st.divider()
-    if st.button("🔄 Reset to Neon Debug"):
+    if st.button("🔄 Reset to defaults"):
         st.session_state["params"] = load_presets()["Neon Debug"]
         st.rerun()
 
