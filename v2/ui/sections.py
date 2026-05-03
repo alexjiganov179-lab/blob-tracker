@@ -140,3 +140,36 @@ def render_layer_sections(p: dict) -> None:
         l["show_id"] = st.checkbox("Показывать ID", value=l["show_id"], key="l_id")
         l["show_area"] = st.checkbox("Показывать площадь", value=l["show_area"], key="l_area")
         l["font_size"] = st.slider("Размер текста", 8, 24, int(l["font_size"]), key="l_font")
+
+
+def render_advanced_section(p: dict) -> None:
+    """Collapsed expander with advanced/rarely-used params."""
+    with st.expander("▸ Дополнительно (центроид, сглаживание…)", expanded=False):
+
+        st.caption("Контур — дополнительно")
+        c = p["contour"]
+        c["epsilon_ratio"] = st.slider(
+            "Сглаживание контура (epsilon)", 0.0, 0.05, float(c["epsilon_ratio"]), 0.001, key="adv_eps"
+        )
+        c["use_convex_hull"] = st.checkbox(
+            "Выпуклая оболочка", value=c["use_convex_hull"], key="adv_hull"
+        )
+
+        st.caption("Подписи — дополнительно")
+        l = p["labels"]
+        l["show_coords"] = st.checkbox("Показывать координаты", value=l["show_coords"], key="adv_coords")
+        l["text_color"] = _hex_to_bgr(
+            st.color_picker("Цвет текста", _bgr_to_hex(l["text_color"]), key="adv_txt_col")
+        )
+        bg_hex = st.color_picker("Цвет фона подписи", _bgr_to_hex(l["bg_color"][:3]), key="adv_bg_col")
+        bg_alpha = st.slider("Прозрачность фона", 0, 255, int(l["bg_color"][3]), key="adv_bg_alpha")
+        bgr = _hex_to_bgr(bg_hex)
+        l["bg_color"] = (bgr[0], bgr[1], bgr[2], bg_alpha)
+
+        st.caption("Центроид")
+        ct = p["centroid"]
+        ct["enabled"] = st.toggle("Включить центроид", value=ct["enabled"], key="adv_ct_on")
+        ct["color"] = _hex_to_bgr(
+            st.color_picker("Цвет", _bgr_to_hex(ct["color"]), key="adv_ct_col")
+        )
+        ct["radius"] = st.slider("Радиус", 2, 20, int(ct["radius"]), key="adv_ct_rad")
