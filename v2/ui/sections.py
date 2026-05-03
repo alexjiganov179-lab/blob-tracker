@@ -14,3 +14,26 @@ def _hex_to_bgr(hex_str: str) -> tuple[int, int, int]:
 def _bgr_to_hex(bgr: tuple) -> str:
     b, g, r = bgr[0], bgr[1], bgr[2]
     return f"#{r:02x}{g:02x}{b:02x}"
+
+
+SENSITIVITY_PRESETS: dict[str, dict] = {
+    "low":  {"canny_low": 80,  "canny_high": 200, "blur_kernel": 9},
+    "mid":  {"canny_low": 50,  "canny_high": 150, "blur_kernel": 5},
+    "high": {"canny_low": 30,  "canny_high": 80,  "blur_kernel": 3},
+}
+
+_SENSITIVITY_LABELS = {
+    "low":  "Мало объектов",
+    "mid":  "Средне",
+    "high": "Много объектов",
+}
+
+
+def _sensitivity_level(d: dict) -> str:
+    """Return which sensitivity preset matches detection params, or 'custom'."""
+    for level, preset in SENSITIVITY_PRESETS.items():
+        if (d["canny_low"] == preset["canny_low"] and
+                d["canny_high"] == preset["canny_high"] and
+                d["blur_kernel"] == preset["blur_kernel"]):
+            return level
+    return "custom"

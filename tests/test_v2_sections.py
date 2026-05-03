@@ -21,3 +21,33 @@ def test_bgr_to_hex_converts_correctly():
 def test_roundtrip():
     original = "#1a2b3c"
     assert _bgr_to_hex(_hex_to_bgr(original)) == original
+
+
+from v2.ui.sections import SENSITIVITY_PRESETS, _sensitivity_level
+
+
+def test_sensitivity_level_detects_low():
+    d = {"canny_low": 80, "canny_high": 200, "blur_kernel": 9, "min_blob_size": 300, "max_blob_size": 200000, "crop_offset": 0.0}
+    assert _sensitivity_level(d) == "low"
+
+
+def test_sensitivity_level_detects_mid():
+    d = {"canny_low": 50, "canny_high": 150, "blur_kernel": 5, "min_blob_size": 300, "max_blob_size": 200000, "crop_offset": 0.0}
+    assert _sensitivity_level(d) == "mid"
+
+
+def test_sensitivity_level_detects_high():
+    d = {"canny_low": 30, "canny_high": 80, "blur_kernel": 3, "min_blob_size": 300, "max_blob_size": 200000, "crop_offset": 0.0}
+    assert _sensitivity_level(d) == "high"
+
+
+def test_sensitivity_level_custom_when_no_match():
+    d = {"canny_low": 99, "canny_high": 199, "blur_kernel": 7, "min_blob_size": 300, "max_blob_size": 200000, "crop_offset": 0.0}
+    assert _sensitivity_level(d) == "custom"
+
+
+def test_sensitivity_presets_have_required_keys():
+    for level, preset in SENSITIVITY_PRESETS.items():
+        assert "canny_low" in preset
+        assert "canny_high" in preset
+        assert "blur_kernel" in preset
