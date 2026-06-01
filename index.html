@@ -518,6 +518,7 @@ let all_frame_data = [];
 let isProcessing = false;
 let isExporting = false;
 let currentVideoURL = null;
+let currentVideoName = null;
 
 // ============================
 // DEBUG LOGGER
@@ -816,7 +817,16 @@ document.getElementById("sample-btn").addEventListener("click", () => {
   progressLabel.textContent = "Loading sample…";
   startProcessing("https://www.w3schools.com/html/mov_bbb.mp4");
 });
-function loadFile(file) { startProcessing(URL.createObjectURL(file)); }
+function loadFile(file) { currentVideoName = file.name; startProcessing(URL.createObjectURL(file)); }
+
+// Build an export filename based on the source video name, e.g. "myclip_tracked.mp4".
+function trackedFilename(ext) {
+  const base = (currentVideoName || "contour_vfx")
+    .replace(/\.[^/.]+$/, "")            // strip extension
+    .replace(/[\\/:*?"<>|]+/g, "_")      // strip filesystem-unsafe chars
+    .trim() || "contour_vfx";
+  return base + "_tracked." + ext;
+}
 
 // ============================
 // VIDEO LOADING + DETECTION
@@ -1116,7 +1126,9 @@ function interpolateBlobs(prev,next,time){
     if(nb){
       const t=(time-prev.time)/(next.time-prev.time);
       result.push({id,x:Math.round(lerp(pb.x,nb.x,t)),y:Math.round(lerp(pb.y,nb.y,t)),
-        area:lerp(pb.area,nb.area,t),bx:pb.x,by:pb.y,bw:pb.bw,bh:pb.bh,pts:pb.pts});
+        area:lerp(pb.area,nb.area,t),
+        bx:Math.round(lerp(pb.bx,nb.bx,t)),by:Math.round(lerp(pb.by,nb.by,t)),
+        bw:lerp(pb.bw,nb.bw,t),bh:lerp(pb.bh,nb.bh,t),pts:pb.pts});
     }else{
       result.push({id,x:pb.x,y:pb.y,area:pb.area,bx:pb.bx,by:pb.by,bw:pb.bw,bh:pb.bh,pts:pb.pts});
     }
@@ -1506,8 +1518,7 @@ async function startExportMP4() {
       await encoder.flush();
       muxer.finalize();
       const buf = muxer.target.buffer;
-      const suffix = P.exportResolution === "instagram" ? "_reels" : "";
-      downloadBlob(new Blob([buf], { type: "video/mp4" }), "contour_vfx" + suffix + ".mp4");
+      downloadBlob(new Blob([buf], { type: "video/mp4" }), trackedFilename("mp4"));
       progressBar.classList.remove("visible");
       exportStatus.textContent = "✅ MP4 exported!";
       exportStatus.classList.add("visible");
