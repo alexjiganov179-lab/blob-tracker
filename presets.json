@@ -58,5 +58,18 @@
     "centroid": {"enabled": true, "color": [255, 0, 0], "radius": 3},
     "labels": {"enabled": false, "show_id": false, "show_area": false, "show_coords": false,
                "font_size": 10, "text_color": [255, 255, 255], "bg_color": [0, 0, 0, 0]}
+  },
+  "Grouped Branches": {
+    "detection": {"crop_offset": 0.0, "canny_low": 50, "canny_high": 150,
+                  "min_blob_size": 1000, "max_blob_size": 500000, "blur_kernel": 5,
+                  "grouping_mode": "regions", "merge_kernel": 25, "merge_iterations": 1},
+    "contour": {"enabled": false, "color": [0, 255, 255], "thickness": 2,
+                "epsilon_ratio": 0.005, "use_convex_hull": false},
+    "fill": {"enabled": false, "color": [0, 0, 255], "opacity": 0.3},
+    "bbox": {"enabled": true, "color": [255, 128, 0], "thickness": 2},
+    "trail": {"enabled": false, "length_frames": 30, "color": [0, 255, 255], "thickness": 2},
+    "centroid": {"enabled": false, "color": [0, 255, 255], "radius": 4},
+    "labels": {"enabled": false, "show_id": false, "show_area": false, "show_coords": false,
+               "font_size": 12, "text_color": [255, 255, 255], "bg_color": [0, 0, 0, 180]}
   }
 }

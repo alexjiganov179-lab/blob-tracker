@@ -395,6 +395,22 @@
         <input type="range" id="blur-kernel" min="1" max="31" step="2" value="5"/>
         <span class="sv" id="blur-kernel-val">5</span>
       </div>
+
+      <div class="sub">Grouping</div>
+      <div class="seg" id="grouping-mode">
+        <button data-val="contours" class="active" title="Keep every detected fragment separate">Detail</button>
+        <button data-val="regions" title="Merge nearby fragments into one object">Grouped</button>
+      </div>
+      <div class="srow" style="margin-top:6px;margin-bottom:4px">
+        <span style="font-size:9px;color:#444;min-width:28px">Merge</span>
+        <input type="range" id="merge-kernel" min="1" max="61" step="2" value="1"/>
+        <span class="sv" id="merge-kernel-val">1</span>
+      </div>
+      <div class="srow">
+        <span style="font-size:9px;color:#444;min-width:28px">Passes</span>
+        <input type="range" id="merge-iterations" min="1" max="5" step="1" value="1"/>
+        <span class="sv" id="merge-iterations-val">1</span>
+      </div>
     </div>
 
     <!-- 10. Crop -->
@@ -685,6 +701,7 @@ function setupControls() {
   setupSeg("font-size", "fontSize", parseInt);
   setupSeg("crop-mode", "cropMode", String);
   setupSeg("export-resolution", "exportResolution", String);
+  setupSeg("grouping-mode", "groupingMode", String);
 
   // Icon rows
   setupIconRow("shape-selector", "shape");
@@ -705,6 +722,8 @@ function setupControls() {
   setupSlider("canny-low", "cannyLow", "canny-low-val", v => v);
   setupSlider("canny-high", "cannyHigh", "canny-high-val", v => v);
   setupSlider("blur-kernel", "blurKernel", "blur-kernel-val", v => v);
+  setupSlider("merge-kernel", "mergeKernel", "merge-kernel-val", v => v);
+  setupSlider("merge-iterations", "mergeIterations", "merge-iterations-val", v => v);
 
   // Color palette
   buildPalette();
@@ -724,6 +743,7 @@ function setupControls() {
       textPosition:"center", textContent:"random", fontSize:12,
       separateColors:false,
       centroidEnabled:false, useConvexHull:false,
+      groupingMode:"contours", mergeKernel:1, mergeIterations:1,
       cropMode:"full", exportResolution:"preview",
     };
     // Reset checkboxes
@@ -738,12 +758,17 @@ function setupControls() {
     document.getElementById("canny-low").value = 50;
     document.getElementById("canny-high").value = 150;
     document.getElementById("blur-kernel").value = 5;
+    document.getElementById("merge-kernel").value = 1;
+    document.getElementById("merge-iterations").value = 1;
     document.getElementById("stroke-width-val").textContent = "2px";
     document.getElementById("blob-min-val").textContent = "300";
     document.getElementById("blob-max-val").textContent = "200k";
     document.getElementById("canny-low-val").textContent = "50";
     document.getElementById("canny-high-val").textContent = "150";
     document.getElementById("blur-kernel-val").textContent = "5";
+    document.getElementById("merge-kernel-val").textContent = "1";
+    document.getElementById("merge-iterations-val").textContent = "1";
+    document.querySelectorAll("#grouping-mode button").forEach(b => b.classList.toggle("active", b.dataset.val === "contours"));
     buildPalette();
     log("params", "Reset to defaults");
   });
