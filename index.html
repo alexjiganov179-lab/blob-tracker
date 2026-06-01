@@ -832,45 +832,112 @@ function loadFile(file) { startProcessing(URL.createObjectURL(file)); }
 // ============================
 // VIDEO LOADING + DETECTION
 // ============================
+// Resolve when metadata is ready; reject on load error OR after a timeout, so
+// the "Loading video…" overlay can never hang forever (root cause of the freeze).
+// Handlers are attached BEFORE src is set to avoid missing a cached load event.
+function loadVideoMetadata(videoEl, url, timeoutMs = 30000) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const cleanup = () => {
+      clearTimeout(timer);
+      videoEl.onloadedmetadata = null;
+      videoEl.onerror = null;
+    };
+    const timer = setTimeout(() => {
+      if (settled) return; settled = true; cleanup();
+      reject(new Error("Видео не загрузилось за " + Math.round(timeoutMs / 1000) +
+        " с. Проверь файл и сеть. Если страница открыта как file://, запусти её через локальный сервер."));
+    }, timeoutMs);
+    videoEl.onloadedmetadata = () => { if (settled) return; settled = true; cleanup(); resolve(); };
+    videoEl.onerror = () => {
+      if (settled) return; settled = true; cleanup();
+      reject(new Error("Не удалось загрузить видео: формат не поддерживается или файл недоступен."));
+    };
+    videoEl.src = url;
+  });
+}
+
+// Seek that never hangs: resolve on 'seeked' or after a bounded poll (mirrors the
+// detection-loop pattern). Setting currentTime to its current value won't fire
+// 'seeked', so a plain await there could stall — this guards against that.
+function seekVideo(videoEl, time, maxTries = 500) {
+  return new Promise((resolve) => {
+    let tries = 0;
+    const check = () => {
+      if (!videoEl.seeking) return resolve();
+      if (tries++ > maxTries) return resolve();
+      setTimeout(check, 10);
+    };
+    videoEl.onseeked = check;
+    videoEl.currentTime = time;
+    check();
+  });
+}
+
+// Safety net: never let an uncaught error/rejection leave the loading overlay
+// spinning forever — that is exactly what froze the previous build.
+function recoverFromFatal(msg) {
+  isProcessing = false;
+  if (progressBar) progressBar.classList.remove("visible");
+  if (progressLabel) progressLabel.textContent = "Ошибка: " + msg;
+  if (dropZone) dropZone.classList.remove("hidden");
+  if (canvasWrap) canvasWrap.style.display = "none";
+}
+window.addEventListener("unhandledrejection", (ev) => {
+  const msg = String((ev.reason && ev.reason.message) || ev.reason);
+  log("error", "Unhandled promise rejection", { reason: msg });
+  if (isProcessing) recoverFromFatal(msg);
+});
+window.addEventListener("error", (ev) => {
+  log("error", "Uncaught error", { message: ev.message, source: ev.filename, line: ev.lineno });
+  if (isProcessing) recoverFromFatal(ev.message);
+});
+
 async function startProcessing(videoURL) {
   if (!cvReady) { alert("OpenCV.js is still loading — wait then retry."); return; }
   log("video", "startProcessing called", { params: {...P} });
   currentVideoURL = videoURL;
   all_frame_data = [];
-  video.src = videoURL;
+  isProcessing = true;
   dropZone.classList.add("hidden");
   canvasWrap.style.display = "block";
   progressBar.classList.add("visible");
   progressFill.style.width = "0%";
   progressLabel.textContent = "Loading video…";
   exportOverlay.classList.remove("visible");
-  await new Promise(r => { video.onloadedmetadata = r; });
+  try {
+    await loadVideoMetadata(video, videoURL);
 
-  const vw = video.videoWidth, vh = video.videoHeight;
-  const scale = MAX_PREVIEW_DIM / Math.min(vw, vh);
-  const targetW = Math.round(vw * scale), targetH = Math.round(vh * scale);
-  canvas.width = targetW;
-  canvas.height = targetH;
-  tempCanvas.width = targetW;
-  tempCanvas.height = targetH;
+    const vw = video.videoWidth, vh = video.videoHeight;
+    if (!vw || !vh) throw new Error("У видео нулевой размер кадра — файл повреждён?");
+    const scale = MAX_PREVIEW_DIM / Math.min(vw, vh);
+    const targetW = Math.round(vw * scale), targetH = Math.round(vh * scale);
+    canvas.width = targetW;
+    canvas.height = targetH;
+    tempCanvas.width = targetW;
+    tempCanvas.height = targetH;
 
-  await detectBlobs();
-  detectionParamsSnapshot = { cl:P.cannyLow, ch:P.cannyHigh, bk:P.blurKernel, mi:P.blobMin, ma:P.blobMax };
-  const dur = video.duration;
-  const tf = Math.floor(dur * PROCESSING_FPS);
-  for (let i=0;i<all_frame_data.length;i++) all_frame_data[i].time = i/PROCESSING_FPS;
+    await detectBlobs();
+    detectionParamsSnapshot = { cl:P.cannyLow, ch:P.cannyHigh, bk:P.blurKernel, mi:P.blobMin, ma:P.blobMax };
+    for (let i=0;i<all_frame_data.length;i++) all_frame_data[i].time = i/PROCESSING_FPS;
 
-  isProcessing = false;
-  progressBar.classList.remove("visible");
-  resetTrail(targetW, targetH);
-  video.muted = true;
-  video.currentTime = 0;
-  await new Promise(r => { video.onseeked = r; video.currentTime = 0; });
-  exportOverlay.classList.add("visible");
-  video.playbackRate = P.playbackSpeed;
-  video.play();
-  video.loop = true;
-  requestAnimationFrame(drawLoop);
+    resetTrail(targetW, targetH);
+    video.muted = true;
+    await seekVideo(video, 0);
+    exportOverlay.classList.add("visible");
+    video.playbackRate = P.playbackSpeed;
+    video.play();
+    video.loop = true;
+    requestAnimationFrame(drawLoop);
+  } catch (e) {
+    const msg = (e && e.message) || String(e);
+    log("video", "startProcessing failed", { error: msg });
+    recoverFromFatal(msg);
+    alert("Не удалось обработать видео:\n" + msg);
+  } finally {
+    isProcessing = false;
+    progressBar.classList.remove("visible");
+  }
 }
 
 // ============================
