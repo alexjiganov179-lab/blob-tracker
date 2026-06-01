@@ -936,20 +936,84 @@ function detectContours(frameMat) {
 }
 
 class CentroidTracker {
-  constructor(d){this.maxD=d*0.05;this.nextId=0;this.prev=[];}
+  // --- Tunable stabilization constants (adjust after watching real video) ---
+  static SMOOTHING_ALPHA = 0.4; // 0..1; lower = calmer/more inertia, higher = snappier
+  static MIN_AGE = 2;           // frames a track must persist before it is shown (kills ghosts)
+  static MAX_MISSED = 5;        // frames a track survives unmatched before deletion (dropout grace)
+
+  constructor(d){
+    this.maxD = d * 0.05;
+    this.nextId = 0;
+    this.tracks = [];           // live tracks: {id,x,y,bw,bh,area,pts,age,missed,visible,matched}
+  }
+
   update(blobs){
-    const consumed=new Set();
+    const A = CentroidTracker.SMOOTHING_ALPHA;
+    const consumed = new Set();
+    const nExisting = this.tracks.length; // only match against tracks present at frame start
+
+    // 1+2+3. Match detections to nearest live track; smooth matches, spawn candidates.
     for (const b of blobs){
-      let bestIdx=null,bestDist=this.maxD;
-      for (let i=0;i<this.prev.length;i++){
-        if(consumed.has(i))continue;
-        const dx=b.x-this.prev[i].x,dy=b.y-this.prev[i].y,d=Math.sqrt(dx*dx+dy*dy);
-        if(d<bestDist){bestDist=d;bestIdx=i;}
+      let bestIdx = null, bestDist = this.maxD;
+      for (let i=0;i<nExisting;i++){
+        if (consumed.has(i)) continue;
+        const t = this.tracks[i];
+        const dx = b.x - t.x, dy = b.y - t.y, d = Math.sqrt(dx*dx + dy*dy);
+        if (d < bestDist){ bestDist = d; bestIdx = i; }
       }
-      if(bestIdx===null){b.id=this.nextId++;}
-      else{b.id=this.prev[bestIdx].id;consumed.add(bestIdx);}
+      if (bestIdx === null){
+        // New candidate — position taken directly (no smoothing yet), no id until promoted.
+        this.tracks.push({
+          id: null, x: b.x, y: b.y, bw: b.bw, bh: b.bh, area: b.area,
+          pts: b.pts, age: 1, missed: 0, visible: false, matched: true,
+        });
+      } else {
+        const t = this.tracks[bestIdx];
+        t.x = t.x*(1-A) + b.x*A;
+        t.y = t.y*(1-A) + b.y*A;
+        t.bw = t.bw*(1-A) + b.bw*A;
+        t.bh = t.bh*(1-A) + b.bh*A;
+        t.area = t.area*(1-A) + b.area*A;
+        t.pts = b.pts;          // contour points passed through, not smoothed (out of scope)
+        t.missed = 0;
+        t.age++;
+        t.matched = true;
+        consumed.add(bestIdx);
+      }
     }
-    this.prev=blobs;return blobs;
+
+    // 4. Age out tracks that were not matched this frame; delete after MAX_MISSED.
+    const survivors = [];
+    for (const t of this.tracks){
+      if (!t.matched){
+        t.missed++;
+        if (t.missed > CentroidTracker.MAX_MISSED) continue; // drop dead track
+      }
+      t.matched = false; // reset flag for next frame
+      survivors.push(t);
+    }
+    this.tracks = survivors;
+
+    // 5. Promote tracks that have persisted long enough (assigns the permanent id).
+    for (const t of this.tracks){
+      if (!t.visible && t.age >= CentroidTracker.MIN_AGE){
+        t.visible = true;
+        t.id = this.nextId++;
+      }
+    }
+
+    // 6. Return only visible tracks in the renderer's expected blob shape.
+    return this.tracks.filter(t => t.visible).map(t => ({
+      id: t.id,
+      x: Math.round(t.x),
+      y: Math.round(t.y),
+      area: t.area,
+      bw: Math.round(t.bw),
+      bh: Math.round(t.bh),
+      bx: Math.round(t.x - t.bw/2),
+      by: Math.round(t.y - t.bh/2),
+      pts: t.pts,
+    }));
   }
 }
 
