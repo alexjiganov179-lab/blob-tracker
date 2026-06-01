@@ -563,6 +563,9 @@ let P = {
   separateColors: false,
   centroidEnabled: false,
   useConvexHull: false,
+  groupingMode: "contours",
+  mergeKernel: 1,
+  mergeIterations: 1,
   cropMode: "full",
   exportResolution: "preview",
 };
@@ -879,7 +882,7 @@ async function startProcessing(videoURL) {
     tempCanvas.height = targetH;
 
     await detectBlobs();
-    detectionParamsSnapshot = { cl:P.cannyLow, ch:P.cannyHigh, bk:P.blurKernel, mi:P.blobMin, ma:P.blobMax };
+    detectionParamsSnapshot = { cl:P.cannyLow, ch:P.cannyHigh, bk:P.blurKernel, mi:P.blobMin, ma:P.blobMax, gm:P.groupingMode, mk:P.mergeKernel, mit:P.mergeIterations };
     for (let i=0;i<all_frame_data.length;i++) all_frame_data[i].time = i/PROCESSING_FPS;
 
     video.muted = true;
@@ -913,23 +916,40 @@ function detectContours(frameMat) {
   } else { blurred = gray; }
   const edges = new cv.Mat();
   cv.Canny(blurred, edges, P.cannyLow, P.cannyHigh);
+  // Grouping: in "regions" mode, dilate the edge map so nearby fragments of one
+  // object merge into a single region instead of many small contours.
+  let mask = edges;
+  let kernel = null;
+  if (P.groupingMode === "regions" && P.mergeKernel > 1) {
+    const mergeKernel = Math.max(1, Math.round(P.mergeKernel));
+    const oddMergeKernel = mergeKernel % 2 === 0 ? mergeKernel + 1 : mergeKernel;
+    P.mergeKernel = oddMergeKernel;
+    kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(oddMergeKernel, oddMergeKernel));
+    mask = new cv.Mat();
+    cv.dilate(edges, mask, kernel, new cv.Point(-1, -1), Math.max(1, Math.round(P.mergeIterations)));
+  }
   const contours = new cv.MatVector();
   const hierarchy = new cv.Mat();
-  cv.findContours(edges, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+  cv.findContours(mask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
   const result = [];
   for (let i=0;i<contours.size();i++) {
     const c = contours.get(i);
     const area = cv.contourArea(c);
-    if (area<P.blobMin||area>P.blobMax) continue;
+    const rect = cv.boundingRect(c);
+    // Filter by the larger of contour area and bbox area, so thin/hollow shapes
+    // (e.g. balloon outlines) aren't wrongly rejected as too small.
+    const filterArea = Math.max(area, rect.width * rect.height);
+    if (filterArea<P.blobMin||filterArea>P.blobMax) continue;
     const m = cv.moments(c);
     let cx,cy;
-    if (m.m00===0){const r=cv.boundingRect(c);cx=r.x+r.width/2;cy=r.y+r.height/2;}
+    if (m.m00===0){cx=rect.x+rect.width/2;cy=rect.y+rect.height/2;}
     else {cx=Math.round(m.m10/m.m00);cy=Math.round(m.m01/m.m00);}
-    const rect = cv.boundingRect(c);
     const pts = [];
     for (let j=0;j<c.rows;j++) pts.push({x:c.data32S[j*2],y:c.data32S[j*2+1]});
-    result.push({x:cx,y:cy,area,bx:rect.x,by:rect.y,bw:rect.width,bh:rect.height,pts});
+    result.push({x:cx,y:cy,area:filterArea,bx:rect.x,by:rect.y,bw:rect.width,bh:rect.height,pts});
   }
+  if (mask !== edges) mask.delete();
+  if (kernel) kernel.delete();
   edges.delete();contours.delete();hierarchy.delete();
   if (blurred!==gray) blurred.delete();
   return result;
@@ -1504,7 +1524,7 @@ async function reDetect(){
   await detectBlobs();
   const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
   log("redetect", "Re-detect complete", { frames: all_frame_data.length, elapsed_s: elapsed });
-  detectionParamsSnapshot={cl:P.cannyLow,ch:P.cannyHigh,bk:P.blurKernel,mi:P.blobMin,ma:P.blobMax};
+  detectionParamsSnapshot={cl:P.cannyLow,ch:P.cannyHigh,bk:P.blurKernel,mi:P.blobMin,ma:P.blobMax,gm:P.groupingMode,mk:P.mergeKernel,mit:P.mergeIterations};
   const dur=video.duration,tf=Math.floor(dur*PROCESSING_FPS);
   for(let i=0;i<all_frame_data.length;i++)all_frame_data[i].time=i/PROCESSING_FPS;
   isProcessing=false;progressBar.classList.remove("visible");exportOverlay.style.display="flex";
