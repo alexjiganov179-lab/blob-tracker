@@ -127,6 +127,9 @@ if source_path is not None:
         "min_blob_size": params["detection"]["min_blob_size"],
         "max_blob_size": params["detection"]["max_blob_size"],
         "blur_kernel": params["detection"]["blur_kernel"],
+        "grouping_mode": params["detection"].get("grouping_mode", "contours"),
+        "merge_kernel": params["detection"].get("merge_kernel", 1),
+        "merge_iterations": params["detection"].get("merge_iterations", 1),
     }
 
     preview_src = Path(_build_preview(

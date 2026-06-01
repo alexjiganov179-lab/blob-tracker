@@ -7,6 +7,16 @@ import cv2
 import numpy as np
 
 
+def _contour_filter_area(contour: np.ndarray) -> float:
+    """Estimate visible object area for filtering Canny contours.
+
+    Uses the larger of the contour area and its bounding-box area so that thin
+    or hollow outlines (e.g. a balloon edge) aren't wrongly rejected as too small.
+    """
+    x, y, w, h = cv2.boundingRect(contour)
+    return max(float(cv2.contourArea(contour)), float(w * h))
+
+
 def detect_contours(
     frame: np.ndarray,
     *,
@@ -15,11 +25,19 @@ def detect_contours(
     min_blob_size: float,
     max_blob_size: float,
     blur_kernel: int,
+    grouping_mode: str = "contours",
+    merge_kernel: int = 1,
+    merge_iterations: int = 1,
 ) -> list[np.ndarray]:
     """Detect contours in a single BGR frame.
 
     Returns a list of contours (each a numpy array of [x, y] points)
     whose area is within [min_blob_size, max_blob_size].
+
+    In ``grouping_mode="regions"`` the Canny edge map is dilated with an
+    elliptical kernel of size ``merge_kernel`` for ``merge_iterations`` passes,
+    so nearby fragments of one object merge into a single region instead of many
+    small contours. ``grouping_mode="contours"`` keeps the original behaviour.
     """
     if blur_kernel < 1 or blur_kernel % 2 == 0:
         raise ValueError(f"blur_kernel must be odd and >= 1, got {blur_kernel}")
@@ -29,13 +47,29 @@ def detect_contours(
         raise ValueError(
             f"min_blob_size ({min_blob_size}) must be <= max_blob_size ({max_blob_size})"
         )
+    if grouping_mode not in {"contours", "regions"}:
+        raise ValueError(
+            f"grouping_mode must be 'contours' or 'regions', got {grouping_mode!r}"
+        )
+    if merge_kernel < 1 or merge_kernel % 2 == 0:
+        raise ValueError(f"merge_kernel must be odd and >= 1, got {merge_kernel}")
+    if merge_iterations < 1:
+        raise ValueError(f"merge_iterations must be >= 1, got {merge_iterations}")
 
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (blur_kernel, blur_kernel), 0)
     edges = cv2.Canny(blurred, canny_low, canny_high)
-    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    return [c for c in contours if min_blob_size <= cv2.contourArea(c) <= max_blob_size]
+    mask = edges
+    if grouping_mode == "regions" and merge_kernel > 1:
+        kernel = cv2.getStructuringElement(
+            cv2.MORPH_ELLIPSE, (merge_kernel, merge_kernel)
+        )
+        mask = cv2.dilate(edges, kernel, iterations=merge_iterations)
+
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    return [c for c in contours if min_blob_size <= _contour_filter_area(c) <= max_blob_size]
 
 
 @dataclass

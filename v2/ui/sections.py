@@ -34,6 +34,7 @@ RUSSIAN_PRESET_NAMES: dict[str, str] = {
     "Bounding Boxes": "Рамки",
     "Blob Fill":      "Заливка",
     "Glitch":         "Глитч",
+    "Grouped Branches": "Группировка",
 }
 
 

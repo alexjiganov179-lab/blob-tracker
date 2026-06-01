@@ -280,6 +280,24 @@
       <div class="panel-subtitle">Real-time blob tracking editor</div>
     </div>
 
+    <!-- 0. Find Objects (friendly presets that drive the technical sliders) -->
+    <div class="card"><div class="card-label">Find Objects<span class="tip" id="tip-find">?</span></div>
+      <div class="sub">Sensitivity</div>
+      <div class="seg" id="sensitivity-preset">
+        <button data-preset="low">Low</button>
+        <button data-preset="normal" class="active">Normal</button>
+        <button data-preset="high">High</button>
+        <button data-preset="tiny" title="For small distant objects">Tiny objects</button>
+      </div>
+      <div class="sub">Object Size</div>
+      <div class="seg" id="object-size-preset">
+        <button data-size="small" title="Small distant objects, excluding large foreground objects">Small only</button>
+        <button data-size="medium" class="active">Medium</button>
+        <button data-size="large">Large</button>
+        <button data-size="custom">Custom</button>
+      </div>
+    </div>
+
     <!-- 1. Video Speed -->
     <div class="card"><div class="card-label">Video Speed</div>
       <div class="seg" id="video-speed">
@@ -302,18 +320,6 @@
         <button class="icon-btn" data-value="rect">
           <svg viewBox="0 0 16 16"><rect x="2" y="4" width="12" height="8"/></svg> BBox
         </button>
-      </div>
-    </div>
-
-    <!-- 3. Region Style -->
-    <div class="card"><div class="card-label">Region Style</div>
-      <div class="pro-row">
-        <span class="pro-label">Fill Regions</span>
-        <label class="sw"><input type="checkbox" id="fill-enabled"><span class="sl"></span></label>
-      </div>
-      <div class="pro-row" style="margin-top:4px">
-        <span class="pro-label">Random Shapes</span>
-        <label class="sw"><input type="checkbox" id="random-enabled"><span class="sl"></span></label>
       </div>
     </div>
 
@@ -376,7 +382,7 @@
     <div class="card"><div class="card-label">Blob Size<span class="tip" id="tip-blob">?</span></div>
       <div class="srow" style="margin-bottom:4px">
         <span style="font-size:9px;color:#444;min-width:24px">Min</span>
-        <input type="range" id="blob-min" min="100" max="5000" step="100" value="300"/>
+        <input type="range" id="blob-min" min="5" max="5000" step="5" value="300"/>
         <span class="sv" id="blob-min-val">300</span>
       </div>
       <div class="srow">
@@ -406,6 +412,22 @@
         <span style="font-size:9px;color:#444;min-width:28px">Blur</span>
         <input type="range" id="blur-kernel" min="1" max="31" step="2" value="5"/>
         <span class="sv" id="blur-kernel-val">5</span>
+      </div>
+
+      <div class="sub">Grouping</div>
+      <div class="seg" id="grouping-mode">
+        <button data-val="contours" class="active" title="Keep every detected fragment separate">Detail</button>
+        <button data-val="regions" title="Merge nearby fragments into one object">Grouped</button>
+      </div>
+      <div class="srow" style="margin-top:6px;margin-bottom:4px">
+        <span style="font-size:9px;color:#444;min-width:28px">Merge</span>
+        <input type="range" id="merge-kernel" min="1" max="61" step="2" value="1"/>
+        <span class="sv" id="merge-kernel-val">1</span>
+      </div>
+      <div class="srow">
+        <span style="font-size:9px;color:#444;min-width:28px">Passes</span>
+        <input type="range" id="merge-iterations" min="1" max="5" step="1" value="1"/>
+        <span class="sv" id="merge-iterations-val">1</span>
       </div>
     </div>
 
@@ -453,19 +475,6 @@
       <div class="pro-row" style="margin-top:6px">
         <span class="pro-label">Separate Colors</span>
         <label class="sw"><input type="checkbox" id="separate-colors"><span class="sl"></span></label>
-      </div>
-    </div>
-
-    <!-- Trail -->
-    <div class="card"><div class="card-label">Trail</div>
-      <div class="pro-row">
-        <span class="pro-label">Enabled</span>
-        <label class="sw"><input type="checkbox" id="trail-enabled"><span class="sl"></span></label>
-      </div>
-      <div class="srow" style="margin-top:4px">
-        <span style="font-size:9px;color:#444;min-width:28px">Length</span>
-        <input type="range" id="trail-length" min="5" max="60" step="1" value="30"/>
-        <span class="sv" id="trail-length-val">30</span>
       </div>
     </div>
 
@@ -527,6 +536,7 @@ let all_frame_data = [];
 let isProcessing = false;
 let isExporting = false;
 let currentVideoURL = null;
+let currentVideoName = null;
 
 // ============================
 // DEBUG LOGGER
@@ -565,15 +575,11 @@ function getLogText() {
 }
 log("init", "App started");
 let detectionParamsSnapshot = null;
-let trailOverlay = null;
-let trailPrevCentroids = {};
 
 // === PARAM STATE ===
 let P = {
   playbackSpeed: 1,
   shape: "contour",
-  fillEnabled: false,
-  randomShapes: false,
   selectedEffect: "Basic",
   connectionStyle: "nearest",
   connectionRate: 0.5,
@@ -590,10 +596,11 @@ let P = {
   textContent: "random",
   fontSize: 12,
   separateColors: false,
-  trailEnabled: false,
-  trailLength: 30,
   centroidEnabled: false,
   useConvexHull: false,
+  groupingMode: "contours",
+  mergeKernel: 1,
+  mergeIterations: 1,
   cropMode: "full",
   exportResolution: "preview",
 };
@@ -702,9 +709,68 @@ function buildPalette() {
 }
 
 // ============================
+// UI: friendly detection presets
+// ============================
+function formatBlobMax(v) {
+  return v >= 1000 ? Math.round(v / 1000) + "k" : v;
+}
+
+// Set a slider's value, its state key, and its label readout in one call.
+function setSliderValue(id, stateKey, value, valId, format) {
+  const el = document.getElementById(id);
+  const ve = document.getElementById(valId);
+  if (!el) return;
+  el.value = value;
+  P[stateKey] = value;
+  if (ve) ve.textContent = format ? format(value) : value;
+}
+
+// Wire a segmented button row that calls onSelect(dataValue) and tracks .active.
+function setupPresetRow(container, dataKey, onSelect) {
+  const el = document.getElementById(container);
+  if (!el) return;
+  el.querySelectorAll("button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      el.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      onSelect(btn.dataset[dataKey]);
+    });
+  });
+}
+
+// ============================
 // UI: init
 // ============================
 function setupControls() {
+  // Friendly "Find Objects" presets drive the underlying Canny / blob sliders.
+  setupPresetRow("sensitivity-preset", "preset", preset => {
+    const values = {
+      low: { cannyLow: 80, cannyHigh: 200, blurKernel: 7 },
+      normal: { cannyLow: 50, cannyHigh: 150, blurKernel: 3 },
+      high: { cannyLow: 30, cannyHigh: 100, blurKernel: 3 },
+      tiny: { cannyLow: 20, cannyHigh: 80, blurKernel: 1, blobMin: 10, blobMax: 8000 },
+    }[preset];
+    if (!values) return;
+    setSliderValue("canny-low", "cannyLow", values.cannyLow, "canny-low-val");
+    setSliderValue("canny-high", "cannyHigh", values.cannyHigh, "canny-high-val");
+    setSliderValue("blur-kernel", "blurKernel", values.blurKernel, "blur-kernel-val");
+    if (values.blobMin != null) {
+      setSliderValue("blob-min", "blobMin", values.blobMin, "blob-min-val");
+      setSliderValue("blob-max", "blobMax", values.blobMax, "blob-max-val", formatBlobMax);
+      document.querySelectorAll("#object-size-preset button").forEach(b => b.classList.toggle("active", b.dataset.size === "small"));
+    }
+  });
+  setupPresetRow("object-size-preset", "size", size => {
+    const values = {
+      small: { min: 10, max: 8000 },
+      medium: { min: 50, max: 50000 },
+      large: { min: 300, max: 200000 },
+    };
+    if (size === "custom") return;
+    setSliderValue("blob-min", "blobMin", values[size].min, "blob-min-val");
+    setSliderValue("blob-max", "blobMax", values[size].max, "blob-max-val", formatBlobMax);
+  });
+
   // Segmented
   setupSeg("video-speed", "playbackSpeed", parseFloat);
   setupSeg("connection-rate", "connectionRate", parseFloat);
@@ -713,6 +779,7 @@ function setupControls() {
   setupSeg("font-size", "fontSize", parseInt);
   setupSeg("crop-mode", "cropMode", String);
   setupSeg("export-resolution", "exportResolution", String);
+  setupSeg("grouping-mode", "groupingMode", String);
 
   // Icon rows
   setupIconRow("shape-selector", "shape");
@@ -722,12 +789,8 @@ function setupControls() {
   setupGrid("basic-effects", "selectedEffect");
 
   // Toggles
-  setupToggle("fill-enabled", "fillEnabled");
-  setupToggle("random-enabled", "randomShapes");
   setupToggle("same-size", "sameSize");
   setupToggle("text-enabled", "textEnabled");
-  setupToggle("trail-enabled", "trailEnabled");
-  setupToggle("trail-length-toggle", "trailEnabled");
   setupToggle("centroid-enabled", "centroidEnabled");
 
   // Sliders
@@ -737,7 +800,8 @@ function setupControls() {
   setupSlider("canny-low", "cannyLow", "canny-low-val", v => v);
   setupSlider("canny-high", "cannyHigh", "canny-high-val", v => v);
   setupSlider("blur-kernel", "blurKernel", "blur-kernel-val", v => v);
-  setupSlider("trail-length", "trailLength", "trail-length-val", v => v);
+  setupSlider("merge-kernel", "mergeKernel", "merge-kernel-val", v => v);
+  setupSlider("merge-iterations", "mergeIterations", "merge-iterations-val", v => v);
 
   // Color palette
   buildPalette();
@@ -749,14 +813,15 @@ function setupControls() {
       b.classList.add("active");
     });
     P = {
-      playbackSpeed:1, shape:"contour", fillEnabled:false, randomShapes:false,
+      playbackSpeed:1, shape:"contour",
       selectedEffect:"Basic",
       connectionStyle:"nearest", connectionRate:0.5, strokeWidth:2,
       contourColor:"#f3ac03", cannyLow:50, cannyHigh:150, blurKernel:5,
       blobMin:300, blobMax:200000, sameSize:false, textEnabled:true,
       textPosition:"center", textContent:"random", fontSize:12,
-      separateColors:false, trailEnabled:false, trailLength:30,
+      separateColors:false,
       centroidEnabled:false, useConvexHull:false,
+      groupingMode:"contours", mergeKernel:1, mergeIterations:1,
       cropMode:"full", exportResolution:"preview",
     };
     // Reset checkboxes
@@ -771,16 +836,18 @@ function setupControls() {
     document.getElementById("canny-low").value = 50;
     document.getElementById("canny-high").value = 150;
     document.getElementById("blur-kernel").value = 5;
-    document.getElementById("trail-length").value = 30;
+    document.getElementById("merge-kernel").value = 1;
+    document.getElementById("merge-iterations").value = 1;
     document.getElementById("stroke-width-val").textContent = "2px";
     document.getElementById("blob-min-val").textContent = "300";
     document.getElementById("blob-max-val").textContent = "200k";
     document.getElementById("canny-low-val").textContent = "50";
     document.getElementById("canny-high-val").textContent = "150";
     document.getElementById("blur-kernel-val").textContent = "5";
-    document.getElementById("trail-length-val").textContent = "30";
+    document.getElementById("merge-kernel-val").textContent = "1";
+    document.getElementById("merge-iterations-val").textContent = "1";
+    document.querySelectorAll("#grouping-mode button").forEach(b => b.classList.toggle("active", b.dataset.val === "contours"));
     buildPalette();
-    if (all_frame_data.length) { trailPrevCentroids = {}; }
     log("params", "Reset to defaults");
   });
 
@@ -827,7 +894,16 @@ document.getElementById("sample-btn").addEventListener("click", () => {
   progressLabel.textContent = "Loading sample…";
   startProcessing("https://www.w3schools.com/html/mov_bbb.mp4");
 });
-function loadFile(file) { startProcessing(URL.createObjectURL(file)); }
+function loadFile(file) { currentVideoName = file.name; startProcessing(URL.createObjectURL(file)); }
+
+// Build an export filename based on the source video name, e.g. "myclip_tracked.mp4".
+function trackedFilename(ext) {
+  const base = (currentVideoName || "contour_vfx")
+    .replace(/\.[^/.]+$/, "")            // strip extension
+    .replace(/[\\/:*?"<>|]+/g, "_")      // strip filesystem-unsafe chars
+    .trim() || "contour_vfx";
+  return base + "_tracked." + ext;
+}
 
 // ============================
 // VIDEO LOADING + DETECTION
@@ -918,10 +994,9 @@ async function startProcessing(videoURL) {
     tempCanvas.height = targetH;
 
     await detectBlobs();
-    detectionParamsSnapshot = { cl:P.cannyLow, ch:P.cannyHigh, bk:P.blurKernel, mi:P.blobMin, ma:P.blobMax };
+    detectionParamsSnapshot = { cl:P.cannyLow, ch:P.cannyHigh, bk:P.blurKernel, mi:P.blobMin, ma:P.blobMax, gm:P.groupingMode, mk:P.mergeKernel, mit:P.mergeIterations };
     for (let i=0;i<all_frame_data.length;i++) all_frame_data[i].time = i/PROCESSING_FPS;
 
-    resetTrail(targetW, targetH);
     video.muted = true;
     await seekVideo(video, 0);
     exportOverlay.classList.add("visible");
@@ -953,43 +1028,124 @@ function detectContours(frameMat) {
   } else { blurred = gray; }
   const edges = new cv.Mat();
   cv.Canny(blurred, edges, P.cannyLow, P.cannyHigh);
+  // Grouping: in "regions" mode, dilate the edge map so nearby fragments of one
+  // object merge into a single region instead of many small contours.
+  let mask = edges;
+  let kernel = null;
+  if (P.groupingMode === "regions" && P.mergeKernel > 1) {
+    const mergeKernel = Math.max(1, Math.round(P.mergeKernel));
+    const oddMergeKernel = mergeKernel % 2 === 0 ? mergeKernel + 1 : mergeKernel;
+    P.mergeKernel = oddMergeKernel;
+    kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(oddMergeKernel, oddMergeKernel));
+    mask = new cv.Mat();
+    cv.dilate(edges, mask, kernel, new cv.Point(-1, -1), Math.max(1, Math.round(P.mergeIterations)));
+  }
   const contours = new cv.MatVector();
   const hierarchy = new cv.Mat();
-  cv.findContours(edges, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+  cv.findContours(mask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
   const result = [];
   for (let i=0;i<contours.size();i++) {
     const c = contours.get(i);
     const area = cv.contourArea(c);
-    if (area<P.blobMin||area>P.blobMax) continue;
+    const rect = cv.boundingRect(c);
+    // Filter by the larger of contour area and bbox area, so thin/hollow shapes
+    // (e.g. balloon outlines) aren't wrongly rejected as too small.
+    const filterArea = Math.max(area, rect.width * rect.height);
+    if (filterArea<P.blobMin||filterArea>P.blobMax) continue;
     const m = cv.moments(c);
     let cx,cy;
-    if (m.m00===0){const r=cv.boundingRect(c);cx=r.x+r.width/2;cy=r.y+r.height/2;}
+    if (m.m00===0){cx=rect.x+rect.width/2;cy=rect.y+rect.height/2;}
     else {cx=Math.round(m.m10/m.m00);cy=Math.round(m.m01/m.m00);}
-    const rect = cv.boundingRect(c);
     const pts = [];
     for (let j=0;j<c.rows;j++) pts.push({x:c.data32S[j*2],y:c.data32S[j*2+1]});
-    result.push({x:cx,y:cy,area,bx:rect.x,by:rect.y,bw:rect.width,bh:rect.height,pts});
+    result.push({x:cx,y:cy,area:filterArea,bx:rect.x,by:rect.y,bw:rect.width,bh:rect.height,pts});
   }
+  if (mask !== edges) mask.delete();
+  if (kernel) kernel.delete();
   edges.delete();contours.delete();hierarchy.delete();
   if (blurred!==gray) blurred.delete();
   return result;
 }
 
 class CentroidTracker {
-  constructor(d){this.maxD=d*0.05;this.nextId=0;this.prev=[];}
+  // --- Tunable stabilization constants (adjust after watching real video) ---
+  static SMOOTHING_ALPHA = 0.25; // 0..1; lower = calmer/more inertia, higher = snappier
+  static MIN_AGE = 3;            // frames a track must persist before it is shown (kills ghosts)
+  static MAX_MISSED = 6;         // frames a track survives unmatched before deletion (dropout grace)
+
+  constructor(d){
+    this.maxD = d * 0.05;
+    this.nextId = 0;
+    this.tracks = [];           // live tracks: {id,x,y,bw,bh,area,pts,age,missed,visible,matched}
+  }
+
   update(blobs){
-    const consumed=new Set();
+    const A = CentroidTracker.SMOOTHING_ALPHA;
+    const consumed = new Set();
+    const nExisting = this.tracks.length; // only match against tracks present at frame start
+
+    // 1+2+3. Match detections to nearest live track; smooth matches, spawn candidates.
     for (const b of blobs){
-      let bestIdx=null,bestDist=this.maxD;
-      for (let i=0;i<this.prev.length;i++){
-        if(consumed.has(i))continue;
-        const dx=b.x-this.prev[i].x,dy=b.y-this.prev[i].y,d=Math.sqrt(dx*dx+dy*dy);
-        if(d<bestDist){bestDist=d;bestIdx=i;}
+      let bestIdx = null, bestDist = this.maxD;
+      for (let i=0;i<nExisting;i++){
+        if (consumed.has(i)) continue;
+        const t = this.tracks[i];
+        const dx = b.x - t.x, dy = b.y - t.y, d = Math.sqrt(dx*dx + dy*dy);
+        if (d < bestDist){ bestDist = d; bestIdx = i; }
       }
-      if(bestIdx===null){b.id=this.nextId++;}
-      else{b.id=this.prev[bestIdx].id;consumed.add(bestIdx);}
+      if (bestIdx === null){
+        // New candidate — position taken directly (no smoothing yet), no id until promoted.
+        this.tracks.push({
+          id: null, x: b.x, y: b.y, bw: b.bw, bh: b.bh, area: b.area,
+          pts: b.pts, age: 1, missed: 0, visible: false, matched: true,
+        });
+      } else {
+        const t = this.tracks[bestIdx];
+        t.x = t.x*(1-A) + b.x*A;
+        t.y = t.y*(1-A) + b.y*A;
+        t.bw = t.bw*(1-A) + b.bw*A;
+        t.bh = t.bh*(1-A) + b.bh*A;
+        t.area = t.area*(1-A) + b.area*A;
+        t.pts = b.pts;          // contour points passed through, not smoothed (out of scope)
+        t.missed = 0;
+        t.age++;
+        t.matched = true;
+        consumed.add(bestIdx);
+      }
     }
-    this.prev=blobs;return blobs;
+
+    // 4. Age out tracks that were not matched this frame; delete after MAX_MISSED.
+    const survivors = [];
+    for (const t of this.tracks){
+      if (!t.matched){
+        t.missed++;
+        if (t.missed > CentroidTracker.MAX_MISSED) continue; // drop dead track
+      }
+      t.matched = false; // reset flag for next frame
+      survivors.push(t);
+    }
+    this.tracks = survivors;
+
+    // 5. Promote tracks that have persisted long enough (assigns the permanent id).
+    for (const t of this.tracks){
+      if (!t.visible && t.age >= CentroidTracker.MIN_AGE){
+        t.visible = true;
+        t.id = this.nextId++;
+      }
+    }
+
+    // 6. Return only visible tracks in the renderer's expected blob shape.
+    return this.tracks.filter(t => t.visible).map(t => ({
+      id: t.id,
+      x: Math.round(t.x),
+      y: Math.round(t.y),
+      area: t.area,
+      bw: Math.round(t.bw),
+      bh: Math.round(t.bh),
+      bx: Math.round(t.x - t.bw/2),
+      by: Math.round(t.y - t.bh/2),
+      pts: t.pts,
+    }));
   }
 }
 
@@ -1024,33 +1180,6 @@ async function detectBlobs(){
 }
 
 // ============================
-// TRAIL
-// ============================
-function resetTrail(w,h){trailOverlay=document.createElement("canvas");trailOverlay.width=w;trailOverlay.height=h;trailPrevCentroids={};}
-function TrailDecay(f){return f<=0?0:Math.exp(-1/Math.max(1,f));}
-
-function drawTrail(ctx2d,blobs){
-  if (!trailOverlay) return;
-  const tc=trailOverlay.getContext("2d");
-  if (!P.trailEnabled){tc.clearRect(0,0,trailOverlay.width,trailOverlay.height);trailPrevCentroids={};return;}
-  const decay=TrailDecay(P.trailLength);
-  tc.save();tc.globalCompositeOperation="destination-out";tc.globalAlpha=1-decay;
-  tc.fillStyle="rgba(0,0,0,1)";tc.fillRect(0,0,trailOverlay.width,trailOverlay.height);tc.restore();
-  for (const b of blobs){
-    if(b.id==null)continue;
-    const prev=trailPrevCentroids[b.id];
-    if(prev){
-      tc.strokeStyle=P.contourColor;
-      tc.lineWidth=P.strokeWidth*.6;tc.lineCap="round";
-      tc.beginPath();tc.moveTo(prev.x,prev.y);tc.lineTo(b.x,b.y);tc.stroke();
-    }
-  }
-  ctx2d.drawImage(trailOverlay,0,0);
-  trailPrevCentroids={};
-  for (const b of blobs){if(b.id!=null)trailPrevCentroids[b.id]={x:b.x,y:b.y};}
-}
-
-// ============================
 // FRAME INTERPOLATION
 // ============================
 function findBracketingFrames(time){
@@ -1074,7 +1203,9 @@ function interpolateBlobs(prev,next,time){
     if(nb){
       const t=(time-prev.time)/(next.time-prev.time);
       result.push({id,x:Math.round(lerp(pb.x,nb.x,t)),y:Math.round(lerp(pb.y,nb.y,t)),
-        area:lerp(pb.area,nb.area,t),bx:pb.x,by:pb.y,bw:pb.bw,bh:pb.bh,pts:pb.pts});
+        area:lerp(pb.area,nb.area,t),
+        bx:Math.round(lerp(pb.bx,nb.bx,t)),by:Math.round(lerp(pb.by,nb.by,t)),
+        bw:lerp(pb.bw,nb.bw,t),bh:lerp(pb.bh,nb.bh,t),pts:pb.pts});
     }else{
       result.push({id,x:pb.x,y:pb.y,area:pb.area,bx:pb.bx,by:pb.by,bw:pb.bw,bh:pb.bh,pts:pb.pts});
     }
@@ -1257,16 +1388,6 @@ function drawEffectLayer(ctx2d,blobs){
   }
 }
 
-function drawFillLayer(ctx2d,blobs){
-  if(!P.fillEnabled)return;
-  ctx2d.save();ctx2d.globalAlpha=0.25;ctx2d.fillStyle=P.contourColor;
-  for(const b of blobs){
-    const pts=getContourPts(b);if(!pts)continue;
-    ctx2d.beginPath();ctx2d.moveTo(pts[0].x,pts[0].y);for(let i=1;i<pts.length;i++)ctx2d.lineTo(pts[i].x,pts[i].y);ctx2d.closePath();ctx2d.fill();
-  }
-  ctx2d.restore();
-}
-
 function drawLinesLayer(ctx2d,blobs){
   if(P.connectionRate===0||blobs.length<2)return;
   const col=P.contourColor;
@@ -1340,12 +1461,9 @@ function drawLoop(){
   const time=video.currentTime;
   const{prev,next}=findBracketingFrames(time);
   const blobs=interpolateBlobs(prev,next,time);
-  if(time<0.1){trailPrevCentroids={};if(trailOverlay)trailOverlay.getContext("2d").clearRect(0,0,trailOverlay.width,trailOverlay.height);}
 
-  drawFillLayer(ctx,blobs);
   drawEffectLayer(ctx,blobs);
   drawLinesLayer(ctx,blobs);
-  drawTrail(ctx,blobs);
   drawCentroidDots(ctx,blobs);
   drawLabelsLayer(ctx,blobs);
   drawFilterLayer(ctx);
@@ -1387,9 +1505,7 @@ async function startExportMP4() {
   const fps = 30;
   const dur = video.duration;
   const totalFrames = Math.ceil(dur * fps);
-  
-  // Reset trail for sequential rendering
-  resetTrail(w, h);
+
   exportCanvas.width = ew;
   exportCanvas.height = eh;
 
@@ -1448,10 +1564,8 @@ async function startExportMP4() {
       const { prev, next } = findBracketingFrames(time);
       const blobs = interpolateBlobs(prev, next, time);
 
-      drawFillLayer(ctx, blobs);
       drawEffectLayer(ctx, blobs);
       drawLinesLayer(ctx, blobs);
-      drawTrail(ctx, blobs);
       drawCentroidDots(ctx, blobs);
       drawLabelsLayer(ctx, blobs);
 
@@ -1481,8 +1595,7 @@ async function startExportMP4() {
       await encoder.flush();
       muxer.finalize();
       const buf = muxer.target.buffer;
-      const suffix = P.exportResolution === "instagram" ? "_reels" : "";
-      downloadBlob(new Blob([buf], { type: "video/mp4" }), "contour_vfx" + suffix + ".mp4");
+      downloadBlob(new Blob([buf], { type: "video/mp4" }), trackedFilename("mp4"));
       progressBar.classList.remove("visible");
       exportStatus.textContent = "✅ MP4 exported!";
       exportStatus.classList.add("visible");
@@ -1499,7 +1612,6 @@ async function startExportMP4() {
   exportBtn.textContent = "⬇ Export MP4";
   isExporting = false;
   try { encoder.close(); } catch (e) {}
-  resetTrail(w, h);
 }
 
 function startExport(){
@@ -1525,17 +1637,18 @@ async function reDetect(){
   await detectBlobs();
   const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
   log("redetect", "Re-detect complete", { frames: all_frame_data.length, elapsed_s: elapsed });
-  detectionParamsSnapshot={cl:P.cannyLow,ch:P.cannyHigh,bk:P.blurKernel,mi:P.blobMin,ma:P.blobMax};
+  detectionParamsSnapshot={cl:P.cannyLow,ch:P.cannyHigh,bk:P.blurKernel,mi:P.blobMin,ma:P.blobMax,gm:P.groupingMode,mk:P.mergeKernel,mit:P.mergeIterations};
   const dur=video.duration,tf=Math.floor(dur*PROCESSING_FPS);
   for(let i=0;i<all_frame_data.length;i++)all_frame_data[i].time=i/PROCESSING_FPS;
   isProcessing=false;progressBar.classList.remove("visible");exportOverlay.style.display="flex";
-  resetTrail(canvas.width,canvas.height);video.currentTime=0;video.play();
+  video.currentTime=0;video.play();
 }
 
 // ============================
 // TOOLTIPS
 // ============================
 const TIPS = {
+  "tip-find": "Sensitivity controls how easily edges become tracked objects.\nObject Size sets the accepted size range.\nSmall only lowers Max to reject large foreground objects.\nThese presets adjust the Detection and Blob Size sliders for you.",
   "tip-detect": "More blobs  ↓ C-Low, ↓ Blur, ↓ Blob Min\nFewer blobs  ↑ C-High, ↑ Blur, ↑ Blob Max\nC-Low/C-High = Canny edge detection thresholds (0–255)",
   "tip-blob": "Min = smallest blob area (px²)\nMax = largest blob area (px²)\nLower Min → more small blobs detected\nToo low → noise and artifacts get picked up",
 };
