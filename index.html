@@ -1069,9 +1069,9 @@ function detectContours(frameMat) {
 
 class CentroidTracker {
   // --- Tunable stabilization constants (adjust after watching real video) ---
-  static SMOOTHING_ALPHA = 0.4; // 0..1; lower = calmer/more inertia, higher = snappier
-  static MIN_AGE = 2;           // frames a track must persist before it is shown (kills ghosts)
-  static MAX_MISSED = 5;        // frames a track survives unmatched before deletion (dropout grace)
+  static SMOOTHING_ALPHA = 0.25; // 0..1; lower = calmer/more inertia, higher = snappier
+  static MIN_AGE = 3;            // frames a track must persist before it is shown (kills ghosts)
+  static MAX_MISSED = 6;         // frames a track survives unmatched before deletion (dropout grace)
 
   constructor(d){
     this.maxD = d * 0.05;

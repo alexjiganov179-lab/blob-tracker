@@ -42,17 +42,20 @@ test('ghost blob (1 frame) is never returned', () => {
 });
 
 // 2) A real object keeps its id through a short dropout.
+// Frame counts are derived from the tunable constants so tuning can't break it.
 test('object keeps id across a dropout of <= MAX_MISSED frames', () => {
+  const MIN_AGE = CentroidTracker.MIN_AGE;
+  const MAX_MISSED = CentroidTracker.MAX_MISSED;
   const tr = new CentroidTracker(1000);
-  tr.update([mk(100)]);           // age 1 (not yet visible)
-  let out = tr.update([mk(100)]); // age 2 -> visible
-  assert.equal(out.length, 1, 'object visible on its second frame');
+  let out;
+  for (let i = 0; i < MIN_AGE; i++) out = tr.update([mk(100)]); // reach visibility
+  assert.equal(out.length, 1, 'object visible after MIN_AGE frames');
   const id = out[0].id;
-  out = tr.update([]);            // blind frame 1
-  assert.equal(out[0].id, id, 'track held during blind frame');
-  out = tr.update([]);            // blind frame 2
-  assert.equal(out[0].id, id);
-  out = tr.update([mk(105)]);     // reappears nearby
+  for (let i = 0; i < MAX_MISSED; i++) {        // blind, but within grace
+    out = tr.update([]);
+    assert.equal(out[0].id, id, 'track held during blind frame ' + (i + 1));
+  }
+  out = tr.update([mk(105)]);     // reappears nearby, still within grace
   assert.equal(out[0].id, id, 'same id after reappearing');
 });
 
@@ -68,27 +71,32 @@ test('static object center holds steady', () => {
 // 4) A moving object's center tracks toward the new position.
 test('moving object center follows the motion', () => {
   const tr = new CentroidTracker(1000);
-  tr.update([mk(100)]); tr.update([mk(100)]); // establish at x=100
   let out;
-  for (let i = 0; i < 8; i++) out = tr.update([mk(130)]); // drift to x=130
+  // establish at x=100 (enough frames to be visible), then drift to x=130
+  for (let i = 0; i < CentroidTracker.MIN_AGE; i++) out = tr.update([mk(100)]);
+  for (let i = 0; i < 30; i++) out = tr.update([mk(130)]);
   assert.ok(out[0].x > 125, 'center converged toward 130, got ' + out[0].x);
 });
 
 // 5) A long dropout (> MAX_MISSED frames) drops the track; reappearance gets a NEW id.
+// Frame counts derived from the tunable constants so tuning can't break it.
 test('track dies after a dropout > MAX_MISSED and returns with a new id', () => {
+  const MIN_AGE = CentroidTracker.MIN_AGE;
+  const MAX_MISSED = CentroidTracker.MAX_MISSED;
   const tr = new CentroidTracker(1000);
-  tr.update([mk(100)]);           // age 1
-  let out = tr.update([mk(100)]); // age 2 -> visible
+  let out;
+  for (let i = 0; i < MIN_AGE; i++) out = tr.update([mk(100)]); // reach visibility
   const firstId = out[0].id;
-  // MAX_MISSED = 5, so 6 consecutive blind frames must delete the track.
-  for (let i = 0; i < 6; i++) out = tr.update([]);
+  // One more blind frame than the grace window must delete the track.
+  for (let i = 0; i < MAX_MISSED + 1; i++) out = tr.update([]);
   assert.equal(out.length, 0, 'track is gone after > MAX_MISSED blind frames');
-  // Reappears: it is a fresh candidate, so still invisible on its first frame...
-  out = tr.update([mk(100)]);
-  assert.equal(out.length, 0, 'reappearance starts as a new unconfirmed candidate');
-  // ...and becomes visible again on the next frame with a brand-new id.
-  out = tr.update([mk(100)]);
-  assert.equal(out.length, 1, 'reappearance promoted on its second frame');
+  // Reappears as a fresh candidate: invisible until it re-reaches MIN_AGE...
+  for (let i = 0; i < MIN_AGE - 1; i++) {
+    out = tr.update([mk(100)]);
+    assert.equal(out.length, 0, 'reappearance still unconfirmed at frame ' + (i + 1));
+  }
+  out = tr.update([mk(100)]);    // now promoted again
+  assert.equal(out.length, 1, 'reappearance promoted after MIN_AGE frames');
   assert.notEqual(out[0].id, firstId, 'a dropped-then-returned object gets a new id');
 });
 
