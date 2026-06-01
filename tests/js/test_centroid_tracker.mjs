@@ -74,4 +74,22 @@ test('moving object center follows the motion', () => {
   assert.ok(out[0].x > 125, 'center converged toward 130, got ' + out[0].x);
 });
 
+// 5) A long dropout (> MAX_MISSED frames) drops the track; reappearance gets a NEW id.
+test('track dies after a dropout > MAX_MISSED and returns with a new id', () => {
+  const tr = new CentroidTracker(1000);
+  tr.update([mk(100)]);           // age 1
+  let out = tr.update([mk(100)]); // age 2 -> visible
+  const firstId = out[0].id;
+  // MAX_MISSED = 5, so 6 consecutive blind frames must delete the track.
+  for (let i = 0; i < 6; i++) out = tr.update([]);
+  assert.equal(out.length, 0, 'track is gone after > MAX_MISSED blind frames');
+  // Reappears: it is a fresh candidate, so still invisible on its first frame...
+  out = tr.update([mk(100)]);
+  assert.equal(out.length, 0, 'reappearance starts as a new unconfirmed candidate');
+  // ...and becomes visible again on the next frame with a brand-new id.
+  out = tr.update([mk(100)]);
+  assert.equal(out.length, 1, 'reappearance promoted on its second frame');
+  assert.notEqual(out[0].id, firstId, 'a dropped-then-returned object gets a new id');
+});
+
 console.log('\n' + passed + ' tracker tests passed.');
