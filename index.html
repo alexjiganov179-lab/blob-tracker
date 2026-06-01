@@ -280,6 +280,24 @@
       <div class="panel-subtitle">Real-time blob tracking editor</div>
     </div>
 
+    <!-- 0. Find Objects (friendly presets that drive the technical sliders) -->
+    <div class="card"><div class="card-label">Find Objects<span class="tip" id="tip-find">?</span></div>
+      <div class="sub">Sensitivity</div>
+      <div class="seg" id="sensitivity-preset">
+        <button data-preset="low">Low</button>
+        <button data-preset="normal" class="active">Normal</button>
+        <button data-preset="high">High</button>
+        <button data-preset="tiny" title="For small distant objects">Tiny objects</button>
+      </div>
+      <div class="sub">Object Size</div>
+      <div class="seg" id="object-size-preset">
+        <button data-size="small" title="Small distant objects, excluding large foreground objects">Small only</button>
+        <button data-size="medium" class="active">Medium</button>
+        <button data-size="large">Large</button>
+        <button data-size="custom">Custom</button>
+      </div>
+    </div>
+
     <!-- 1. Video Speed -->
     <div class="card"><div class="card-label">Video Speed</div>
       <div class="seg" id="video-speed">
@@ -364,7 +382,7 @@
     <div class="card"><div class="card-label">Blob Size<span class="tip" id="tip-blob">?</span></div>
       <div class="srow" style="margin-bottom:4px">
         <span style="font-size:9px;color:#444;min-width:24px">Min</span>
-        <input type="range" id="blob-min" min="100" max="5000" step="100" value="300"/>
+        <input type="range" id="blob-min" min="5" max="5000" step="5" value="300"/>
         <span class="sv" id="blob-min-val">300</span>
       </div>
       <div class="srow">
@@ -691,9 +709,68 @@ function buildPalette() {
 }
 
 // ============================
+// UI: friendly detection presets
+// ============================
+function formatBlobMax(v) {
+  return v >= 1000 ? Math.round(v / 1000) + "k" : v;
+}
+
+// Set a slider's value, its state key, and its label readout in one call.
+function setSliderValue(id, stateKey, value, valId, format) {
+  const el = document.getElementById(id);
+  const ve = document.getElementById(valId);
+  if (!el) return;
+  el.value = value;
+  P[stateKey] = value;
+  if (ve) ve.textContent = format ? format(value) : value;
+}
+
+// Wire a segmented button row that calls onSelect(dataValue) and tracks .active.
+function setupPresetRow(container, dataKey, onSelect) {
+  const el = document.getElementById(container);
+  if (!el) return;
+  el.querySelectorAll("button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      el.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      onSelect(btn.dataset[dataKey]);
+    });
+  });
+}
+
+// ============================
 // UI: init
 // ============================
 function setupControls() {
+  // Friendly "Find Objects" presets drive the underlying Canny / blob sliders.
+  setupPresetRow("sensitivity-preset", "preset", preset => {
+    const values = {
+      low: { cannyLow: 80, cannyHigh: 200, blurKernel: 7 },
+      normal: { cannyLow: 50, cannyHigh: 150, blurKernel: 3 },
+      high: { cannyLow: 30, cannyHigh: 100, blurKernel: 3 },
+      tiny: { cannyLow: 20, cannyHigh: 80, blurKernel: 1, blobMin: 10, blobMax: 8000 },
+    }[preset];
+    if (!values) return;
+    setSliderValue("canny-low", "cannyLow", values.cannyLow, "canny-low-val");
+    setSliderValue("canny-high", "cannyHigh", values.cannyHigh, "canny-high-val");
+    setSliderValue("blur-kernel", "blurKernel", values.blurKernel, "blur-kernel-val");
+    if (values.blobMin != null) {
+      setSliderValue("blob-min", "blobMin", values.blobMin, "blob-min-val");
+      setSliderValue("blob-max", "blobMax", values.blobMax, "blob-max-val", formatBlobMax);
+      document.querySelectorAll("#object-size-preset button").forEach(b => b.classList.toggle("active", b.dataset.size === "small"));
+    }
+  });
+  setupPresetRow("object-size-preset", "size", size => {
+    const values = {
+      small: { min: 10, max: 8000 },
+      medium: { min: 50, max: 50000 },
+      large: { min: 300, max: 200000 },
+    };
+    if (size === "custom") return;
+    setSliderValue("blob-min", "blobMin", values[size].min, "blob-min-val");
+    setSliderValue("blob-max", "blobMax", values[size].max, "blob-max-val", formatBlobMax);
+  });
+
   // Segmented
   setupSeg("video-speed", "playbackSpeed", parseFloat);
   setupSeg("connection-rate", "connectionRate", parseFloat);
@@ -1571,6 +1648,7 @@ async function reDetect(){
 // TOOLTIPS
 // ============================
 const TIPS = {
+  "tip-find": "Sensitivity controls how easily edges become tracked objects.\nObject Size sets the accepted size range.\nSmall only lowers Max to reject large foreground objects.\nThese presets adjust the Detection and Blob Size sliders for you.",
   "tip-detect": "More blobs  ↓ C-Low, ↓ Blur, ↓ Blob Min\nFewer blobs  ↑ C-High, ↑ Blur, ↑ Blob Max\nC-Low/C-High = Canny edge detection thresholds (0–255)",
   "tip-blob": "Min = smallest blob area (px²)\nMax = largest blob area (px²)\nLower Min → more small blobs detected\nToo low → noise and artifacts get picked up",
 };
