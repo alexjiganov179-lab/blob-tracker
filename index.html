@@ -305,18 +305,6 @@
       </div>
     </div>
 
-    <!-- 3. Region Style -->
-    <div class="card"><div class="card-label">Region Style</div>
-      <div class="pro-row">
-        <span class="pro-label">Fill Regions</span>
-        <label class="sw"><input type="checkbox" id="fill-enabled"><span class="sl"></span></label>
-      </div>
-      <div class="pro-row" style="margin-top:4px">
-        <span class="pro-label">Random Shapes</span>
-        <label class="sw"><input type="checkbox" id="random-enabled"><span class="sl"></span></label>
-      </div>
-    </div>
-
     <!-- 4. Basic Effects -->
     <div class="card"><div class="card-label">Basic Effects</div>
       <div class="grid w3" id="basic-effects">
@@ -456,19 +444,6 @@
       </div>
     </div>
 
-    <!-- Trail -->
-    <div class="card"><div class="card-label">Trail</div>
-      <div class="pro-row">
-        <span class="pro-label">Enabled</span>
-        <label class="sw"><input type="checkbox" id="trail-enabled"><span class="sl"></span></label>
-      </div>
-      <div class="srow" style="margin-top:4px">
-        <span style="font-size:9px;color:#444;min-width:28px">Length</span>
-        <input type="range" id="trail-length" min="5" max="60" step="1" value="30"/>
-        <span class="sv" id="trail-length-val">30</span>
-      </div>
-    </div>
-
     <!-- Centroid -->
     <div class="card"><div class="card-label">Centroid</div>
       <div class="pro-row">
@@ -565,15 +540,11 @@ function getLogText() {
 }
 log("init", "App started");
 let detectionParamsSnapshot = null;
-let trailOverlay = null;
-let trailPrevCentroids = {};
 
 // === PARAM STATE ===
 let P = {
   playbackSpeed: 1,
   shape: "contour",
-  fillEnabled: false,
-  randomShapes: false,
   selectedEffect: "Basic",
   connectionStyle: "nearest",
   connectionRate: 0.5,
@@ -590,8 +561,6 @@ let P = {
   textContent: "random",
   fontSize: 12,
   separateColors: false,
-  trailEnabled: false,
-  trailLength: 30,
   centroidEnabled: false,
   useConvexHull: false,
   cropMode: "full",
@@ -722,12 +691,8 @@ function setupControls() {
   setupGrid("basic-effects", "selectedEffect");
 
   // Toggles
-  setupToggle("fill-enabled", "fillEnabled");
-  setupToggle("random-enabled", "randomShapes");
   setupToggle("same-size", "sameSize");
   setupToggle("text-enabled", "textEnabled");
-  setupToggle("trail-enabled", "trailEnabled");
-  setupToggle("trail-length-toggle", "trailEnabled");
   setupToggle("centroid-enabled", "centroidEnabled");
 
   // Sliders
@@ -737,7 +702,6 @@ function setupControls() {
   setupSlider("canny-low", "cannyLow", "canny-low-val", v => v);
   setupSlider("canny-high", "cannyHigh", "canny-high-val", v => v);
   setupSlider("blur-kernel", "blurKernel", "blur-kernel-val", v => v);
-  setupSlider("trail-length", "trailLength", "trail-length-val", v => v);
 
   // Color palette
   buildPalette();
@@ -749,13 +713,13 @@ function setupControls() {
       b.classList.add("active");
     });
     P = {
-      playbackSpeed:1, shape:"contour", fillEnabled:false, randomShapes:false,
+      playbackSpeed:1, shape:"contour",
       selectedEffect:"Basic",
       connectionStyle:"nearest", connectionRate:0.5, strokeWidth:2,
       contourColor:"#f3ac03", cannyLow:50, cannyHigh:150, blurKernel:5,
       blobMin:300, blobMax:200000, sameSize:false, textEnabled:true,
       textPosition:"center", textContent:"random", fontSize:12,
-      separateColors:false, trailEnabled:false, trailLength:30,
+      separateColors:false,
       centroidEnabled:false, useConvexHull:false,
       cropMode:"full", exportResolution:"preview",
     };
@@ -771,16 +735,13 @@ function setupControls() {
     document.getElementById("canny-low").value = 50;
     document.getElementById("canny-high").value = 150;
     document.getElementById("blur-kernel").value = 5;
-    document.getElementById("trail-length").value = 30;
     document.getElementById("stroke-width-val").textContent = "2px";
     document.getElementById("blob-min-val").textContent = "300";
     document.getElementById("blob-max-val").textContent = "200k";
     document.getElementById("canny-low-val").textContent = "50";
     document.getElementById("canny-high-val").textContent = "150";
     document.getElementById("blur-kernel-val").textContent = "5";
-    document.getElementById("trail-length-val").textContent = "30";
     buildPalette();
-    if (all_frame_data.length) { trailPrevCentroids = {}; }
     log("params", "Reset to defaults");
   });
 
@@ -921,7 +882,6 @@ async function startProcessing(videoURL) {
     detectionParamsSnapshot = { cl:P.cannyLow, ch:P.cannyHigh, bk:P.blurKernel, mi:P.blobMin, ma:P.blobMax };
     for (let i=0;i<all_frame_data.length;i++) all_frame_data[i].time = i/PROCESSING_FPS;
 
-    resetTrail(targetW, targetH);
     video.muted = true;
     await seekVideo(video, 0);
     exportOverlay.classList.add("visible");
@@ -1021,33 +981,6 @@ async function detectBlobs(){
   }
   const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
   log("detect", "detectBlobs complete", { frames: all_frame_data.length, blobs_total: all_frame_data.reduce((s,f)=>s+f.blobs.length,0), elapsed_s: elapsed });
-}
-
-// ============================
-// TRAIL
-// ============================
-function resetTrail(w,h){trailOverlay=document.createElement("canvas");trailOverlay.width=w;trailOverlay.height=h;trailPrevCentroids={};}
-function TrailDecay(f){return f<=0?0:Math.exp(-1/Math.max(1,f));}
-
-function drawTrail(ctx2d,blobs){
-  if (!trailOverlay) return;
-  const tc=trailOverlay.getContext("2d");
-  if (!P.trailEnabled){tc.clearRect(0,0,trailOverlay.width,trailOverlay.height);trailPrevCentroids={};return;}
-  const decay=TrailDecay(P.trailLength);
-  tc.save();tc.globalCompositeOperation="destination-out";tc.globalAlpha=1-decay;
-  tc.fillStyle="rgba(0,0,0,1)";tc.fillRect(0,0,trailOverlay.width,trailOverlay.height);tc.restore();
-  for (const b of blobs){
-    if(b.id==null)continue;
-    const prev=trailPrevCentroids[b.id];
-    if(prev){
-      tc.strokeStyle=P.contourColor;
-      tc.lineWidth=P.strokeWidth*.6;tc.lineCap="round";
-      tc.beginPath();tc.moveTo(prev.x,prev.y);tc.lineTo(b.x,b.y);tc.stroke();
-    }
-  }
-  ctx2d.drawImage(trailOverlay,0,0);
-  trailPrevCentroids={};
-  for (const b of blobs){if(b.id!=null)trailPrevCentroids[b.id]={x:b.x,y:b.y};}
 }
 
 // ============================
@@ -1257,16 +1190,6 @@ function drawEffectLayer(ctx2d,blobs){
   }
 }
 
-function drawFillLayer(ctx2d,blobs){
-  if(!P.fillEnabled)return;
-  ctx2d.save();ctx2d.globalAlpha=0.25;ctx2d.fillStyle=P.contourColor;
-  for(const b of blobs){
-    const pts=getContourPts(b);if(!pts)continue;
-    ctx2d.beginPath();ctx2d.moveTo(pts[0].x,pts[0].y);for(let i=1;i<pts.length;i++)ctx2d.lineTo(pts[i].x,pts[i].y);ctx2d.closePath();ctx2d.fill();
-  }
-  ctx2d.restore();
-}
-
 function drawLinesLayer(ctx2d,blobs){
   if(P.connectionRate===0||blobs.length<2)return;
   const col=P.contourColor;
@@ -1340,12 +1263,9 @@ function drawLoop(){
   const time=video.currentTime;
   const{prev,next}=findBracketingFrames(time);
   const blobs=interpolateBlobs(prev,next,time);
-  if(time<0.1){trailPrevCentroids={};if(trailOverlay)trailOverlay.getContext("2d").clearRect(0,0,trailOverlay.width,trailOverlay.height);}
 
-  drawFillLayer(ctx,blobs);
   drawEffectLayer(ctx,blobs);
   drawLinesLayer(ctx,blobs);
-  drawTrail(ctx,blobs);
   drawCentroidDots(ctx,blobs);
   drawLabelsLayer(ctx,blobs);
   drawFilterLayer(ctx);
@@ -1387,9 +1307,7 @@ async function startExportMP4() {
   const fps = 30;
   const dur = video.duration;
   const totalFrames = Math.ceil(dur * fps);
-  
-  // Reset trail for sequential rendering
-  resetTrail(w, h);
+
   exportCanvas.width = ew;
   exportCanvas.height = eh;
 
@@ -1448,10 +1366,8 @@ async function startExportMP4() {
       const { prev, next } = findBracketingFrames(time);
       const blobs = interpolateBlobs(prev, next, time);
 
-      drawFillLayer(ctx, blobs);
       drawEffectLayer(ctx, blobs);
       drawLinesLayer(ctx, blobs);
-      drawTrail(ctx, blobs);
       drawCentroidDots(ctx, blobs);
       drawLabelsLayer(ctx, blobs);
 
@@ -1499,7 +1415,6 @@ async function startExportMP4() {
   exportBtn.textContent = "⬇ Export MP4";
   isExporting = false;
   try { encoder.close(); } catch (e) {}
-  resetTrail(w, h);
 }
 
 function startExport(){
@@ -1529,7 +1444,7 @@ async function reDetect(){
   const dur=video.duration,tf=Math.floor(dur*PROCESSING_FPS);
   for(let i=0;i<all_frame_data.length;i++)all_frame_data[i].time=i/PROCESSING_FPS;
   isProcessing=false;progressBar.classList.remove("visible");exportOverlay.style.display="flex";
-  resetTrail(canvas.width,canvas.height);video.currentTime=0;video.play();
+  video.currentTime=0;video.play();
 }
 
 // ============================
