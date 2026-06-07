@@ -129,6 +129,8 @@ Goal: motion-blur trails + multi-resolution, multi-codec export.
 
 ## Phase 4 — Input sources & persistence
 
+**Status: SKIPPED** (2026-06-07). Phase 4 features (webcam, MIDI, IndexedDB presets, URL share, debug-mask preview) are out of scope for the VJ-contour workflow. Phase 3 already covers the must-haves. Revisit only on explicit product demand.
+
 **Effort:** 2–4 days. **One or two PRs.**
 
 Goal: webcam, live mode, real preset workflow.
@@ -196,6 +198,6 @@ Goal: stop wasting CPU and clean up the rough edges.
 
 1. Phase 1 — single PR, green baseline.
 2. Phase 2 — single PR, foundation for everything else.
-3. Phase 3 and Phase 4 — two parallel branches.
+3. Phase 3 and ~~Phase 4 (skipped)~~ — only Phase 3 shipped.
 4. Phase 5 — small, frequent PRs.
 5. Phase 6 — separate sprint once demand is confirmed.

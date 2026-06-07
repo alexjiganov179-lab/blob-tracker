@@ -76,6 +76,15 @@
       font-size: 12px; color: #fff; z-index: 60;
     }
     .export-status.visible { display: block; }
+    #telemetry {
+      position: absolute; top: 12px; left: 12px; display: none;
+      background: rgba(0,0,0,.7); color: #d0d0d0; font-size: 10px;
+      font-family: ui-monospace, Menlo, monospace; padding: 6px 9px;
+      border-radius: 6px; line-height: 1.5; z-index: 50; pointer-events: none;
+    }
+    #telemetry.visible { display: block; }
+    #telemetry b { color: #f3ac03; font-weight: 600; }
+    #telemetry .t-dim { color: #777; }
     .spinner {
       width: 12px; height: 12px; border: 2px solid #f3ac03;
       border-top-color: transparent; border-radius: 50%;
@@ -187,6 +196,17 @@
     .srow { display: flex; align-items: center; gap: 8px; }
     .srow input[type="range"] { flex: 1; accent-color: #f3ac03; height: 4px; }
     .sv { font-size: 10px; color: #f3ac03; font-variant-numeric: tabular-nums; min-width: 28px; text-align: right; }
+    .smin, .smax { font-size: 9px; color: #555; font-variant-numeric: tabular-nums; min-width: 18px; }
+    .smin { text-align: right; }
+    .smax { text-align: left; }
+    .sreset {
+      background: transparent; border: 1px solid #2a2a34; color: #666;
+      border-radius: 4px; width: 18px; height: 18px; padding: 0;
+      font-size: 10px; line-height: 1; cursor: pointer; flex-shrink: 0;
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: all .12s;
+    }
+    .sreset:hover { border-color: #f3ac03; color: #f3ac03; }
 
     /* Sub label */
     .sub {
@@ -284,6 +304,7 @@
     <button type="button" id="export-btn" title="Record canvas to video file">⬇ Export</button>
   </div>
   <div class="export-status" id="export-status"></div>
+  <div id="telemetry"></div>
 </div>
 
   <div id="panel">
@@ -526,7 +547,7 @@ let cvReady = false;
 // ============================
 const GPU = {
   gl: null, programBlurH: null, programBlurV: null, programSobel: null,
-  programThreshold: null, programExtract: null,
+  programThreshold: null, programExtract: null, programDilate: null,
   framebuffer: null, framebuffer2: null, textureA: null, textureB: null, quadVao: null,
   width: 0, height: 0, ready: false,
 };
@@ -551,6 +572,7 @@ function initGPU() {
   GPU.programSobel = compileProgram(gl, VERT_QUAD, FRAG_SOBEL);
   GPU.programThreshold = compileProgram(gl, VERT_QUAD, FRAG_THRESHOLD);
   GPU.programExtract = compileProgram(gl, VERT_QUAD, FRAG_EXTRACT);
+  GPU.programDilate = compileProgram(gl, VERT_QUAD, FRAG_DILATE);
 
   log("gpu", "GPU pipeline initialized (WebGL2)");
 }
@@ -596,6 +618,49 @@ function uploadCanvas(gl, tex, canvas) {
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
 }
 
+// Upload a single-channel 8-bit OpenCV Mat to the GPU as a luminance texture.
+// data is the mat's underlying Uint8Array (CV_8UC1).
+function uploadMaskToTexture(gl, tex, w, h, data) {
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, data);
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+}
+
+// Run a square dilate on the current GPU textures. Each call does one pass
+// with the given radius (max 16). Iterations is the number of passes; growing
+// the effective radius by 2*r+1 per pass. Returns true on success, false if
+// GPU dilate isn't usable.
+function gpuDilate(w, h, radius, iterations) {
+  if (!GPU.ready || !GPU.programDilate) return false;
+  if (radius < 1 || iterations < 1) return true;
+  const gl = GPU.gl;
+  // The shader loops ±u_radius but our textures are sized to w×h; clamp the
+  // effective radius per pass to keep samplers inside the texture.
+  const r = Math.min(16, Math.max(1, radius | 0));
+  for (let i = 0; i < iterations; i++) {
+    // textureB → textureA (fb1)
+    renderToTexture(gl, GPU.programDilate, GPU.textureB, GPU.framebuffer, w, h,
+      { u_resolution: [w, h], u_radius: r });
+    // textureA → textureB (fb2), so the loop alternates and the next pass
+    // reads the freshly-written result.
+    renderToTexture(gl, GPU.programDilate, GPU.textureA, GPU.framebuffer2, w, h,
+      { u_resolution: [w, h], u_radius: r });
+  }
+  return true;
+}
+
+// Read the GPU dilate result back as a single-channel Uint8Array.
+function readMaskFromTexture(w, h) {
+  const gl = GPU.gl;
+  const pixels = new Uint8Array(w * h * 4);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, GPU.framebuffer2);
+  gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+  const out = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) out[i] = pixels[i * 4]; // R channel
+  return out;
+}
+
 function renderToTexture(gl, program, inputTex, outputFb, w, h, uniforms) {
   gl.bindFramebuffer(gl.FRAMEBUFFER, outputFb);
   gl.viewport(0, 0, w, h);
@@ -608,6 +673,7 @@ function renderToTexture(gl, program, inputTex, outputFb, w, h, uniforms) {
       const loc = gl.getUniformLocation(program, name);
       if (loc === null) continue;
       if (typeof val === "number") gl.uniform1f(loc, val);
+      else if (Number.isInteger(val)) gl.uniform1i(loc, val);
       else if (Array.isArray(val) && val.length === 2) gl.uniform2f(loc, val[0], val[1]);
       else if (Array.isArray(val) && val.length === 4) gl.uniform4f(loc, val[0], val[1], val[2], val[3]);
     }
@@ -768,6 +834,30 @@ void main() {
   outColor = vec4(vec3(out_v), 1.0);
 }`;
 
+// Square dilate (max filter) over a (2*u_radius+1) box. Hardcoded loop bound
+// of 16; larger kernels are handled by running the shader multiple times
+// (one extra pass grows the effective radius by 32 px).
+const FRAG_DILATE = `#version 300 es
+precision mediump float;
+in vec2 v_uv;
+uniform sampler2D u_image;
+uniform vec2 u_resolution;
+uniform int u_radius;
+out vec4 outColor;
+void main() {
+  vec2 texel = 1.0 / u_resolution;
+  float mx = 0.0;
+  for (int dy = -16; dy <= 16; dy++) {
+    if (abs(dy) > u_radius) continue;
+    for (int dx = -16; dx <= 16; dx++) {
+      if (abs(dx) > u_radius) continue;
+      float v = dot(texture(u_image, v_uv + vec2(float(dx), float(dy)) * texel).rgb, vec3(1.0));
+      if (v > mx) mx = v;
+    }
+  }
+  outColor = vec4(vec3(mx), 1.0);
+}`;
+
 // ============================
 // GPU CANNY PIPELINE
 // ============================
@@ -820,7 +910,7 @@ const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 const tempCanvas = document.createElement("canvas");
-const tempCtx = tempCanvas.getContext("2d", { willReadFrequently: true });
+const tempCtx = tempCanvas.getContext("2d");
 const dropZone = document.getElementById("drop-zone");
 const canvasWrap = document.getElementById("canvas-wrap");
 const progressBar = document.getElementById("progress-bar");
@@ -955,6 +1045,9 @@ let P = {
   outputCodec: "h264",  // "h264" (WebCodecs MP4) | "webm" (MediaRecorder fallback)
 };
 
+// Per-slider factory defaults; cloned so the reset button can restore them.
+const DEFAULTS = { ...P };
+
 const COLORS = [
   "#ffffff","#f3ac03","#ef4444","#f59e0b","#84cc16","#22c55e","#06b6d4","#3b82f6","#8b5cf6",
   "#ec4899","#000000","#d4d4d4","#9a9a9a","#666666","#333333","#1a1a1a","#a855f7","#6366f1"
@@ -975,9 +1068,12 @@ function setupSeg(container, stateKey, parse) {
   if (!el) return;
   el.querySelectorAll("button").forEach(btn => {
     btn.addEventListener("click", () => {
+      const next = parse(btn.dataset.val);
+      if (P[stateKey] === next) return;
+      History.commit();
       el.querySelectorAll("button").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
-      P[stateKey] = parse(btn.dataset.val);
+      P[stateKey] = next;
     });
   });
 }
@@ -990,9 +1086,12 @@ function setupIconRow(container, stateKey) {
   if (!el) return;
   el.querySelectorAll("button").forEach(btn => {
     btn.addEventListener("click", () => {
+      const next = btn.dataset.value;
+      if (P[stateKey] === next) return;
+      History.commit();
       el.querySelectorAll("button").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
-      P[stateKey] = btn.dataset.value;
+      P[stateKey] = next;
     });
   });
 }
@@ -1005,9 +1104,12 @@ function setupGrid(container, stateKey) {
   if (!el) return;
   el.querySelectorAll("button").forEach(btn => {
     btn.addEventListener("click", () => {
+      const next = btn.dataset.val;
+      if (P[stateKey] === next) return;
+      History.commit();
       el.querySelectorAll("button").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
-      P[stateKey] = btn.dataset.val;
+      P[stateKey] = next;
     });
   });
 }
@@ -1018,20 +1120,135 @@ function setupGrid(container, stateKey) {
 function setupToggle(id, stateKey) {
   const el = document.getElementById(id);
   if (!el) return;
-  el.addEventListener("change", () => { P[stateKey] = el.checked; });
+  el.addEventListener("change", () => {
+    if (P[stateKey] === el.checked) return;
+    History.commit();
+    P[stateKey] = el.checked;
+  });
+}
+
+// ============================
+// UI: sync from P (undo/redo restoration)
+// ============================
+// Push current P values back into DOM controls. Idempotent and safe to call
+// on every history restore. Skips work if the slider is being dragged.
+function syncControlsFromP() {
+  const map = [
+    ["video-speed", "playbackSpeed", "val", parseFloat],
+    ["connection-rate", "connectionRate", "val", parseFloat],
+    ["text-position", "textPosition", "val", String],
+    ["text-content", "textContent", "val", String],
+    ["font-size", "fontSize", "val", parseInt],
+    ["grouping-mode", "groupingMode", "val", String],
+    ["connection-style", "connectionStyle", "value", String],
+    ["basic-effects", "selectedEffect", "val", String],
+    ["sensitivity-preset", "_sensitivity", "preset", String],
+    ["object-size-preset", "_objectSize", "size", String],
+    ["color-channel", "colorChannel", "val", parseInt],
+    ["output-fps", "outputFps", "val", String],
+    ["output-size", "outputSize", "val", String],
+    ["output-codec", "outputCodec", "val", String],
+  ];
+  for (const [id, key, attr, parse] of map) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    const want = String(P[key] === undefined ? "" : P[key]);
+    el.querySelectorAll("button").forEach(b => {
+      const v = parse(b.dataset[attr]);
+      b.classList.toggle("active", String(v) === want);
+    });
+  }
+  // Toggles (checkboxes).
+  const tmap = [
+    ["text-enabled", "textEnabled"],
+    ["centroid-enabled", "centroidEnabled"],
+    ["gpu-toggle", "useGPU"],
+  ];
+  for (const [id, key] of tmap) {
+    const el = document.getElementById(id);
+    if (el) el.checked = !!P[key];
+  }
+  // Sliders: write value back and refresh the readout. Skip if the user is
+  // actively dragging the same input (input.value is already the live value).
+  const smap = [
+    ["stroke-width", "strokeWidth", "stroke-width-val", v => v + "px"],
+    ["blob-min", "blobMin", "blob-min-val", v => v],
+    ["blob-max", "blobMax", "blob-max-val", v => v >= 1000 ? Math.round(v / 1000) + "k" : v],
+    ["canny-low", "cannyLow", "canny-low-val", v => v],
+    ["canny-high", "cannyHigh", "canny-high-val", v => v],
+    ["blur-kernel", "blurKernel", "blur-kernel-val", v => v],
+    ["merge-kernel", "mergeKernel", "merge-kernel-val", v => v],
+    ["merge-iterations", "mergeIterations", "merge-iterations-val", v => v],
+    ["trail-length", "trailLength", "trail-length-val", v => v],
+  ];
+  for (const [id, key, valId, fmt] of smap) {
+    const el = document.getElementById(id);
+    const ve = document.getElementById(valId);
+    if (!el) continue;
+    if (document.activeElement !== el) el.value = P[key];
+    if (ve) ve.textContent = fmt(P[key]);
+  }
+  // Color palette: pick the swatch whose background matches.
+  const pal = document.getElementById("color-palette");
+  if (pal) {
+    pal.querySelectorAll(".cs").forEach(s => {
+      const cur = rgbToHex(s.style.background || "");
+      s.classList.toggle("active", cur === P.contourColor);
+    });
+  }
+  // Output-fps info line.
+  updateOutputFpsInfo();
+  Telemetry.setTargetFps(getEffectiveFps());
+}
+function rgbToHex(rgb) {
+  if (!rgb || rgb[0] !== "r") return rgb;
+  const m = rgb.match(/\d+/g); if (!m) return rgb;
+  return "#" + m.slice(0, 3).map(n => parseInt(n).toString(16).padStart(2, "0")).join("");
 }
 
 // ============================
 // UI: sliders
 // ============================
+// Decorates a range input with min/max labels and a ⟲ reset button inside
+// its parent .srow. Defaults come from DEFAULTS[stateKey] for the reset.
 function setupSlider(id, stateKey, valId, format) {
   const el = document.getElementById(id);
   const ve = document.getElementById(valId);
   if (!el) return;
+  const fmt = (v) => format ? format(v) : v;
+  const minVal = parseFloat(el.min);
+  const maxVal = parseFloat(el.max);
+  const row = el.closest(".srow");
+  if (row) {
+    // Min label — placed right before the input.
+    const minSpan = document.createElement("span");
+    minSpan.className = "smin";
+    minSpan.textContent = fmt(minVal);
+    el.parentNode.insertBefore(minSpan, el);
+    // Max label + reset button — appended after the value display.
+    const maxSpan = document.createElement("span");
+    maxSpan.className = "smax";
+    maxSpan.textContent = fmt(maxVal);
+    row.appendChild(maxSpan);
+    const reset = document.createElement("button");
+    reset.type = "button";
+    reset.className = "sreset";
+    reset.title = "Reset to default";
+    reset.textContent = "⟲";
+    reset.addEventListener("click", () => {
+      const def = DEFAULTS[stateKey];
+      if (def === undefined) return;
+      el.value = def;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    row.appendChild(reset);
+  }
   el.addEventListener("input", () => {
     const v = parseFloat(el.value);
+    if (P[stateKey] === v) return;
+    History.commit();
     P[stateKey] = v;
-    if (ve) ve.textContent = format ? format(v) : v;
+    if (ve) ve.textContent = fmt(v);
   });
 }
 
@@ -1050,6 +1267,8 @@ function buildPalette() {
     sw.tabIndex = 0;
     sw.setAttribute("aria-label", "Color: " + c);
     sw.addEventListener("click", () => {
+      if (P.contourColor === c) return;
+      History.commit();
       P.contourColor = c;
       el.querySelectorAll(".cs").forEach(s => s.classList.remove("active"));
       sw.classList.add("active");
@@ -1084,6 +1303,7 @@ function setupPresetRow(container, dataKey, onSelect) {
   if (!el) return;
   el.querySelectorAll("button").forEach(btn => {
     btn.addEventListener("click", () => {
+      History.commit();
       el.querySelectorAll("button").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       onSelect(btn.dataset[dataKey]);
@@ -1154,6 +1374,7 @@ function setupControls() {
         log("detect", "Output FPS changed, re-detecting", { newFps: P.outputFps, effectiveFps: getEffectiveFps() });
         reDetect();
       }
+      Telemetry.setTargetFps(getEffectiveFps());
       updateOutputFpsInfo();
     });
   });
@@ -1358,6 +1579,8 @@ async function startProcessing(videoURL) {
   progressFill.style.width = "0%";
   progressLabel.textContent = "Loading video…";
   exportOverlay.classList.remove("visible");
+  Telemetry.hide();
+  Telemetry.reset();
   try {
     await loadVideoMetadata(video, videoURL);
 
@@ -1385,6 +1608,8 @@ async function startProcessing(videoURL) {
     video.playbackRate = P.playbackSpeed;
     video.play();
     video.loop = true;
+    Telemetry.setTargetFps(getEffectiveFps());
+    Telemetry.show();
     requestAnimationFrame(drawLoop);
   } catch (e) {
     const msg = (e && e.message) || String(e);
@@ -1416,16 +1641,38 @@ function detectContours(frameMat) {
         const closed = new cv.Mat();
         cv.morphologyEx(mat, closed, cv.MORPH_CLOSE, kernelClose);
         kernelClose.delete();
-        // Grouping: dilate if in regions mode
+        // Grouping: dilate if in regions mode (GPU-accelerated, falls back to
+        // cv.dilate if the shader didn't load or mergeKernel == 1).
         let mask = closed;
         let mergeKernel = null;
+        let gpuMask = null;
         if (P.groupingMode === "regions" && P.mergeKernel > 1) {
           const mk = Math.max(1, Math.round(P.mergeKernel));
           const odd = mk % 2 === 0 ? mk + 1 : mk;
           P.mergeKernel = odd;
-          mergeKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(odd, odd));
-          mask = new cv.Mat();
-          cv.dilate(closed, mask, mergeKernel, new cv.Point(-1, -1), Math.max(1, Math.round(P.mergeIterations)));
+          const iters = Math.max(1, Math.round(P.mergeIterations));
+          const radius = Math.min(16, (odd - 1) >> 1);
+          if (radius >= 1 && GPU.programDilate) {
+            // Push the closed mat into the GPU as a luminance texture, then
+            // run the dilate shader on it, then read it back.
+            gpuEnsureSize(w, h);
+            uploadMaskToTexture(gl, GPU.textureB, w, h, closed.data);
+            const ok = gpuDilate(w, h, radius, iters);
+            if (ok) {
+              const dilated = readMaskFromTexture(w, h);
+              gpuMask = new cv.Mat(h, w, cv.CV_8UC1);
+              gpuMask.data.set(dilated);
+              mask = gpuMask;
+            } else {
+              mergeKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(odd, odd));
+              mask = new cv.Mat();
+              cv.dilate(closed, mask, mergeKernel, new cv.Point(-1, -1), iters);
+            }
+          } else {
+            mergeKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(odd, odd));
+            mask = new cv.Mat();
+            cv.dilate(closed, mask, mergeKernel, new cv.Point(-1, -1), iters);
+          }
         }
         mat.delete();
         const contours = new cv.MatVector();
@@ -1447,6 +1694,7 @@ function detectContours(frameMat) {
           result.push({x:cx,y:cy,area:filterArea,bx:rect.x,by:rect.y,bw:rect.width,bh:rect.height,pts});
         }
         if (mask !== closed) mask.delete();
+        if (gpuMask) gpuMask.delete();
         if (mergeKernel) mergeKernel.delete();
         closed.delete();contours.delete();hierarchy.delete();
         return result;
@@ -1612,7 +1860,7 @@ async function detectBlobs(){
     let mat;try{mat=cv.imread(tempCanvas);}catch(e){log("detect","cv.imread failed frame "+i);continue;}
     const cts=detectContours(mat);mat.delete();
     const blobs=tracker.update(cts);
-    all_frame_data.push({time:i/fps,blobs:JSON.parse(JSON.stringify(blobs)),frameIndex:i});
+    all_frame_data.push({time:i/fps,blobs:structuredClone(blobs),frameIndex:i});
     const pc=Math.round(i/tf*100);
     progressFill.style.width=pc+"%";
     progressLabel.textContent="Detecting… "+pc+"%";
@@ -1671,6 +1919,151 @@ function getContourPts(b){
   if(!b.pts||b.pts.length<3)return null;
   return b.pts;
 }
+
+// ============================
+// TELEMETRY (Phase 5.4)
+// ============================
+// Tracks rolling FPS, average / peak blob count, and % of "drop" frames
+// (frames that took more than 2× the target frame budget). Cheap: one
+// timestamp + one integer per frame.
+const Telemetry = {
+  el: null,
+  windowSize: 30,        // samples for rolling FPS
+  frameTimes: [],        // ms deltas
+  blobSamples: [],       // blob counts per frame
+  dropped: 0,            // frames exceeding 2× budget since last reset
+  total: 0,
+  peak: 0,
+  targetFrameMs: 1000 / 60, // recomputed when outputFps changes
+  visible: false,
+
+  show() {
+    this.visible = true;
+    if (this.el) this.el.classList.add("visible");
+  },
+  hide() {
+    this.visible = false;
+    if (this.el) this.el.classList.remove("visible");
+  },
+  reset() {
+    this.frameTimes.length = 0;
+    this.blobSamples.length = 0;
+    this.dropped = 0;
+    this.total = 0;
+    this.peak = 0;
+  },
+  setTargetFps(fps) {
+    this.targetFrameMs = (fps && fps > 0) ? (1000 / fps) : 16.67;
+  },
+  record(blobCount) {
+    const now = performance.now();
+    if (this.frameTimes.length) {
+      const dt = now - this.frameTimes[this.frameTimes.length - 1];
+      this.frameTimes.push(now);
+      if (this.frameTimes.length > this.windowSize + 1) this.frameTimes.shift();
+      // Drop: actual frame time > 2× target.
+      if (dt > this.targetFrameMs * 2) this.dropped++;
+      this.total++;
+      if (blobCount > this.peak) this.peak = blobCount;
+    } else {
+      this.frameTimes.push(now);
+    }
+    this.blobSamples.push(blobCount);
+    if (this.blobSamples.length > this.windowSize) this.blobSamples.shift();
+  },
+  render() {
+    if (!this.visible || !this.el) return;
+    // Compute rolling FPS from the last (n-1) deltas.
+    let fps = 0;
+    if (this.frameTimes.length > 1) {
+      const span = this.frameTimes[this.frameTimes.length - 1] - this.frameTimes[0];
+      if (span > 0) fps = ((this.frameTimes.length - 1) * 1000) / span;
+    }
+    const avgBlobs = this.blobSamples.length
+      ? this.blobSamples.reduce((s, n) => s + n, 0) / this.blobSamples.length
+      : 0;
+    const dropPct = this.total > 0 ? (this.dropped / this.total) * 100 : 0;
+    this.el.innerHTML =
+      '<b>' + fps.toFixed(1) + '</b> fps <span class="t-dim">·</span> ' +
+      'blobs <b>' + avgBlobs.toFixed(1) + '</b> ' +
+      '<span class="t-dim">(peak ' + this.peak + ')</span> <span class="t-dim">·</span> ' +
+      'drop <b>' + dropPct.toFixed(0) + '%</b>';
+  },
+};
+
+// ============================
+// HISTORY (Phase 5.6)
+// ============================
+// Ring buffer of P snapshots. Commit BEFORE applying a change; undo / redo
+// restore the previous / next snapshot and copy its fields back into P. Only
+// the P keys present in DEFAULTS are tracked, so internal state (temp
+// counters, ring buffers) is never rolled back.
+const History = {
+  past: [],
+  future: [],
+  max: 50,
+  // True while applying an undo / redo — used to suppress nested commits
+  // (e.g. when setupSlider dispatches a synthetic "input" event after ⟲).
+  applying: false,
+
+  snapshot() {
+    const snap = {};
+    for (const k of Object.keys(DEFAULTS)) snap[k] = P[k];
+    return snap;
+  },
+  // Commit a snapshot of the *current* state to the undo stack. Call this
+  // BEFORE making a change. No-op while applying.
+  commit() {
+    if (this.applying) return;
+    this.past.push(this.snapshot());
+    if (this.past.length > this.max) this.past.shift();
+    // Any new edit clears the redo stack.
+    this.future.length = 0;
+  },
+  restore(snap) {
+    this.applying = true;
+    try {
+      for (const k of Object.keys(DEFAULTS)) {
+        if (snap[k] !== undefined && P[k] !== snap[k]) P[k] = snap[k];
+      }
+      syncControlsFromP();
+    } finally {
+      this.applying = false;
+    }
+  },
+  undo() {
+    if (!this.past.length) return false;
+    this.future.push(this.snapshot());
+    if (this.future.length > this.max) this.future.shift();
+    const snap = this.past.pop();
+    this.restore(snap);
+    return true;
+  },
+  redo() {
+    if (!this.future.length) return false;
+    this.past.push(this.snapshot());
+    if (this.past.length > this.max) this.past.shift();
+    const snap = this.future.pop();
+    this.restore(snap);
+    return true;
+  },
+  clear() { this.past.length = 0; this.future.length = 0; },
+};
+
+window.addEventListener("keydown", (e) => {
+  // Skip when typing in an input/textarea or with modifiers other than shift/ctrl.
+  const t = e.target;
+  if (t && (t.tagName === "INPUT" && t.type !== "range" && t.type !== "checkbox")) return;
+  if (t && t.tagName === "TEXTAREA") return;
+  if (t && t.isContentEditable) return;
+  if (!(e.ctrlKey || e.metaKey)) return;
+  const key = e.key.toLowerCase();
+  if (key !== "z" && key !== "y") return;
+  e.preventDefault();
+  if (e.shiftKey) History.redo();
+  else if (key === "z" && History.undo()) {}
+  else if (key === "y" && History.redo()) {}
+});
 
 // ============================
 // EFFECTS REGISTRY
@@ -1847,33 +2240,59 @@ function drawGridEffect(ctx2d, blobs) {
 }
 
 function drawParticleEffect(ctx2d, blobs) {
+  // Lifetime model: each particle has spawn time, velocity, and a maximum
+  // age. When a blob is alive, spawn a few new particles per frame at its
+  // centroid with random outward velocity. Particles fade with age so they
+  // visibly "fly out and die" instead of re-randomizing per frame.
+  const now = performance.now();
+  const lifeMs = 900;          // particle lifetime
+  const spawnPerFrame = 2;     // new particles per blob per frame
   const alive = new Set(blobs.map(b => b.id));
+  // Drop particles for blobs that no longer exist.
   for (const id of particleStates.keys()) {
     if (!alive.has(id)) particleStates.delete(id);
   }
-  ctx2d.fillStyle = P.contourColor;
+  // Advance + cull existing particles.
+  for (const state of particleStates.values()) {
+    for (let i = state.length - 1; i >= 0; i--) {
+      const p = state[i];
+      p.x += p.vx; p.y += p.vy;
+      // Mild drag so they slow down a bit.
+      p.vx *= 0.96; p.vy *= 0.96;
+      if (now - p.t > lifeMs) state.splice(i, 1);
+    }
+  }
+  // Spawn fresh particles for live blobs.
   for (const b of blobs) {
     let state = particleStates.get(b.id);
-    if (!state) {
-      state = [];
-      for (let i = 0; i < 8; i++) {
-        state.push({
-          x: b.x + (Math.random() - 0.5) * b.bw * 1.5,
-          y: b.y + (Math.random() - 0.5) * b.bh * 1.5,
-          r: 1 + Math.random() * 2,
-          vx: (Math.random() - 0.5) * 1.5,
-          vy: (Math.random() - 0.5) * 1.5,
-        });
-      }
-      particleStates.set(b.id, state);
+    if (!state) { state = []; particleStates.set(b.id, state); }
+    for (let i = 0; i < spawnPerFrame; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 0.6 + Math.random() * 1.6;
+      state.push({
+        x: b.x + (Math.random() - 0.5) * b.bw * 0.6,
+        y: b.y + (Math.random() - 0.5) * b.bh * 0.6,
+        r: 1 + Math.random() * 1.6,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        t: now,
+      });
     }
+  }
+  // Render: alpha fades linearly with age.
+  ctx2d.save();
+  ctx2d.fillStyle = P.contourColor;
+  for (const state of particleStates.values()) {
     for (const p of state) {
-      p.x += p.vx; p.y += p.vy;
+      const age = (now - p.t) / lifeMs;
+      if (age >= 1) continue;
+      ctx2d.globalAlpha = 1 - age;
       ctx2d.beginPath();
       ctx2d.arc(p.x, p.y, p.r, 0, Math.PI * 2);
       ctx2d.fill();
     }
   }
+  ctx2d.restore();
 }
 
 function drawDashEffect(ctx2d, blobs) {
@@ -2074,6 +2493,7 @@ function drawCentroidDots(ctx2d,blobs){
 // ============================
 function drawLoop(){
   if(!video||video.readyState<2){requestAnimationFrame(drawLoop);return;}
+  if (video.paused && !isExporting) { requestAnimationFrame(drawLoop); return; }
   ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.drawImage(video,0,0,canvas.width,canvas.height);
   const time=video.currentTime;
@@ -2090,6 +2510,9 @@ function drawLoop(){
   if (P.trailLength > 0 && P.selectedEffect === "Trail") {
     TrailBuffer.push(canvas);
   }
+
+  Telemetry.record(blobs.length);
+  Telemetry.render();
 
   requestAnimationFrame(drawLoop);
 }
@@ -2502,6 +2925,8 @@ Object.keys(TIPS).forEach(id => {
 // ============================
 setupControls();
 initGPU();
+Telemetry.el = document.getElementById("telemetry");
+Telemetry.setTargetFps(PROCESSING_FPS_DEFAULT);
 
 if (location.protocol === "file:") {
   console.warn("Running from file:// — presets.json and some features may not work. Use a local server (e.g. `npx serve .`).");

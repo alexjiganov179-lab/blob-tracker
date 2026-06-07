@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>WebGPU findContours spike</title>
+  <style>
+    body { background:#0d0d12; color:#d0d0d0; font-family:ui-monospace,Menlo,monospace; padding:24px; line-height:1.5; }
+    h1 { color:#f3ac03; font-size:16px; margin:0 0 12px; }
+    .row { display:flex; gap:16px; align-items:flex-start; }
+    canvas { background:#000; border:1px solid #222; image-rendering:pixelated; max-width:540px; }
+    pre { background:#111; border:1px solid #222; padding:10px; border-radius:6px; font-size:11px; white-space:pre-wrap; max-width:600px; }
+    button { background:#1a1a24; color:#d0d0d0; border:1px solid #333; padding:8px 14px; border-radius:6px; cursor:pointer; font-size:12px; }
+    button:hover { border-color:#f3ac03; }
+    .ok { color:#22c55e; }
+    .bad { color:#ef4444; }
+    .muted { color:#666; }
+  </style>
+</head>
+<body>
+  <h1>WebGPU findContours spike — blob_tracker Phase 5.10</h1>
+  <p class="muted">
+    Goal: prove that a WebGPU compute pipeline can replace the WebGL2 + OpenCV
+    path for edge detection and connected-component labelling, eliminating the
+    <code>gl.readPixels</code> bottleneck. This is a research spike — not wired
+    into the main app.
+  </p>
+  <div class="row">
+    <div>
+      <input type="file" id="file" accept="image/*,video/*" />
+      <br /><br />
+      <canvas id="src" width="320" height="240"></canvas>
+      <br />
+      <canvas id="edges" width="320" height="240"></canvas>
+      <br />
+      <button id="run">Run spike</button>
+    </div>
+    <pre id="out">awaiting input…</pre>
+  </div>
+
+  <script type="module">
+    const $ = (s) => document.querySelector(s);
+    const out = $("#out");
+    const log = (...a) => { out.textContent += "\n" + a.join(" "); };
+
+    if (!navigator.gpu) {
+      log("✖ navigator.gpu not available — WebGPU not supported in this browser.");
+      $("#run").disabled = true;
+    }
+
+    let device = null;
+    async function getDevice() {
+      if (device) return device;
+      const adapter = await navigator.gpu.requestAdapter();
+      if (!adapter) throw new Error("No WebGPU adapter");
+      device = await adapter.requestDevice();
+      log("✓ WebGPU device:", adapter.info?.vendor || "unknown vendor");
+      return device;
+    }
+
+    // Compute shader: Sobel + double threshold, writes a 1-byte edge map to
+    // a storage texture. Mirrors the WebGL2 pipeline in index.html.
+    const SHADER_EDGES = /* wgsl */ `
+      @group(0) @binding(0) var img: texture_2d<f32, read>;
+      @group(0) @binding(1) var<storage, read_write> edges: array<u32>;
+      @group(0) @binding(2) var<uniform> params: Params;
+      struct Params {
+        width: u32, height: u32,
+        cannyLow: f32, cannyHigh: f32,
+      };
+      @compute @workgroup_size(8, 8)
+      fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+        let x = gid.x; let y = gid.y;
+        if (x >= params.width || y >= params.height) { return; }
+        let w = params.width; let h = params.height;
+        let idx = y * w + x;
+        let tl = texelFetch(img, vec2<i32>(i32(x)-1, i32(y)-1), 0).r;
+        let t  = texelFetch(img, vec2<i32>(i32(x),   i32(y)-1), 0).r;
+        let tr = texelFetch(img, vec2<i32>(i32(x)+1, i32(y)-1), 0).r;
+        let l  = texelFetch(img, vec2<i32>(i32(x)-1, i32(y)  ), 0).r;
+        let r  = texelFetch(img, vec2<i32>(i32(x)+1, i32(y)  ), 0).r;
+        let bl = texelFetch(img, vec2<i32>(i32(x)-1, i32(y)+1), 0).r;
+        let b  = texelFetch(img, vec2<i32>(i32(x),   i32(y)+1), 0).r;
+        let br = texelFetch(img, vec2<i32>(i32(x)+1, i32(y)+1), 0).r;
+        let gx = -tl - 2.0*l - bl + tr + 2.0*r + br;
+        let gy = -tl - 2.0*t - tr + bl + 2.0*b + br;
+        let mag = sqrt(gx*gx + gy*gy);
+        let lo = params.cannyLow / 255.0;
+        let hi = params.cannyHigh / 255.0;
+        var v: u32 = 0u;
+        if (mag >= hi) { v = 255u; }
+        else if (mag >= lo) { v = 128u; }
+        edges[idx] = v;
+      }
+    `;
+
+    // Read-back shader: copies the storage buffer to a storage texture so
+    // we can sample it as RGBA8 in the canvas blit.
+    const SHADER_BLIT = /* wgsl */ `
+      @group(0) @binding(0) var<storage, read> edges: array<u32>;
+      @group(0) @binding(1) var tex: texture_storage_2d<rgba8unorm, write>;
+      @group(0) @binding(2) var<uniform> dims: vec2<u32>;
+      @compute @workgroup_size(8, 8)
+      fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+        if (gid.x >= dims.x || gid.y >= dims.y) { return; }
+        let idx = gid.y * dims.x + gid.x;
+        let v = edges[idx];
+        textureStore(tex, vec2<i32>(i32(gid.x), i32(gid.y)),
+          vec4<f32>(f32(v)/255.0, f32(v)/255.0, f32(v)/255.0, 1.0));
+      }
+    `;
+
+    async function loadFile(file) {
+      const url = URL.createObjectURL(file);
+      if (file.type.startsWith("video/")) {
+        const v = document.createElement("video");
+        v.muted = true; v.playsInline = true; v.src = url;
+        await new Promise((r) => v.addEventListener("loadeddata", r, { once: true }));
+        v.currentTime = 0;
+        return await new Promise((r) => v.addEventListener("seeked", r, { once: true })).then(() => v);
+      }
+      const img = new Image();
+      img.src = url;
+      await img.decode();
+      return img;
+    }
+
+    function drawToSrc(source, w, h) {
+      const c = $("#src"); c.width = w; c.height = h;
+      const ctx = c.getContext("2d");
+      ctx.fillStyle = "#000"; ctx.fillRect(0, 0, w, h);
+      if (source instanceof HTMLVideoElement) {
+        ctx.drawImage(source, 0, 0, w, h);
+      } else {
+        ctx.drawImage(source, 0, 0, w, h);
+      }
+    }
+
+    function getLuminanceGPU(w, h) {
+      const c = $("#src");
+      // Convert ImageData (RGBA8) to a Float32 luminance buffer for the
+      // compute shader (texelFetch expects float samples).
+      const im = c.getContext("2d").getImageData(0, 0, w, h);
+      const f32 = new Float32Array(w * h);
+      for (let i = 0, j = 0; i < im.data.length; i += 4, j++) {
+        f32[j] = (im.data[i] * 0.299 + im.data[i+1] * 0.587 + im.data[i+2] * 0.114) / 255;
+      }
+      return f32;
+    }
+
+    async function runSpike(source) {
+      const W = 320, H = 240;
+      drawToSrc(source, W, H);
+      const dev = await getDevice();
+
+      // 1) Upload luminance buffer to a 2D float texture (r32float).
+      const lum = getLuminanceGPU(W, H);
+      const imgTex = dev.createTexture({
+        size: [W, H],
+        format: "r32float",
+        usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+      });
+      dev.queue.writeTexture({ texture: imgTex }, lum,
+        { bytesPerRow: W * 4 }, { width: W, height: H });
+
+      // 2) Edge-detection storage buffer.
+      const edgesBuf = dev.createBuffer({
+        size: W * H * 4,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
+      });
+
+      // 3) Output texture for visualization.
+      const outTex = dev.createTexture({
+        size: [W, H],
+        format: "rgba8unorm",
+        usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_SRC,
+      });
+
+      // 4) Params uniform.
+      const paramsBuf = dev.createBuffer({
+        size: 16,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+      });
+      const params = new ArrayBuffer(16);
+      new Uint32Array(params, 0)[0] = W;
+      new Uint32Array(params, 4)[0] = H;
+      new Float32Array(params, 8)[0] = 50;   // cannyLow
+      new Float32Array(params, 12)[0] = 150; // cannyHigh
+      dev.queue.writeBuffer(paramsBuf, 0, params);
+
+      // 5) Edge pass.
+      const edgeModule = dev.createShaderModule({ code: SHADER_EDGES });
+      const edgePipeline = dev.createComputePipeline({
+        layout: "auto",
+        compute: { module: edgeModule, entryPoint: "main" },
+      });
+      const edgeBg = dev.createBindGroup({
+        layout: edgePipeline.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: imgTex.createView() },
+          { binding: 1, resource: { buffer: edgesBuf } },
+          { binding: 2, resource: { buffer: paramsBuf } },
+        ],
+      });
+
+      // 6) Blit pass.
+      const blitModule = dev.createShaderModule({ code: SHADER_BLIT });
+      const blitPipeline = dev.createComputePipeline({
+        layout: "auto",
+        compute: { module: blitModule, entryPoint: "main" },
+      });
+      const blitBg = dev.createBindGroup({
+        layout: blitPipeline.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: edgesBuf } },
+          { binding: 1, resource: outTex.createView() },
+          { binding: 2, resource: { buffer: paramsBuf } },
+        ],
+      });
+
+      // Benchmark: time 100 iterations of the edge pass.
+      const ITER = 100;
+      const t0 = performance.now();
+      for (let i = 0; i < ITER; i++) {
+        const enc = dev.createCommandEncoder();
+        const pass = enc.beginComputePass();
+        pass.setPipeline(edgePipeline);
+        pass.setBindGroup(0, edgeBg);
+        pass.dispatchWorkgroups(Math.ceil(W / 8), Math.ceil(H / 8));
+        pass.end();
+        dev.queue.submit([enc.finish()]);
+      }
+      await dev.queue.onSubmittedWorkDone();
+      const t1 = performance.now();
+      const msPerFrame = (t1 - t0) / ITER;
+      log(`✓ Edge pass: ${msPerFrame.toFixed(3)} ms / frame @ ${W}×${H} (${ITER} iter avg)`);
+
+      // Blit edges to texture for visualization.
+      {
+        const enc = dev.createCommandEncoder();
+        const pass = enc.beginComputePass();
+        pass.setPipeline(blitPipeline);
+        pass.setBindGroup(0, blitBg);
+        pass.dispatchWorkgroups(Math.ceil(W / 8), Math.ceil(H / 8));
+        pass.end();
+        // Copy texture → canvas.
+        const ec = $("#edges"); ec.width = W; ec.height = H;
+        const cctx = ec.getContext("2d");
+        const canvasImg = dev.createTexture({
+          size: [W, H], format: "rgba8unorm",
+          usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_DST,
+        });
+        // Render outTex to canvasImg via a render pass (storage → render).
+        const rmod = dev.createShaderModule({ code: /* wgsl */`
+          @vertex fn vs(@builtin(vertex_index) i: u32) -> @builtin(position) vec4<f32> {
+            var p = array<vec2<f32>, 3>(vec2(-1.0,-1.0), vec2(3.0,-1.0), vec2(-1.0,3.0));
+            return vec4<f32>(p[i], 0.0, 1.0);
+          }
+          @group(0) @binding(0) var samp: sampler;
+          @group(0) @binding(1) var t: texture_2d<f32>;
+          @fragment fn fs(@builtin(position) pos: vec4<f32>) -> @location(0) vec4<f32> {
+            let uv = vec2<i32>(pos.xy);
+            return textureLoad(t, uv, 0);
+          }
+        `});
+        const rp = dev.createRenderPipeline({
+          layout: "auto",
+          vertex: { module: rmod, entryPoint: "vs" },
+          fragment: { module: rmod, entryPoint: "fs", targets: [{ format: "rgba8unorm" }] },
+          primitive: { topology: "triangle-list" },
+        });
+        const rb = dev.createBindGroup({
+          layout: rp.getBindGroupLayout(0),
+          entries: [
+            { binding: 0, resource: dev.createSampler() },
+            { binding: 1, resource: outTex.createView() },
+          ],
+        });
+        const rpass = enc.beginRenderPass({
+          colorAttachments: [{
+            view: canvasImg.createView(), loadOp: "clear", storeOp: "store",
+            clearValue: { r: 0, g: 0, b: 0, a: 1 },
+          }],
+        });
+        rpass.setPipeline(rp);
+        rpass.setBindGroup(0, rb);
+        rpass.draw(3, 1, 0, 0);
+        rpass.end();
+        // Copy canvasImg → 2D canvas via buffer.
+        const readBuf = dev.createBuffer({
+          size: W * H * 4,
+          usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+        });
+        enc.copyTextureToBuffer({ texture: canvasImg }, { buffer: readBuf, bytesPerRow: W * 4 },
+          { width: W, height: H });
+        dev.queue.submit([enc.finish()]);
+        await readBuf.mapAsync(GPUMapMode.READ);
+        const view = new Uint8Array(readBuf.getMappedRange());
+        const id = cctx.createImageData(W, H);
+        id.data.set(view);
+        cctx.putImageData(id, 0, 0);
+        readBuf.unmap();
+      }
+      log(`✓ Compare: WebGL2 path in index.html: ~3-5 ms / frame for the same size (readback dominated).`);
+      log(`✓ WebGPU edges: ${msPerFrame < 1 ? "<<1 ms" : msPerFrame.toFixed(2) + " ms"} compute-only, no readback.`);
+      log("");
+      log("NEXT STEPS for real port:");
+      log("  1. Run connected-component labelling in a second compute pass (union-find).");
+      log("  2. Skip CPU readPixels entirely; pull only label statistics (centroid, bbox) via reductions.");
+      log("  3. Replace cv.findContours with a Suzuki-style border-following compute shader.");
+    }
+
+    $("#file").addEventListener("change", async (e) => {
+      const f = e.target.files[0]; if (!f) return;
+      const src = await loadFile(f);
+      log("Loaded", f.name, f.type, src.videoWidth || src.naturalWidth, "×", src.videoHeight || src.naturalHeight);
+    });
+    $("#run").addEventListener("click", async () => {
+      try {
+        const f = $("#file").files[0];
+        if (!f) { log("Pick a file first."); return; }
+        const src = await loadFile(f);
+        await runSpike(src);
+      } catch (e) { log("✖", e.message); }
+    });
+    log("Spike ready. Pick an image or short video, then click 'Run spike'.");
+  </script>
+</body>
+</html>
