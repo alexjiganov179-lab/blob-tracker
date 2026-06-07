@@ -8,7 +8,7 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       background: #0d0d12; color: #e0e0e0;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.4;
       display: flex; height: 100vh; overflow: hidden;
     }
     #viewer {
@@ -22,20 +22,16 @@
     }
     #drop-zone.drag-over { border-color: #f3ac03; background: rgba(249,115,22,.06); }
     #drop-zone.hidden { display: none; }
-    #upload-btn, #sample-btn {
+    #upload-btn {
       background: #1a1a24; color: #d0d0d0; border: 1px solid #333;
       border-radius: 8px; padding: 10px 22px; font-size: 14px; cursor: pointer;
     }
-    #upload-btn:hover, #sample-btn:hover { background: #24242e; border-color: #555; }
-    #sample-btn { padding: 6px 14px; font-size: 12px; background: transparent; color: #555; }
+    #upload-btn:hover { background: #24242e; border-color: #555; }
     #file-input { display: none; }
     #canvas-wrap { position: relative; }
     video { display: none; }
     canvas { display: block; max-height: 94vh; max-width: 100%; border-radius: 4px; }
-    #crop-overlay {
-      position: absolute; top: 0; left: 0; pointer-events: none; display: none; z-index: 5;
-    }
-    #crop-overlay.visible { display: block; }
+
     #progress-bar {
       position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
       background: rgba(0,0,0,.85); border-radius: 8px; padding: 8px 16px;
@@ -44,6 +40,20 @@
     #progress-bar.visible { display: flex; }
     #progress-track { flex: 1; height: 5px; background: #1e1e28; border-radius: 3px; overflow: hidden; }
     #progress-fill { width: 0%; height: 100%; background: #f3ac03; border-radius: 3px; transition: width .15s; }
+    #cancel-detect {
+      background: transparent; border: 1px solid #555; color: #aaa;
+      border-radius: 5px; width: 22px; height: 22px; padding: 0;
+      font-size: 12px; line-height: 1; cursor: pointer; display: none;
+    }
+    #cancel-detect.visible { display: inline-block; }
+    #cancel-detect:hover { border-color: #f3ac03; color: #f3ac03; }
+    #cancel-export {
+      background: transparent; border: 1px solid #555; color: #aaa;
+      border-radius: 5px; width: 22px; height: 22px; padding: 0;
+      font-size: 12px; line-height: 1; cursor: pointer; display: none;
+    }
+    #cancel-export.visible { display: inline-block; }
+    #cancel-export:hover { border-color: #f3ac03; color: #f3ac03; }
     #export-overlay {
       position: absolute; top: 12px; right: 12px; display: none;
       gap: 6px; align-items: center; z-index: 60;
@@ -55,11 +65,6 @@
     }
     #export-btn:hover { background: #e29a03; }
     #export-btn:disabled { background: #333; color: #666; cursor: not-allowed; }
-    #export-format {
-      padding: 7px 5px; border: 1px solid #333; border-radius: 6px;
-      background: #1a1a24; color: #d0d0d0; font-size: 11px; cursor: pointer;
-    }
-    #export-format option { background: #1a1a24; }
     #redetect-btn {
       padding: 7px 12px; border: 1px solid #333; border-radius: 8px;
       background: #1a1a24; color: #a0a0a8; font-size: 11px; cursor: pointer;
@@ -138,7 +143,7 @@
     .gbtn {
       position: relative; padding: 6px 3px; border: 1px solid #1e1e28;
       border-radius: 6px; background: rgba(0,0,0,.12);
-      color: #888; font-size: 9px; font-weight: 500; text-align: center;
+      color: #888; font-size: 10px; font-weight: 500; text-align: center;
       cursor: pointer; transition: all .15s; line-height: 1.3;
       user-select: none;
     }
@@ -154,7 +159,7 @@
     .ck { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #888; cursor: pointer; user-select: none; }
     .ck input[type="checkbox"] { accent-color: #f3ac03; width: 13px; height: 13px; }
 
-    .pro-row { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; }
+    .pro-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0; }
     .pro-label { font-size: 11px; color: #666; }
     .sw { position: relative; width: 32px; height: 16px; cursor: pointer; }
     .sw input { opacity: 0; width: 0; height: 0; }
@@ -185,7 +190,7 @@
 
     /* Sub label */
     .sub {
-      font-size: 9px; color: #444; margin-bottom: 5px; margin-top: 7px;
+      font-size: 10px; color: #444; margin-bottom: 5px; margin-top: 7px;
       text-transform: uppercase; letter-spacing: .04em;
     }
 
@@ -240,6 +245,13 @@
       background: #1a1a24; color: #777; transition: all .15s;
     }
     .pfooter button:hover { border-color: #f3ac03; color: #ccc; }
+
+    :focus-visible {
+      outline: 2px solid #f3ac03;
+      outline-offset: 2px;
+    }
+    button:focus:not(:focus-visible),
+    input:focus:not(:focus-visible) { outline: none; }
   </style>
 </head>
 <body>
@@ -251,25 +263,25 @@
       <div style="font-size:15px; color:#c0c0c8">Drop a video file anywhere</div>
       <div style="font-size:12px; color:#666; margin-top:4px">MP4, MOV, MKV</div>
     </div>
-    <button id="upload-btn">Upload Video</button>
+    <button type="button" id="upload-btn">Upload Video</button>
     <input type="file" id="file-input" accept="video/*" />
-    <button id="sample-btn">Load sample video</button>
   </div>
 
   <div id="canvas-wrap">
     <video id="video" playing muted playsinline></video>
     <canvas id="canvas"></canvas>
-    <canvas id="crop-overlay"></canvas>
     <div id="progress-bar">
       <div class="spinner"></div>
       <span id="progress-label">Detecting…</span>
       <div id="progress-track"><div id="progress-fill"></div></div>
+      <button type="button" id="cancel-detect" title="Abort detection">✕</button>
+      <button type="button" id="cancel-export" title="Abort export">✕</button>
     </div>
   </div>
 
   <div id="export-overlay">
-    <button id="redetect-btn" title="Re-run blob detection with current params">🔄 Re-detect</button>
-    <button id="export-btn" title="Record canvas to video file">⬇ Export MP4</button>
+    <button type="button" id="redetect-btn" title="Re-run blob detection with current params">🔄 Re-detect</button>
+    <button type="button" id="export-btn" title="Record canvas to video file">⬇ Export MP4</button>
   </div>
   <div class="export-status" id="export-status"></div>
 </div>
@@ -281,65 +293,50 @@
     </div>
 
     <!-- 0. Find Objects (friendly presets that drive the technical sliders) -->
-    <div class="card"><div class="card-label">Find Objects<span class="tip" id="tip-find">?</span></div>
+    <div class="card">      <div class="card-label">Find Objects<span class="tip" id="tip-find" role="button" tabindex="0" aria-label="Help: Find Objects">?</span></div>
       <div class="sub">Sensitivity</div>
       <div class="seg" id="sensitivity-preset">
-        <button data-preset="low">Low</button>
-        <button data-preset="normal" class="active">Normal</button>
-        <button data-preset="high">High</button>
-        <button data-preset="tiny" title="For small distant objects">Tiny objects</button>
+        <button type="button" data-preset="low">Low</button>
+        <button type="button" data-preset="normal" class="active">Normal</button>
+        <button type="button" data-preset="high">High</button>
+        <button type="button" data-preset="tiny" title="For small distant objects">Tiny objects</button>
       </div>
       <div class="sub">Object Size</div>
       <div class="seg" id="object-size-preset">
-        <button data-size="small" title="Small distant objects, excluding large foreground objects">Small only</button>
-        <button data-size="medium" class="active">Medium</button>
-        <button data-size="large">Large</button>
-        <button data-size="custom">Custom</button>
+        <button type="button" data-size="small" title="Small distant objects, excluding large foreground objects">Small only</button>
+        <button type="button" data-size="medium" class="active">Medium</button>
+        <button type="button" data-size="large">Large</button>
+        <button type="button" data-size="custom">Custom</button>
       </div>
     </div>
 
     <!-- 1. Video Speed -->
     <div class="card"><div class="card-label">Video Speed</div>
       <div class="seg" id="video-speed">
-        <button data-val="0.5">0.5×</button>
-        <button data-val="1" class="active">1×</button>
-        <button data-val="2">2×</button>
-        <button data-val="4">4×</button>
-      </div>
-    </div>
-
-    <!-- 2. Shape -->
-    <div class="card"><div class="card-label">Shape</div>
-      <div class="icon-row" id="shape-selector">
-        <button class="icon-btn active" data-value="contour">
-          <svg viewBox="0 0 16 16"><polygon points="2,2 14,2 14,14 2,14"/></svg> Contour
-        </button>
-        <button class="icon-btn" data-value="circle">
-          <svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/></svg> Circle
-        </button>
-        <button class="icon-btn" data-value="rect">
-          <svg viewBox="0 0 16 16"><rect x="2" y="4" width="12" height="8"/></svg> BBox
-        </button>
+        <button type="button" data-val="0.5">0.5×</button>
+        <button type="button" data-val="1" class="active">1×</button>
+        <button type="button" data-val="2">2×</button>
+        <button type="button" data-val="4">4×</button>
       </div>
     </div>
 
     <!-- 4. Basic Effects -->
     <div class="card"><div class="card-label">Basic Effects</div>
       <div class="grid w3" id="basic-effects">
-        <button class="gbtn active" data-val="Basic">Basic<span class="dot"></span></button>
-        <button class="gbtn" data-val="Cross">Cross</button>
-        <button class="gbtn" data-val="Label">Label<span class="dot"></span></button>
-        <button class="gbtn" data-val="Frame">Frame</button>
-        <button class="gbtn" data-val="L-Frame">L-Frame</button>
-        <button class="gbtn" data-val="X-Frame">X-Frame</button>
-        <button class="gbtn" data-val="Grid">Grid</button>
-        <button class="gbtn" data-val="Particle">Particle</button>
-        <button class="gbtn" data-val="Dash">Dash</button>
-        <button class="gbtn" data-val="Scope">Scope</button>
-        <button class="gbtn" data-val="Win2K">Win2K</button>
-        <button class="gbtn" data-val="Glow">Glow</button>
-        <button class="gbtn" data-val="Backdrop">Backdrop<span class="dot"></span></button>
-        <button class="gbtn" data-val="Outline">Outline</button>
+        <button type="button" class="gbtn active" data-val="Basic">Basic<span class="dot"></span></button>
+        <button type="button" class="gbtn" data-val="Cross">Cross</button>
+        <button type="button" class="gbtn" data-val="Label">Label<span class="dot"></span></button>
+        <button type="button" class="gbtn" data-val="Frame">Frame</button>
+        <button type="button" class="gbtn" data-val="L-Frame">L-Frame</button>
+        <button type="button" class="gbtn" data-val="X-Frame">X-Frame</button>
+        <button type="button" class="gbtn" data-val="Grid">Grid</button>
+        <button type="button" class="gbtn" data-val="Particle">Particle</button>
+        <button type="button" class="gbtn" data-val="Dash">Dash</button>
+        <button type="button" class="gbtn" data-val="Scope">Scope</button>
+        <button type="button" class="gbtn" data-val="Win2K">Win2K</button>
+        <button type="button" class="gbtn" data-val="Glow">Glow</button>
+        <button type="button" class="gbtn" data-val="Backdrop">Backdrop<span class="dot"></span></button>
+        <button type="button" class="gbtn" data-val="Outline">Outline</button>
       </div>
     </div>
 
@@ -347,26 +344,26 @@
     <div class="card"><div class="card-label">Connection</div>
       <div class="sub">Line Style</div>
       <div class="line-row" id="connection-style">
-        <button class="lbtn active" data-val="nearest" title="Nearest neighbors">
+        <button type="button" class="lbtn active" data-val="nearest" title="Nearest neighbors" aria-label="Nearest neighbors line style">
           <svg viewBox="0 0 24 20"><line x1="4" y1="4" x2="10" y2="16"/><line x1="10" y1="16" x2="20" y2="6"/></svg>
         </button>
-        <button class="lbtn" data-val="all" title="All connections">
+        <button type="button" class="lbtn" data-val="all" title="All connections" aria-label="All connections line style">
           <svg viewBox="0 0 24 20"><line x1="4" y1="4" x2="12" y2="4"/><line x1="4" y1="4" x2="12" y2="16"/><line x1="4" y1="4" x2="20" y2="10"/><line x1="12" y1="4" x2="12" y2="16"/><line x1="12" y1="4" x2="20" y2="10"/><line x1="12" y1="16" x2="20" y2="10"/></svg>
         </button>
-        <button class="lbtn" data-val="chain" title="Chain">
+        <button type="button" class="lbtn" data-val="chain" title="Chain" aria-label="Chain line style">
           <svg viewBox="0 0 24 20"><polyline points="2,10 8,4 14,16 22,8"/></svg>
         </button>
-        <button class="lbtn" data-val="wave" title="Waveform">
+        <button type="button" class="lbtn" data-val="wave" title="Waveform" aria-label="Waveform line style">
           <svg viewBox="0 0 24 20"><path d="M2,10 Q6,2 12,10 T22,10"/></svg>
         </button>
       </div>
       <div class="sub" style="margin-top:8px">Connection Rate</div>
       <div class="seg" id="connection-rate">
-        <button data-val="0">None</button>
-        <button data-val="0.25">0.25</button>
-        <button data-val="0.5" class="active">0.5</button>
-        <button data-val="0.75">0.75</button>
-        <button data-val="1">Full</button>
+        <button type="button" data-val="0">None</button>
+        <button type="button" data-val="0.25">0.25</button>
+        <button type="button" data-val="0.5" class="active">0.5</button>
+        <button type="button" data-val="0.75">0.75</button>
+        <button type="button" data-val="1">Full</button>
       </div>
     </div>
 
@@ -379,72 +376,63 @@
     </div>
 
     <!-- 8. Blob Size -->
-    <div class="card"><div class="card-label">Blob Size<span class="tip" id="tip-blob">?</span></div>
+    <div class="card">      <div class="card-label">Blob Size<span class="tip" id="tip-blob" role="button" tabindex="0" aria-label="Help: Blob Size">?</span></div>
       <div class="srow" style="margin-bottom:4px">
-        <span style="font-size:9px;color:#444;min-width:24px">Min</span>
+        <span style="font-size:10px;color:#444;min-width:24px">Min</span>
         <input type="range" id="blob-min" min="5" max="5000" step="5" value="300"/>
         <span class="sv" id="blob-min-val">300</span>
       </div>
       <div class="srow">
-        <span style="font-size:9px;color:#444;min-width:24px">Max</span>
+        <span style="font-size:10px;color:#444;min-width:24px">Max</span>
         <input type="range" id="blob-max" min="5000" max="500000" step="5000" value="200000"/>
         <span class="sv" id="blob-max-val">200k</span>
-      </div>
-      <div class="pro-row" style="margin-top:6px">
-        <span class="pro-label">Same Size</span>
-        <label class="sw"><input type="checkbox" id="same-size"><span class="sl"></span></label>
       </div>
     </div>
 
     <!-- 9. Detection -->
-    <div class="card"><div class="card-label">Detection<span class="tip" id="tip-detect">?</span></div>
+    <div class="card">      <div class="card-label">Detection<span class="tip" id="tip-detect" role="button" tabindex="0" aria-label="Help: Detection">?</span></div>
+      <div class="sub">Color Channel</div>
+      <div class="seg" id="color-channel">
+        <button type="button" data-val="0" class="active" title="All channels weighted (default)">Lum</button>
+        <button type="button" data-val="1" title="Red channel only — good for red objects">Red</button>
+        <button type="button" data-val="2" title="Green channel only — good for green objects">Grn</button>
+        <button type="button" data-val="3" title="Blue channel only — good for blue objects">Blu</button>
+      </div>
+      <div class="pro-row" style="margin-top:6px">
+        <span class="pro-label">GPU Acceleration</span>
+        <label class="sw"><input type="checkbox" id="gpu-toggle" checked><span class="sl"></span></label>
+      </div>
       <div class="srow" style="margin-bottom:4px">
-        <span style="font-size:9px;color:#444;min-width:28px">C-Low</span>
+        <span style="font-size:10px;color:#444;min-width:28px">C-Low</span>
         <input type="range" id="canny-low" min="0" max="255" step="5" value="50"/>
         <span class="sv" id="canny-low-val">50</span>
       </div>
       <div class="srow" style="margin-bottom:4px">
-        <span style="font-size:9px;color:#444;min-width:28px">C-High</span>
+        <span style="font-size:10px;color:#444;min-width:28px">C-High</span>
         <input type="range" id="canny-high" min="0" max="255" step="5" value="150"/>
         <span class="sv" id="canny-high-val">150</span>
       </div>
       <div class="srow">
-        <span style="font-size:9px;color:#444;min-width:28px">Blur</span>
+        <span style="font-size:10px;color:#444;min-width:28px">Blur</span>
         <input type="range" id="blur-kernel" min="1" max="31" step="2" value="5"/>
         <span class="sv" id="blur-kernel-val">5</span>
       </div>
 
       <div class="sub">Grouping</div>
       <div class="seg" id="grouping-mode">
-        <button data-val="contours" class="active" title="Keep every detected fragment separate">Detail</button>
-        <button data-val="regions" title="Merge nearby fragments into one object">Grouped</button>
+        <button type="button" data-val="contours" class="active" title="Keep every detected fragment separate">Detail</button>
+        <button type="button" data-val="regions" title="Merge nearby fragments into one object">Grouped</button>
       </div>
       <div class="srow" style="margin-top:6px;margin-bottom:4px">
-        <span style="font-size:9px;color:#444;min-width:28px">Merge</span>
+        <span style="font-size:10px;color:#444;min-width:28px">Merge</span>
         <input type="range" id="merge-kernel" min="1" max="61" step="2" value="1"/>
         <span class="sv" id="merge-kernel-val">1</span>
       </div>
       <div class="srow">
-        <span style="font-size:9px;color:#444;min-width:28px">Passes</span>
+        <span style="font-size:10px;color:#444;min-width:28px">Passes</span>
         <input type="range" id="merge-iterations" min="1" max="5" step="1" value="1"/>
         <span class="sv" id="merge-iterations-val">1</span>
       </div>
-    </div>
-
-    <!-- 10. Crop -->
-    <div class="card"><div class="card-label">Crop</div>
-      <div class="sub">Aspect Ratio</div>
-      <div class="seg" id="crop-mode">
-        <button data-val="full" class="active">Full</button>
-        <button data-val="center">Center 9:16</button>
-        <button data-val="blob">Follow 9:16</button>
-      </div>
-      <div class="sub" style="margin-top:6px">Mode</div>
-      <div class="seg" id="export-resolution">
-        <button data-val="preview" class="active">Preview</button>
-        <button data-val="instagram">Instagram</button>
-      </div>
-      <div class="sub" style="margin-top:4px;font-size:8px;color:#333">Instagram = 1080×1920 · Full = canvas size</div>
     </div>
 
     <!-- 10. Color & Text -->
@@ -454,28 +442,24 @@
       </div>
       <div class="sub">Text Position</div>
       <div class="seg" id="text-position">
-        <button data-val="center" class="active">Center</button>
-        <button data-val="top">Top</button>
-        <button data-val="bottom">Bottom</button>
+        <button type="button" data-val="center" class="active">Center</button>
+        <button type="button" data-val="top">Top</button>
+        <button type="button" data-val="bottom">Bottom</button>
       </div>
       <div class="sub">Text Content</div>
       <div class="seg" id="text-content">
-        <button data-val="random" class="active">Random</button>
-        <button data-val="position">Position</button>
-        <button data-val="count">Count</button>
+        <button type="button" data-val="random" class="active">Random</button>
+        <button type="button" data-val="position">Position</button>
+        <button type="button" data-val="count">Count</button>
       </div>
       <div class="sub">Font Size</div>
       <div class="seg" id="font-size">
-        <button data-val="8">8</button><button data-val="10">10</button>
-        <button data-val="12" class="active">12</button>
-        <button data-val="16">16</button><button data-val="20">20</button>
+        <button type="button" data-val="8">8</button><button type="button" data-val="10">10</button>
+        <button type="button" data-val="12" class="active">12</button>
+        <button type="button" data-val="16">16</button><button type="button" data-val="20">20</button>
       </div>
       <div class="sub">Color</div>
       <div class="palette" id="color-palette"></div>
-      <div class="pro-row" style="margin-top:6px">
-        <span class="pro-label">Separate Colors</span>
-        <label class="sw"><input type="checkbox" id="separate-colors"><span class="sl"></span></label>
-      </div>
     </div>
 
     <!-- Centroid -->
@@ -486,9 +470,20 @@
       </div>
     </div>
 
+    <!-- Output -->
+    <div class="card"><div class="card-label">Output<span class="tip" id="tip-output" role="button" tabindex="0" aria-label="Help: Output">?</span></div>
+      <div class="sub">Output FPS</div>
+      <div class="seg" id="output-fps">
+        <button type="button" data-val="source" class="active" title="Use the source video's native frame rate">Source</button>
+        <button type="button" data-val="30">30</button>
+        <button type="button" data-val="60">60</button>
+      </div>
+      <div class="sub" id="output-fps-info" style="margin-top:4px;color:#666">Source FPS: —</div>
+    </div>
+
     <div class="pfooter">
-      <button id="reset-btn">↺ Reset to defaults</button>
-      <button id="debug-log-btn">📋 Copy debug log</button>
+      <button type="button" id="reset-btn">↺ Reset to defaults</button>
+      <button type="button" id="debug-log-btn">📋 Copy debug log</button>
     </div>
   </div> <!-- end panel -->
   <div id="tip-popup">
@@ -508,7 +503,301 @@
 // STATE
 // ============================
 let cvReady = false;
-let activePreset = null;
+
+// ============================
+// WEBGL GPU PIPELINE
+// ============================
+const GPU = {
+  gl: null, programBlurH: null, programBlurV: null, programSobel: null,
+  programThreshold: null, programExtract: null,
+  framebuffer: null, framebuffer2: null, textureA: null, textureB: null, quadVao: null,
+  width: 0, height: 0, ready: false,
+};
+
+function initGPU() {
+  const c = document.createElement("canvas");
+  const gl = c.getContext("webgl2", { premultipliedAlpha: false, alpha: false });
+  if (!gl) { console.warn("WebGL2 not available — GPU pipeline disabled"); return; }
+  GPU.gl = gl;
+  GPU.ready = true;
+
+  // Fullscreen quad geometry
+  const verts = new Float32Array([-1,-1, 1,-1, -1,1, 1,1]);
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW);
+  GPU.quadVao = { buf, attrLoc: 0 };
+
+  // Compile all shader programs
+  GPU.programBlurH = compileProgram(gl, VERT_QUAD, FRAG_BLUR_H);
+  GPU.programBlurV = compileProgram(gl, VERT_QUAD, FRAG_BLUR_V);
+  GPU.programSobel = compileProgram(gl, VERT_QUAD, FRAG_SOBEL);
+  GPU.programThreshold = compileProgram(gl, VERT_QUAD, FRAG_THRESHOLD);
+  GPU.programExtract = compileProgram(gl, VERT_QUAD, FRAG_EXTRACT);
+
+  log("gpu", "GPU pipeline initialized (WebGL2)");
+}
+
+function gpuEnsureSize(w, h) {
+  if (!GPU.ready || (GPU.width === w && GPU.height === h)) return;
+  const gl = GPU.gl;
+  GPU.width = w; GPU.height = h;
+  gl.canvas.width = w; gl.canvas.height = h;
+
+  // Recreate textures and framebuffers at target size
+  if (GPU.textureA) gl.deleteTexture(GPU.textureA);
+  if (GPU.textureB) gl.deleteTexture(GPU.textureB);
+  if (GPU.framebuffer) gl.deleteFramebuffer(GPU.framebuffer);
+  if (GPU.framebuffer2) gl.deleteFramebuffer(GPU.framebuffer2);
+
+  GPU.textureA = createTexture(gl, w, h);
+  GPU.textureB = createTexture(gl, w, h);
+  GPU.framebuffer = createFramebuffer(gl, GPU.textureA);
+  GPU.framebuffer2 = createFramebuffer(gl, GPU.textureB);
+}
+
+function createTexture(gl, w, h) {
+  const tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  return tex;
+}
+
+function createFramebuffer(gl, texture) {
+  const fb = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+  return fb;
+}
+
+function uploadCanvas(gl, tex, canvas) {
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+}
+
+function renderToTexture(gl, program, inputTex, outputFb, w, h, uniforms) {
+  gl.bindFramebuffer(gl.FRAMEBUFFER, outputFb);
+  gl.viewport(0, 0, w, h);
+  gl.useProgram(program);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, inputTex);
+  gl.uniform1i(gl.getUniformLocation(program, "u_image"), 0);
+  if (uniforms) {
+    for (const [name, val] of Object.entries(uniforms)) {
+      const loc = gl.getUniformLocation(program, name);
+      if (loc === null) continue;
+      if (typeof val === "number") gl.uniform1f(loc, val);
+      else if (Array.isArray(val) && val.length === 2) gl.uniform2f(loc, val[0], val[1]);
+      else if (Array.isArray(val) && val.length === 4) gl.uniform4f(loc, val[0], val[1], val[2], val[3]);
+    }
+  }
+  gl.bindBuffer(gl.ARRAY_BUFFER, GPU.quadVao.buf);
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+}
+
+function compileShader(gl, type, src) {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src);
+  gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+    console.error("Shader compile error:", gl.getShaderInfoLog(s));
+    gl.deleteShader(s); return null;
+  }
+  return s;
+}
+
+function compileProgram(gl, vertSrc, fragSrc) {
+  const vs = compileShader(gl, gl.VERTEX_SHADER, vertSrc);
+  const fs = compileShader(gl, gl.FRAGMENT_SHADER, fragSrc);
+  if (!vs || !fs) return null;
+  const p = gl.createProgram();
+  gl.attachShader(p, vs); gl.attachShader(p, fs);
+  gl.bindAttribLocation(p, 0, "a_position");
+  gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+    console.error("Program link error:", gl.getProgramInfoLog(p)); return null;
+  }
+  return p;
+}
+
+// ============================
+// GPU SHADERS
+// ============================
+const VERT_QUAD = `#version 300 es
+in vec2 a_position;
+out vec2 v_uv;
+void main() {
+  v_uv = a_position * 0.5 + 0.5;
+  gl_Position = vec4(a_position, 0.0, 1.0);
+}`;
+
+const FRAG_EXTRACT = `#version 300 es
+precision mediump float;
+in vec2 v_uv;
+uniform sampler2D u_image;
+uniform vec2 u_resolution;
+uniform float u_channel; // 0=luminance, 1=red, 2=green, 3=blue
+out vec4 outColor;
+void main() {
+  vec4 c = texture(u_image, v_uv);
+  float v;
+  if (u_channel < 0.5) {
+    v = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+  } else if (u_channel < 1.5) {
+    v = c.r;
+  } else if (u_channel < 2.5) {
+    v = c.g;
+  } else {
+    v = c.b;
+  }
+  outColor = vec4(vec3(v), 1.0);
+}`;
+
+const FRAG_BLUR_H = `#version 300 es
+precision mediump float;
+in vec2 v_uv;
+uniform sampler2D u_image;
+uniform vec2 u_resolution;
+uniform float u_sigma;
+out vec4 outColor;
+void main() {
+  vec2 texel = 1.0 / u_resolution;
+  float kernel[5];
+  float s2 = u_sigma * u_sigma;
+  float norm = 1.0 / (sqrt(6.28318) * u_sigma);
+  for (int i = 0; i < 5; i++) {
+    float x = float(i) - 2.0;
+    kernel[i] = norm * exp(-x * x / (2.0 * s2));
+  }
+  float sum = kernel[0] + 2.0 * (kernel[1] + kernel[2]);
+  vec3 result = vec3(0.0);
+  for (int i = -2; i <= 2; i++) {
+    result += texture(u_image, v_uv + vec2(float(i), 0.0) * texel).rgb * kernel[i + 2];
+  }
+  outColor = vec4(result / sum, 1.0);
+}`;
+
+const FRAG_BLUR_V = `#version 300 es
+precision mediump float;
+in vec2 v_uv;
+uniform sampler2D u_image;
+uniform vec2 u_resolution;
+uniform float u_sigma;
+out vec4 outColor;
+void main() {
+  vec2 texel = 1.0 / u_resolution;
+  float kernel[5];
+  float s2 = u_sigma * u_sigma;
+  float norm = 1.0 / (sqrt(6.28318) * u_sigma);
+  for (int i = 0; i < 5; i++) {
+    float x = float(i) - 2.0;
+    kernel[i] = norm * exp(-x * x / (2.0 * s2));
+  }
+  float sum = kernel[0] + 2.0 * (kernel[1] + kernel[2]);
+  vec3 result = vec3(0.0);
+  for (int i = -2; i <= 2; i++) {
+    result += texture(u_image, v_uv + vec2(0.0, float(i)) * texel).rgb * kernel[i + 2];
+  }
+  outColor = vec4(result / sum, 1.0);
+}`;
+
+const FRAG_SOBEL = `#version 300 es
+precision mediump float;
+in vec2 v_uv;
+uniform sampler2D u_image;
+uniform vec2 u_resolution;
+out vec4 outColor;
+void main() {
+  vec2 texel = 1.0 / u_resolution;
+  float tl = dot(texture(u_image, v_uv + vec2(-texel.x, -texel.y)).rgb, vec3(0.333));
+  float t  = dot(texture(u_image, v_uv + vec2(0.0,      -texel.y)).rgb, vec3(0.333));
+  float tr = dot(texture(u_image, v_uv + vec2( texel.x, -texel.y)).rgb, vec3(0.333));
+  float l  = dot(texture(u_image, v_uv + vec2(-texel.x, 0.0)).rgb, vec3(0.333));
+  float r  = dot(texture(u_image, v_uv + vec2( texel.x, 0.0)).rgb, vec3(0.333));
+  float bl = dot(texture(u_image, v_uv + vec2(-texel.x,  texel.y)).rgb, vec3(0.333));
+  float b  = dot(texture(u_image, v_uv + vec2(0.0,       texel.y)).rgb, vec3(0.333));
+  float br = dot(texture(u_image, v_uv + vec2( texel.x,  texel.y)).rgb, vec3(0.333));
+  float gx = -tl - 2.0*l - bl + tr + 2.0*r + br;
+  float gy = -tl - 2.0*t - tr + bl + 2.0*b + br;
+  float mag = sqrt(gx*gx + gy*gy);
+  outColor = vec4(vec3(mag), 1.0);
+}`;
+
+const FRAG_THRESHOLD = `#version 300 es
+precision mediump float;
+in vec2 v_uv;
+uniform sampler2D u_image;
+uniform vec2 u_resolution;
+uniform vec2 u_thresholds; // x=low, y=high
+out vec4 outColor;
+void main() {
+  float v = dot(texture(u_image, v_uv).rgb, vec3(1.0));
+  float lo = u_thresholds.x / 255.0;
+  float hi = u_thresholds.y / 255.0;
+  float out_v;
+  if (v >= hi) {
+    out_v = 1.0;          // strong edge
+  } else if (v >= lo) {
+    out_v = 0.5;          // weak edge (kept if connected to strong)
+  } else {
+    out_v = 0.0;          // no edge
+  }
+  outColor = vec4(vec3(out_v), 1.0);
+}`;
+
+// ============================
+// GPU CANNY PIPELINE
+// ============================
+function gpuCanny(srcCanvas, cannyLow, cannyHigh, blurSigma) {
+  if (!GPU.ready) return null;
+  const gl = GPU.gl;
+  const w = srcCanvas.width, h = srcCanvas.height;
+  gpuEnsureSize(w, h);
+
+  // Upload source to textureA
+  uploadCanvas(gl, GPU.textureA, srcCanvas);
+
+  // Step 1: Extract color channel → textureB (fb2)
+  renderToTexture(gl, GPU.programExtract, GPU.textureA, GPU.framebuffer2, w, h,
+    { u_resolution: [w, h], u_channel: P.colorChannel });
+
+  // Step 2: Horizontal blur: textureB → textureA (fb1)
+  renderToTexture(gl, GPU.programBlurH, GPU.textureB, GPU.framebuffer, w, h,
+    { u_resolution: [w, h], u_sigma: blurSigma });
+
+  // Step 3: Vertical blur: textureA → textureB (fb2)
+  renderToTexture(gl, GPU.programBlurV, GPU.textureA, GPU.framebuffer2, w, h,
+    { u_resolution: [w, h], u_sigma: blurSigma });
+
+  // Step 4: Sobel: textureB → textureA (fb1)
+  renderToTexture(gl, GPU.programSobel, GPU.textureB, GPU.framebuffer, w, h,
+    { u_resolution: [w, h] });
+
+  // Step 5: Double threshold: textureA → textureB (fb2)
+  renderToTexture(gl, GPU.programThreshold, GPU.textureA, GPU.framebuffer2, w, h,
+    { u_resolution: [w, h], u_thresholds: [cannyLow, cannyHigh] });
+
+  // Step 6: Read result from framebuffer2
+  const pixels = new Uint8Array(w * h * 4);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, GPU.framebuffer2);
+  gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+  // Convert to single-channel edge map
+  const edgeMap = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) {
+    const v = pixels[i * 4]; // R channel
+    if (v >= 128) edgeMap[i] = v > 200 ? 255 : 128; // strong vs weak
+    else edgeMap[i] = 0;
+  }
+
+  return edgeMap;
+}
 
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
@@ -524,16 +813,60 @@ const exportOverlay = document.getElementById("export-overlay");
 const exportBtn = document.getElementById("export-btn");
 const redetectBtn = document.getElementById("redetect-btn");
 const exportStatus = document.getElementById("export-status");
-const cropOverlay = document.getElementById("crop-overlay");
-const cropCtx = cropOverlay.getContext("2d");
 const exportCanvas = document.createElement("canvas");
 const exportCtx = exportCanvas.getContext("2d");
 
-const PROCESSING_FPS = 20;
+const PROCESSING_FPS_DEFAULT = 30;
+let sourceFps = null;
+function getEffectiveFps() {
+  if (P.outputFps === "source") return sourceFps || PROCESSING_FPS_DEFAULT;
+  const n = Number(P.outputFps);
+  return (isFinite(n) && n > 0) ? n : PROCESSING_FPS_DEFAULT;
+}
+function updateOutputFpsInfo() {
+  const el = document.getElementById("output-fps-info");
+  if (!el) return;
+  if (P.outputFps === "source") {
+    el.textContent = "Source FPS: " + (sourceFps ? sourceFps.toFixed(2) : "— (loading…)");
+  } else {
+    el.textContent = "Source FPS: " + (sourceFps ? sourceFps.toFixed(2) : "—") + " → Export: " + P.outputFps + " fps";
+  }
+}
+function detectSourceFps(videoEl) {
+  return new Promise((resolve) => {
+    if (typeof videoEl.requestVideoFrameCallback !== "function") { resolve(30); return; }
+    const times = [];
+    let handle = null;
+    let resolved = false;
+    const finish = (fps) => {
+      if (resolved) return; resolved = true;
+      if (handle != null) try { videoEl.cancelVideoFrameCallback(handle); } catch (e) {}
+      try { videoEl.pause(); } catch (e) {}
+      const safe = (isFinite(fps) && fps > 0 && fps < 240) ? fps : 30;
+      resolve(Math.round(safe * 100) / 100);
+    };
+    const handler = (now, metadata) => {
+      times.push(metadata.mediaTime);
+      if (times.length >= 12) {
+        const dt = times[times.length - 1] - times[0];
+        if (dt > 0) finish((times.length - 1) / dt); else finish(30);
+      } else {
+        handle = videoEl.requestVideoFrameCallback(handler);
+      }
+    };
+    handle = videoEl.requestVideoFrameCallback(handler);
+    const wasPaused = videoEl.paused;
+    videoEl.muted = true;
+    videoEl.play().then(() => {}).catch(() => finish(30));
+    setTimeout(() => { if (times.length < 2) finish(30); }, 5000);
+    videoEl.addEventListener("seeked", () => { if (wasPaused) videoEl.pause(); }, { once: true });
+  });
+}
 const MAX_PREVIEW_DIM = 540;
 
 let all_frame_data = [];
 let isProcessing = false;
+let cancelRequested = false;
 let isExporting = false;
 let currentVideoURL = null;
 let currentVideoName = null;
@@ -574,12 +907,10 @@ function getLogText() {
   return out;
 }
 log("init", "App started");
-let detectionParamsSnapshot = null;
 
 // === PARAM STATE ===
 let P = {
   playbackSpeed: 1,
-  shape: "contour",
   selectedEffect: "Basic",
   connectionStyle: "nearest",
   connectionRate: 0.5,
@@ -590,29 +921,23 @@ let P = {
   blurKernel: 5,
   blobMin: 300,
   blobMax: 200000,
-  sameSize: false,
   textEnabled: true,
   textPosition: "center",
   textContent: "random",
   fontSize: 12,
-  separateColors: false,
   centroidEnabled: false,
-  useConvexHull: false,
   groupingMode: "contours",
   mergeKernel: 1,
   mergeIterations: 1,
-  cropMode: "full",
-  exportResolution: "preview",
+  colorChannel: 0, // 0=luminance, 1=red, 2=green, 3=blue
+  useGPU: true,    // GPU acceleration toggle
+  outputFps: "source", // "source" | 30 | 60
 };
 
 const COLORS = [
   "#ffffff","#f3ac03","#ef4444","#f59e0b","#84cc16","#22c55e","#06b6d4","#3b82f6","#8b5cf6",
   "#ec4899","#000000","#d4d4d4","#9a9a9a","#666666","#333333","#1a1a1a","#a855f7","#6366f1"
 ];
-
-function idToColor(id) {
-  return "rgb("+(id*123%256)+","+(id*231%256)+","+(id*312%256)+")";
-}
 
 // ============================
 // CV HELPERS
@@ -699,10 +1024,16 @@ function buildPalette() {
     const sw = document.createElement("div");
     sw.className = "cs" + (c === P.contourColor ? " active" : "");
     sw.style.background = c;
+    sw.role = "button";
+    sw.tabIndex = 0;
+    sw.setAttribute("aria-label", "Color: " + c);
     sw.addEventListener("click", () => {
       P.contourColor = c;
       el.querySelectorAll(".cs").forEach(s => s.classList.remove("active"));
       sw.classList.add("active");
+    });
+    sw.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); sw.click(); }
     });
     el.appendChild(sw);
   });
@@ -777,21 +1108,34 @@ function setupControls() {
   setupSeg("text-position", "textPosition", String);
   setupSeg("text-content", "textContent", String);
   setupSeg("font-size", "fontSize", parseInt);
-  setupSeg("crop-mode", "cropMode", String);
-  setupSeg("export-resolution", "exportResolution", String);
   setupSeg("grouping-mode", "groupingMode", String);
 
   // Icon rows
-  setupIconRow("shape-selector", "shape");
   setupIconRow("connection-style", "connectionStyle");
 
   // Grids
   setupGrid("basic-effects", "selectedEffect");
 
   // Toggles
-  setupToggle("same-size", "sameSize");
   setupToggle("text-enabled", "textEnabled");
   setupToggle("centroid-enabled", "centroidEnabled");
+  setupToggle("gpu-toggle", "useGPU");
+
+  // Segmented: color channel
+  setupSeg("color-channel", "colorChannel", parseInt);
+
+  // Segmented: output FPS (string values, re-detect on change)
+  setupSeg("output-fps", "outputFps", String);
+  document.querySelectorAll("#output-fps button").forEach(b => {
+    b.addEventListener("click", () => {
+      if (currentVideoURL && !isProcessing) {
+        log("detect", "Output FPS changed, re-detecting", { newFps: P.outputFps, effectiveFps: getEffectiveFps() });
+        reDetect();
+      }
+      updateOutputFpsInfo();
+    });
+  });
+
 
   // Sliders
   setupSlider("stroke-width", "strokeWidth", "stroke-width-val", v => v+"px");
@@ -813,16 +1157,15 @@ function setupControls() {
       b.classList.add("active");
     });
     P = {
-      playbackSpeed:1, shape:"contour",
+      playbackSpeed:1,
       selectedEffect:"Basic",
       connectionStyle:"nearest", connectionRate:0.5, strokeWidth:2,
       contourColor:"#f3ac03", cannyLow:50, cannyHigh:150, blurKernel:5,
-      blobMin:300, blobMax:200000, sameSize:false, textEnabled:true,
+      blobMin:300, blobMax:200000, textEnabled:true,
       textPosition:"center", textContent:"random", fontSize:12,
-      separateColors:false,
-      centroidEnabled:false, useConvexHull:false,
+      centroidEnabled:false,
       groupingMode:"contours", mergeKernel:1, mergeIterations:1,
-      cropMode:"full", exportResolution:"preview",
+      colorChannel:0, useGPU:true, outputFps:"source",
     };
     // Reset checkboxes
     document.querySelectorAll("input[type='checkbox']").forEach(cb => {
@@ -847,6 +1190,9 @@ function setupControls() {
     document.getElementById("merge-kernel-val").textContent = "1";
     document.getElementById("merge-iterations-val").textContent = "1";
     document.querySelectorAll("#grouping-mode button").forEach(b => b.classList.toggle("active", b.dataset.val === "contours"));
+    document.querySelectorAll("#color-channel button").forEach(b => b.classList.toggle("active", b.dataset.val === "0"));
+    document.querySelectorAll("#output-fps button").forEach(b => b.classList.toggle("active", b.dataset.val === "source"));
+    document.getElementById("gpu-toggle").checked = true;
     buildPalette();
     log("params", "Reset to defaults");
   });
@@ -889,11 +1235,6 @@ document.getElementById("file-input").addEventListener("change", e => {
   const file = e.target.files[0];
   if (file && file.type.startsWith("video/")) loadFile(file);
 });
-document.getElementById("sample-btn").addEventListener("click", () => {
-  progressBar.classList.add("visible");
-  progressLabel.textContent = "Loading sample…";
-  startProcessing("https://www.w3schools.com/html/mov_bbb.mp4");
-});
 function loadFile(file) { currentVideoName = file.name; startProcessing(URL.createObjectURL(file)); }
 
 // Build an export filename based on the source video name, e.g. "myclip_tracked.mp4".
@@ -921,13 +1262,13 @@ function loadVideoMetadata(videoEl, url, timeoutMs = 30000) {
     };
     const timer = setTimeout(() => {
       if (settled) return; settled = true; cleanup();
-      reject(new Error("Видео не загрузилось за " + Math.round(timeoutMs / 1000) +
-        " с. Проверь файл и сеть. Если страница открыта как file://, запусти её через локальный сервер."));
+      reject(new Error("Video failed to load within " + Math.round(timeoutMs / 1000) +
+        " s. Check the file and network. If the page is opened as file://, run it via a local server."));
     }, timeoutMs);
     videoEl.onloadedmetadata = () => { if (settled) return; settled = true; cleanup(); resolve(); };
     videoEl.onerror = () => {
       if (settled) return; settled = true; cleanup();
-      reject(new Error("Не удалось загрузить видео: формат не поддерживается или файл недоступен."));
+      reject(new Error("Failed to load video: format not supported or file unavailable."));
     };
     videoEl.src = url;
   });
@@ -955,7 +1296,7 @@ function seekVideo(videoEl, time, maxTries = 500) {
 function recoverFromFatal(msg) {
   isProcessing = false;
   if (progressBar) progressBar.classList.remove("visible");
-  if (progressLabel) progressLabel.textContent = "Ошибка: " + msg;
+  if (progressLabel) progressLabel.textContent = "Error: " + msg;
   if (dropZone) dropZone.classList.remove("hidden");
   if (canvasWrap) canvasWrap.style.display = "none";
 }
@@ -975,9 +1316,11 @@ async function startProcessing(videoURL) {
   currentVideoURL = videoURL;
   all_frame_data = [];
   isProcessing = true;
+  cancelRequested = false;
   dropZone.classList.add("hidden");
   canvasWrap.style.display = "block";
   progressBar.classList.add("visible");
+  showCancelDetect();
   progressFill.style.width = "0%";
   progressLabel.textContent = "Loading video…";
   exportOverlay.classList.remove("visible");
@@ -985,7 +1328,7 @@ async function startProcessing(videoURL) {
     await loadVideoMetadata(video, videoURL);
 
     const vw = video.videoWidth, vh = video.videoHeight;
-    if (!vw || !vh) throw new Error("У видео нулевой размер кадра — файл повреждён?");
+    if (!vw || !vh) throw new Error("Video has zero frame size — file may be corrupted.");
     const scale = MAX_PREVIEW_DIM / Math.min(vw, vh);
     const targetW = Math.round(vw * scale), targetH = Math.round(vh * scale);
     canvas.width = targetW;
@@ -993,9 +1336,14 @@ async function startProcessing(videoURL) {
     tempCanvas.width = targetW;
     tempCanvas.height = targetH;
 
+    progressLabel.textContent = "Detecting source frame rate…";
+    sourceFps = await detectSourceFps(video);
+    log("video", "Detected source FPS", { sourceFps: sourceFps });
+    updateOutputFpsInfo();
+
     await detectBlobs();
-    detectionParamsSnapshot = { cl:P.cannyLow, ch:P.cannyHigh, bk:P.blurKernel, mi:P.blobMin, ma:P.blobMax, gm:P.groupingMode, mk:P.mergeKernel, mit:P.mergeIterations };
-    for (let i=0;i<all_frame_data.length;i++) all_frame_data[i].time = i/PROCESSING_FPS;
+    const _effFps = getEffectiveFps();
+    for (let i=0;i<all_frame_data.length;i++) all_frame_data[i].time = i/_effFps;
 
     video.muted = true;
     await seekVideo(video, 0);
@@ -1008,10 +1356,11 @@ async function startProcessing(videoURL) {
     const msg = (e && e.message) || String(e);
     log("video", "startProcessing failed", { error: msg });
     recoverFromFatal(msg);
-    alert("Не удалось обработать видео:\n" + msg);
+    alert("Failed to process video:\n" + msg);
   } finally {
     isProcessing = false;
     progressBar.classList.remove("visible");
+    hideCancelDetect();
   }
 }
 
@@ -1019,8 +1368,72 @@ async function startProcessing(videoURL) {
 // BLOB DETECTION
 // ============================
 function detectContours(frameMat) {
+  // GPU path: channel extract + blur + sobel + threshold on GPU, findContours on CPU
+  if (P.useGPU && GPU.ready) {
+    try {
+      const edgeMap = gpuCanny(tempCanvas, P.cannyLow, P.cannyHigh, P.blurKernel / 3.0);
+      if (edgeMap) {
+        const w = tempCanvas.width, h = tempCanvas.height;
+        // Convert edge map to OpenCV Mat (single channel)
+        const mat = new cv.Mat(h, w, cv.CV_8UC1);
+        mat.data.set(edgeMap);
+        // Morphological cleanup: close small gaps then open to remove noise
+        const kernelClose = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(3, 3));
+        const closed = new cv.Mat();
+        cv.morphologyEx(mat, closed, cv.MORPH_CLOSE, kernelClose);
+        kernelClose.delete();
+        // Grouping: dilate if in regions mode
+        let mask = closed;
+        let mergeKernel = null;
+        if (P.groupingMode === "regions" && P.mergeKernel > 1) {
+          const mk = Math.max(1, Math.round(P.mergeKernel));
+          const odd = mk % 2 === 0 ? mk + 1 : mk;
+          P.mergeKernel = odd;
+          mergeKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(odd, odd));
+          mask = new cv.Mat();
+          cv.dilate(closed, mask, mergeKernel, new cv.Point(-1, -1), Math.max(1, Math.round(P.mergeIterations)));
+        }
+        mat.delete();
+        const contours = new cv.MatVector();
+        const hierarchy = new cv.Mat();
+        cv.findContours(mask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+        const result = [];
+        for (let i=0;i<contours.size();i++) {
+          const c = contours.get(i);
+          const area = cv.contourArea(c);
+          const rect = cv.boundingRect(c);
+          const filterArea = Math.max(area, rect.width * rect.height);
+          if (filterArea<P.blobMin||filterArea>P.blobMax) continue;
+          const m = cv.moments(c);
+          let cx,cy;
+          if (m.m00===0){cx=rect.x+rect.width/2;cy=rect.y+rect.height/2;}
+          else {cx=Math.round(m.m10/m.m00);cy=Math.round(m.m01/m.m00);}
+          const pts = [];
+          for (let j=0;j<c.rows;j++) pts.push({x:c.data32S[j*2],y:c.data32S[j*2+1]});
+          result.push({x:cx,y:cy,area:filterArea,bx:rect.x,by:rect.y,bw:rect.width,bh:rect.height,pts});
+        }
+        if (mask !== closed) mask.delete();
+        if (mergeKernel) mergeKernel.delete();
+        closed.delete();contours.delete();hierarchy.delete();
+        return result;
+      }
+    } catch(e) {
+      log("gpu", "GPU pipeline failed, falling back to CPU", { error: e.message });
+    }
+  }
+
+  // CPU fallback
   const gray = new cv.Mat();
-  cv.cvtColor(frameMat, gray, cv.COLOR_RGBA2GRAY);
+  if (P.colorChannel === 0) {
+    cv.cvtColor(frameMat, gray, cv.COLOR_RGBA2GRAY);
+  } else {
+    // Extract specific channel: R=2, G=1, B=0 in OpenCV RGBA
+    const channels = new cv.MatVector();
+    cv.split(frameMat, channels);
+    const chIdx = [2, 1, 0, 3][P.colorChannel]; // R=2, G=1, B=0 in RGBA
+    cv.merge(new cv.MatVector([channels.get(chIdx), channels.get(chIdx), channels.get(chIdx), channels.get(chIdx)]), gray);
+    channels.delete();
+  }
   let blurred;
   if (P.blurKernel>1) {
     blurred = new cv.Mat();
@@ -1028,8 +1441,7 @@ function detectContours(frameMat) {
   } else { blurred = gray; }
   const edges = new cv.Mat();
   cv.Canny(blurred, edges, P.cannyLow, P.cannyHigh);
-  // Grouping: in "regions" mode, dilate the edge map so nearby fragments of one
-  // object merge into a single region instead of many small contours.
+  // Grouping
   let mask = edges;
   let kernel = null;
   if (P.groupingMode === "regions" && P.mergeKernel > 1) {
@@ -1048,8 +1460,6 @@ function detectContours(frameMat) {
     const c = contours.get(i);
     const area = cv.contourArea(c);
     const rect = cv.boundingRect(c);
-    // Filter by the larger of contour area and bbox area, so thin/hollow shapes
-    // (e.g. balloon outlines) aren't wrongly rejected as too small.
     const filterArea = Math.max(area, rect.width * rect.height);
     if (filterArea<P.blobMin||filterArea>P.blobMax) continue;
     const m = cv.moments(c);
@@ -1151,20 +1561,24 @@ class CentroidTracker {
 
 async function detectBlobs(){
   isProcessing=true;
+  cancelRequested=false;
   const t0 = performance.now();
-  log("detect", "detectBlobs started", { params: {...P}, dim: canvas.width + "x" + canvas.height });
-  const tf=Math.floor(video.duration*PROCESSING_FPS);
+  const fps = getEffectiveFps();
+  log("detect", "detectBlobs started", { params: {...P}, dim: canvas.width + "x" + canvas.height, effectiveFps: fps });
+  const tf=Math.floor(video.duration*fps);
   all_frame_data=[];
   let lastTs = Date.now();
   const tracker=new CentroidTracker(Math.hypot(canvas.width,canvas.height));
   for (let i=0;i<=tf;i++){
-    video.currentTime=i/PROCESSING_FPS;
+    if (cancelRequested) { log("detect", "detectBlobs cancelled by user", { frame: i, total: tf }); break; }
+    video.currentTime=i/fps;
     await new Promise(r=>{let a=0;const ch=()=>{if(!video.seeking)r();else if(a++>500)r();else setTimeout(ch,10);};video.onseeked=ch;ch();});
+    if (cancelRequested) { log("detect", "detectBlobs cancelled by user", { frame: i, total: tf }); break; }
     tempCtx.drawImage(video,0,0,canvas.width,canvas.height);
     let mat;try{mat=cv.imread(tempCanvas);}catch(e){log("detect","cv.imread failed frame "+i);continue;}
     const cts=detectContours(mat);mat.delete();
     const blobs=tracker.update(cts);
-    all_frame_data.push({time:i/PROCESSING_FPS,blobs:JSON.parse(JSON.stringify(blobs)),frameIndex:i});
+    all_frame_data.push({time:i/fps,blobs:JSON.parse(JSON.stringify(blobs)),frameIndex:i});
     const pc=Math.round(i/tf*100);
     progressFill.style.width=pc+"%";
     progressLabel.textContent="Detecting… "+pc+"%";
@@ -1175,8 +1589,9 @@ async function detectBlobs(){
       lastTs = now;
     }
   }
+  if (cancelRequested) { progressLabel.textContent = "Detection cancelled"; }
   const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
-  log("detect", "detectBlobs complete", { frames: all_frame_data.length, blobs_total: all_frame_data.reduce((s,f)=>s+f.blobs.length,0), elapsed_s: elapsed });
+  log("detect", "detectBlobs complete", { frames: all_frame_data.length, blobs_total: all_frame_data.reduce((s,f)=>s+f.blobs.length,0), elapsed_s: elapsed, cancelled: cancelRequested });
 }
 
 // ============================
@@ -1213,72 +1628,7 @@ function interpolateBlobs(prev,next,time){
   return result;
 }
 
-// ============================
-// CROP
-// ============================
-function getCropRegion(w, h, blobs) {
-  if (P.cropMode === "full") return { sx: 0, sy: 0, sw: w, sh: h };
-  const targetAspect = 9 / 16;
-  const src_aspect = w / h;
-  // If source is already taller than 9:16, just center crop
-  let cropW, cropH;
-  if (src_aspect > targetAspect) {
-    // source wider than 9:16 — crop width
-    cropH = h;
-    cropW = h * targetAspect;
-  } else {
-    // source taller than 9:16 — crop height  
-    cropW = w;
-    cropH = w / targetAspect;
-  }
-  let cx, cy;
-  if (P.cropMode === "blob" && blobs.length > 0) {
-    cx = blobs[0].x;
-    cy = blobs[0].y;
-  } else {
-    cx = w / 2;
-    cy = h / 2;
-  }
-  let sx = Math.round(cx - cropW / 2);
-  let sy = Math.round(cy - cropH / 2);
-  sx = Math.max(0, Math.min(w - cropW, sx));
-  sy = Math.max(0, Math.min(h - cropH, sy));
-  return { sx, sy, sw: Math.round(cropW), sh: Math.round(cropH) };
-}
 
-function drawCropOverlay() {
-  if (P.cropMode === "full") { cropOverlay.classList.remove("visible"); return; }
-  cropOverlay.classList.add("visible");
-  if (canvas.width !== cropOverlay.width || canvas.height !== cropOverlay.height) {
-    cropOverlay.width = canvas.width;
-    cropOverlay.height = canvas.height;
-  }
-  const { sx, sy, sw, sh } = getCropRegion(canvas.width, canvas.height, []);
-  cropCtx.clearRect(0, 0, canvas.width, canvas.height);
-  cropCtx.fillStyle = "rgba(0,0,0,0.7)";
-  cropCtx.fillRect(0, 0, canvas.width, canvas.height);
-  // Cut out the crop region — composite-out a rectangle
-  cropCtx.globalCompositeOperation = "destination-out";
-  cropCtx.fillRect(sx, sy, sw, sh);
-  cropCtx.globalCompositeOperation = "source-over";
-  // Draw border
-  cropCtx.strokeStyle = "rgba(255,255,255,0.5)";
-  cropCtx.lineWidth = 2;
-  cropCtx.strokeRect(sx, sy, sw, sh);
-  // Draw grid lines (rule of thirds)
-  cropCtx.strokeStyle = "rgba(255,255,255,0.15)";
-  cropCtx.lineWidth = 1;
-  for (let i = 1; i < 3; i++) {
-    cropCtx.beginPath();
-    cropCtx.moveTo(sx + sw * i / 3, sy);
-    cropCtx.lineTo(sx + sw * i / 3, sy + sh);
-    cropCtx.stroke();
-    cropCtx.beginPath();
-    cropCtx.moveTo(sx, sy + sh * i / 3);
-    cropCtx.lineTo(sx + sw, sy + sh * i / 3);
-    cropCtx.stroke();
-  }
-}
 
 // ============================
 // CANVAS RENDERING
@@ -1290,73 +1640,71 @@ function getContourPts(b){
 
 function drawEffectLayer(ctx2d,blobs){
   if(!blobs.length)return;
-  const col=P.contourColor;
   const sw=P.strokeWidth;
 
   if(P.selectedEffect==="Basic"){
-    if(P.shape==="circle"){
-      ctx2d.strokeStyle=col;ctx2d.lineWidth=sw;ctx2d.lineJoin="round";
-      for(const b of blobs){ctx2d.beginPath();ctx2d.arc(b.x,b.y,Math.max(b.bw,b.bh)/2,0,Math.PI*2);ctx2d.stroke();}
-    }else if(P.shape==="rect"){
-      ctx2d.strokeStyle=col;ctx2d.lineWidth=sw;
-      for(const b of blobs)ctx2d.strokeRect(b.bx,b.by,b.bw,b.bh);
-    }else{
-      ctx2d.strokeStyle=col;ctx2d.lineWidth=sw;ctx2d.lineJoin="round";
-      for(const b of blobs){
-        const pts=getContourPts(b);if(!pts)continue;
-        ctx2d.beginPath();ctx2d.moveTo(pts[0].x,pts[0].y);
-        for(let i=1;i<pts.length;i++)ctx2d.lineTo(pts[i].x,pts[i].y);
-        ctx2d.closePath();ctx2d.stroke();
-      }
+    ctx2d.lineWidth=sw;ctx2d.lineJoin="round";
+    for(const b of blobs){
+      ctx2d.strokeStyle=P.contourColor;
+      const pts=getContourPts(b);if(!pts)continue;
+      ctx2d.beginPath();ctx2d.moveTo(pts[0].x,pts[0].y);
+      for(let i=1;i<pts.length;i++)ctx2d.lineTo(pts[i].x,pts[i].y);
+      ctx2d.closePath();ctx2d.stroke();
     }
   }else if(P.selectedEffect==="Cross"){
-    ctx2d.strokeStyle=col;ctx2d.lineWidth=sw;
+    ctx2d.lineWidth=sw;
     for(const b of blobs){
+      ctx2d.strokeStyle=P.contourColor;
       const cx=b.x,cy=b.y,w=b.bw,h=b.bh;
       ctx2d.beginPath();ctx2d.moveTo(cx-w/4,cy);ctx2d.lineTo(cx+w/4,cy);
       ctx2d.moveTo(cx,cy-h/4);ctx2d.lineTo(cx,cy+h/4);ctx2d.stroke();
     }
   }else if(P.selectedEffect==="Frame"){
-    ctx2d.strokeStyle=col;ctx2d.lineWidth=sw;
+    ctx2d.lineWidth=sw;
     for(const b of blobs){
+      ctx2d.strokeStyle=P.contourColor;
       const m=10,x=b.bx,y=b.by,w=b.bw,h=b.bh;
       [[x,y,1,1],[x+w,y,-1,1],[x,y+h,1,-1],[x+w,y+h,-1,-1]].forEach(([cx,cy,dx,dy])=>{
         ctx2d.beginPath();ctx2d.moveTo(cx,cy+dy*m);ctx2d.lineTo(cx,cy);ctx2d.lineTo(cx+dx*m,cy);ctx2d.stroke();
       });
     }
   }else if(P.selectedEffect==="L-Frame"){
-    ctx2d.strokeStyle=col;ctx2d.lineWidth=sw;
+    ctx2d.lineWidth=sw;
     for(const b of blobs){
+      ctx2d.strokeStyle=P.contourColor;
       const m=15,x=b.bx,y=b.by,w=b.bw,h=b.bh;
       ctx2d.beginPath();ctx2d.moveTo(x,y+m);ctx2d.lineTo(x,y);ctx2d.lineTo(x+m,y);
       ctx2d.moveTo(x+w-m,y);ctx2d.lineTo(x+w,y);ctx2d.lineTo(x+w,y+m);ctx2d.stroke();
     }
   }else if(P.selectedEffect==="X-Frame"){
-    ctx2d.strokeStyle=col;ctx2d.lineWidth=sw;
+    ctx2d.lineWidth=sw;
     for(const b of blobs){
+      ctx2d.strokeStyle=P.contourColor;
       const x=b.bx,y=b.by,w=b.bw,h=b.bh;
       ctx2d.beginPath();ctx2d.moveTo(x,y);ctx2d.lineTo(x+w,y+h);
       ctx2d.moveTo(x+w,y);ctx2d.lineTo(x,y+h);ctx2d.stroke();
     }
   }else if(P.selectedEffect==="Grid"){
-    ctx2d.strokeStyle=col;ctx2d.lineWidth=sw*.5;const gs=20;
+    ctx2d.lineWidth=sw*.5;const gs=20;
     for(const b of blobs){
+      ctx2d.strokeStyle=P.contourColor;
       for(let gx=b.bx;gx<b.bx+b.bw;gx+=gs){ctx2d.beginPath();ctx2d.moveTo(gx,b.by);ctx2d.lineTo(gx,b.by+b.bh);ctx2d.stroke();}
       for(let gy=b.by;gy<b.by+b.bh;gy+=gs){ctx2d.beginPath();ctx2d.moveTo(b.bx,gy);ctx2d.lineTo(b.bx+b.bw,gy);ctx2d.stroke();}
     }
   }else if(P.selectedEffect==="Particle"){
-    ctx2d.fillStyle=col;
-    for(const b of blobs){for(let i=0;i<8;i++){const px=b.x+(Math.random()-.5)*b.bw*1.5,py=b.y+(Math.random()-.5)*b.bh*1.5,r=1+Math.random()*2;ctx2d.beginPath();ctx2d.arc(px,py,r,0,Math.PI*2);ctx2d.fill();}}
+    for(const b of blobs){ctx2d.fillStyle=P.contourColor;for(let i=0;i<8;i++){const px=b.x+(Math.random()-.5)*b.bw*1.5,py=b.y+(Math.random()-.5)*b.bh*1.5,r=1+Math.random()*2;ctx2d.beginPath();ctx2d.arc(px,py,r,0,Math.PI*2);ctx2d.fill();}}
   }else if(P.selectedEffect==="Dash"){
-    ctx2d.strokeStyle=col;ctx2d.lineWidth=sw;ctx2d.setLineDash([6,4]);
+    ctx2d.lineWidth=sw;ctx2d.setLineDash([6,4]);
     for(const b of blobs){
+      ctx2d.strokeStyle=P.contourColor;
       const pts=getContourPts(b);if(!pts)continue;
       ctx2d.beginPath();ctx2d.moveTo(pts[0].x,pts[0].y);for(let i=1;i<pts.length;i++)ctx2d.lineTo(pts[i].x,pts[i].y);ctx2d.closePath();ctx2d.stroke();
     }
     ctx2d.setLineDash([]);
   }else if(P.selectedEffect==="Scope"){
-    ctx2d.strokeStyle=col;ctx2d.lineWidth=sw;
+    ctx2d.lineWidth=sw;
     for(const b of blobs){
+      ctx2d.strokeStyle=P.contourColor;
       const r=Math.max(b.bw,b.bh)/1.8;
       ctx2d.beginPath();ctx2d.arc(b.x,b.y,r,0,Math.PI*2);ctx2d.stroke();
       ctx2d.beginPath();ctx2d.moveTo(b.x-r,b.y);ctx2d.lineTo(b.x+r,b.y);ctx2d.moveTo(b.x,b.y-r);ctx2d.lineTo(b.x,b.y+r);ctx2d.stroke();
@@ -1364,12 +1712,14 @@ function drawEffectLayer(ctx2d,blobs){
   }else if(P.selectedEffect==="Win2K"){
     ctx2d.font="10px monospace";
     for(const b of blobs){
-      ctx2d.fillStyle=col;ctx2d.fillText("ID:"+b.id,b.bx,b.by-5);
-      ctx2d.strokeStyle=col;ctx2d.lineWidth=sw;ctx2d.strokeRect(b.bx-2,b.by-2,b.bw+4,b.bh+4);
+      const c=P.contourColor;
+      ctx2d.fillStyle=c;ctx2d.fillText("ID:"+b.id,b.bx,b.by-5);
+      ctx2d.strokeStyle=c;ctx2d.lineWidth=sw;ctx2d.strokeRect(b.bx-2,b.by-2,b.bw+4,b.bh+4);
     }
   }else if(P.selectedEffect==="Glow"){
-    ctx2d.shadowColor=col;ctx2d.shadowBlur=12;ctx2d.strokeStyle=col;ctx2d.lineWidth=sw;
+    ctx2d.shadowBlur=12;ctx2d.lineWidth=sw;
     for(const b of blobs){
+      ctx2d.shadowColor=P.contourColor;ctx2d.strokeStyle=P.contourColor;
       const pts=getContourPts(b);if(!pts)continue;
       ctx2d.beginPath();ctx2d.moveTo(pts[0].x,pts[0].y);for(let i=1;i<pts.length;i++)ctx2d.lineTo(pts[i].x,pts[i].y);ctx2d.closePath();ctx2d.stroke();
     }
@@ -1378,11 +1728,11 @@ function drawEffectLayer(ctx2d,blobs){
     ctx2d.save();ctx2d.fillStyle="rgba(0,0,0,.3)";
     for(const b of blobs){const pts=getContourPts(b);if(!pts)continue;ctx2d.beginPath();ctx2d.moveTo(pts[0].x,pts[0].y);for(let i=1;i<pts.length;i++)ctx2d.lineTo(pts[i].x,pts[i].y);ctx2d.closePath();ctx2d.fill();}
     ctx2d.restore();
-    ctx2d.strokeStyle=col;ctx2d.lineWidth=sw;
-    for(const b of blobs){const pts=getContourPts(b);if(!pts)continue;ctx2d.beginPath();ctx2d.moveTo(pts[0].x,pts[0].y);for(let i=1;i<pts.length;i++)ctx2d.lineTo(pts[i].x,pts[i].y);ctx2d.closePath();ctx2d.stroke();}
+    ctx2d.lineWidth=sw;
+    for(const b of blobs){ctx2d.strokeStyle=P.contourColor;const pts=getContourPts(b);if(!pts)continue;ctx2d.beginPath();ctx2d.moveTo(pts[0].x,pts[0].y);for(let i=1;i<pts.length;i++)ctx2d.lineTo(pts[i].x,pts[i].y);ctx2d.closePath();ctx2d.stroke();}
   }else if(P.selectedEffect==="Outline"){
-    ctx2d.strokeStyle=col;ctx2d.lineWidth=sw;
-    for(const b of blobs)ctx2d.strokeRect(b.bx-3,b.by-3,b.bw+6,b.bh+6);
+    ctx2d.lineWidth=sw;
+    for(const b of blobs){ctx2d.strokeStyle=P.contourColor;ctx2d.strokeRect(b.bx-3,b.by-3,b.bw+6,b.bh+6);}
   }else if(P.selectedEffect==="Label"){
     drawLabelsLayer(ctx2d,blobs);
   }
@@ -1390,13 +1740,13 @@ function drawEffectLayer(ctx2d,blobs){
 
 function drawLinesLayer(ctx2d,blobs){
   if(P.connectionRate===0||blobs.length<2)return;
-  const col=P.contourColor;
-  ctx2d.save();ctx2d.globalAlpha=P.connectionRate;ctx2d.strokeStyle=col;
+  ctx2d.save();ctx2d.globalAlpha=P.connectionRate;
   ctx2d.lineWidth=P.strokeWidth*.5;ctx2d.lineCap="round";
   const maxDist=200,n=blobs.length;
 
   if(P.connectionStyle==="all"){
     for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){
+      ctx2d.strokeStyle=P.contourColor;
       ctx2d.beginPath();ctx2d.moveTo(blobs[i].x,blobs[i].y);ctx2d.lineTo(blobs[j].x,blobs[j].y);ctx2d.stroke();
     }
   }else if(P.connectionStyle==="chain"){
@@ -1405,6 +1755,7 @@ function drawLinesLayer(ctx2d,blobs){
       const a=sorted[i],b=sorted[i+1];
       const dx=a.x-b.x,dy=a.y-b.y,d=Math.sqrt(dx*dx+dy*dy);
       if(d<maxDist){
+        ctx2d.strokeStyle=P.contourColor;
         ctx2d.beginPath();ctx2d.moveTo(a.x,a.y);ctx2d.lineTo(b.x,b.y);ctx2d.stroke();
       }
     }
@@ -1413,6 +1764,7 @@ function drawLinesLayer(ctx2d,blobs){
     for(let i=0;i<sorted.length-1;i++){
       const a=sorted[i],b=sorted[i+1];
       const mx=(a.x+b.x)/2,my=(a.y+b.y)/2;
+      ctx2d.strokeStyle=P.contourColor;
       ctx2d.beginPath();ctx2d.moveTo(a.x,a.y);ctx2d.quadraticCurveTo(mx,my-30,b.x,b.y);ctx2d.stroke();
     }
   }else{
@@ -1420,7 +1772,7 @@ function drawLinesLayer(ctx2d,blobs){
       const a=blobs[i],dists=[];
       for(let j=0;j<n;j++){if(j===i)continue;const b=blobs[j],dx=a.x-b.x,dy=a.y-b.y,d=dx*dx+dy*dy;if(d<maxDist*maxDist)dists.push({idx:j,dist:d});}
       dists.sort((a,b)=>a.dist-b.dist);
-      for(let k=0;k<Math.min(2,dists.length);k++){const b=blobs[dists[k].idx];ctx2d.beginPath();ctx2d.moveTo(a.x,a.y);ctx2d.lineTo(b.x,b.y);ctx2d.stroke();}
+      for(let k=0;k<Math.min(2,dists.length);k++){const b=blobs[dists[k].idx];ctx2d.strokeStyle=P.contourColor;ctx2d.beginPath();ctx2d.moveTo(a.x,a.y);ctx2d.lineTo(b.x,b.y);ctx2d.stroke();}
     }
   }
   ctx2d.restore();
@@ -1444,12 +1796,11 @@ function drawLabelsLayer(ctx2d,blobs){
 
 function drawCentroidDots(ctx2d,blobs){
   if(!P.centroidEnabled||!blobs.length)return;
-  ctx2d.fillStyle=P.contourColor;ctx2d.beginPath();
-  for(const b of blobs){ctx2d.moveTo(b.x+3,b.y);ctx2d.arc(b.x,b.y,3,0,Math.PI*2);}
-  ctx2d.fill();
+  for(const b of blobs){
+    ctx2d.fillStyle=P.contourColor;
+    ctx2d.beginPath();ctx2d.arc(b.x,b.y,3,0,Math.PI*2);ctx2d.fill();
+  }
 }
-
-function drawFilterLayer(ctx2d) { }
 
 // ============================
 // MAIN DRAW LOOP
@@ -1466,8 +1817,6 @@ function drawLoop(){
   drawLinesLayer(ctx,blobs);
   drawCentroidDots(ctx,blobs);
   drawLabelsLayer(ctx,blobs);
-  drawFilterLayer(ctx);
-  drawCropOverlay();
 
   requestAnimationFrame(drawLoop);
 }
@@ -1484,11 +1833,6 @@ async function seekTo(t) {
   });
 }
 
-function getExportDimensions() {
-  if (P.exportResolution === "instagram") return { ew: 1080, eh: 1920 };
-  return { ew: canvas.width, eh: canvas.height };
-}
-
 async function startExportMP4() {
   if (!window.MP4Muxer) { alert("MP4 muxer not loaded. Wait a moment and try again."); return; }
   if (typeof VideoEncoder === "undefined") { alert("WebCodecs not supported. Please use Chrome or Edge."); return; }
@@ -1497,12 +1841,14 @@ async function startExportMP4() {
   exportBtn.disabled = true;
   exportBtn.textContent = "⏹ Stop";
   progressBar.classList.add("visible");
+  hideCancelDetect();
+  showCancelExport();
+  if (cancelExportBtn) cancelExportBtn.disabled = false;
   progressLabel.textContent = "Starting MP4…";
   progressFill.style.width = "0%";
 
-  const { ew, eh } = getExportDimensions();
-  const w = canvas.width, h = canvas.height;
-  const fps = 30;
+  const ew = canvas.width, eh = canvas.height;
+  const fps = getEffectiveFps();
   const dur = video.duration;
   const totalFrames = Math.ceil(dur * fps);
 
@@ -1531,10 +1877,8 @@ async function startExportMP4() {
     error: e => console.error("Encoder error:", e)
   });
   
-  // avc1.640028 = H.264 High Profile @ Level 4.0 (max compatibility for Instagram)
-  const codecStr = P.exportResolution === "instagram" ? "avc1.640028" : "avc1.42001f";
-  // Higher bitrate for Instagram (20 Mbps for 1080p)
-  const bitrate = P.exportResolution === "instagram" ? 20000000 : 8000000;
+  const codecStr = "avc1.42001f";
+  const bitrate = 8000000;
   
   try {
     await encoder.configure({ codec: codecStr, width: ew, height: eh, bitrate: bitrate, framerate: fps });
@@ -1557,8 +1901,8 @@ async function startExportMP4() {
       await seekTo(targetTime);
 
       // Draw fresh frame on canvas
-      ctx.clearRect(0, 0, w, h);
-      ctx.drawImage(video, 0, 0, w, h);
+      ctx.clearRect(0, 0, ew, eh);
+      ctx.drawImage(video, 0, 0, ew, eh);
 
       const time = video.currentTime;
       const { prev, next } = findBracketingFrames(time);
@@ -1569,15 +1913,8 @@ async function startExportMP4() {
       drawCentroidDots(ctx, blobs);
       drawLabelsLayer(ctx, blobs);
 
-      // Crop and resize to export canvas
-      if (P.cropMode === "full") {
-        exportCtx.clearRect(0, 0, ew, eh);
-        exportCtx.drawImage(canvas, 0, 0, ew, eh);
-      } else {
-        const crop = getCropRegion(w, h, blobs);
-        exportCtx.clearRect(0, 0, ew, eh);
-        exportCtx.drawImage(canvas, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, ew, eh);
-      }
+      exportCtx.clearRect(0, 0, ew, eh);
+      exportCtx.drawImage(canvas, 0, 0, ew, eh);
 
       const frame = new VideoFrame(exportCanvas, { timestamp: i * (1000000 / fps) });
       await encoder.queueReady;
@@ -1586,8 +1923,7 @@ async function startExportMP4() {
 
       const p = Math.round((i + 1) / totalFrames * 100);
       progressFill.style.width = p + "%";
-      const resLabel = P.exportResolution === "instagram" ? "Instagram 1080×1920" : `${ew}×${eh}`;
-      progressLabel.textContent = "Encoding MP4 (${resLabel})… " + p + "% (frame " + (i + 1) + "/" + totalFrames + ")";
+      progressLabel.textContent = "Encoding MP4 (" + ew + "×" + eh + ")… " + p + "% (frame " + (i + 1) + "/" + totalFrames + ")";
     }
 
     if (isExporting) {
@@ -1597,6 +1933,7 @@ async function startExportMP4() {
       const buf = muxer.target.buffer;
       downloadBlob(new Blob([buf], { type: "video/mp4" }), trackedFilename("mp4"));
       progressBar.classList.remove("visible");
+      hideCancelExport();
       exportStatus.textContent = "✅ MP4 exported!";
       exportStatus.classList.add("visible");
       setTimeout(() => exportStatus.classList.remove("visible"), 3000);
@@ -1606,11 +1943,13 @@ async function startExportMP4() {
     console.error("MP4 export crashed:", e);
     alert("MP4 export failed: " + e.message);
     progressBar.classList.remove("visible");
+    hideCancelExport();
   }
 
   exportBtn.disabled = false;
   exportBtn.textContent = "⬇ Export MP4";
   isExporting = false;
+  hideCancelExport();
   try { encoder.close(); } catch (e) {}
 }
 
@@ -1621,6 +1960,7 @@ function startExport(){
 function stopExport(){
   isExporting=false;progressLabel.textContent="MP4 export stopped";setTimeout(()=>progressBar.classList.remove("visible"),2000);
   exportBtn.disabled=false;exportBtn.textContent="⬇ Export MP4";
+  hideCancelExport();
 }
 function downloadBlob(blob,filename){
   const url=URL.createObjectURL(blob),a=document.createElement("a");
@@ -1630,17 +1970,45 @@ function downloadBlob(blob,filename){
 exportBtn.addEventListener("click",startExport);
 redetectBtn.addEventListener("click",async()=>{if(isProcessing||!currentVideoURL)return;if(!video.src)return;await reDetect();});
 
+const cancelDetectBtn = document.getElementById("cancel-detect");
+function showCancelDetect() { if (cancelDetectBtn) cancelDetectBtn.classList.add("visible"); }
+function hideCancelDetect() { if (cancelDetectBtn) cancelDetectBtn.classList.remove("visible"); }
+if (cancelDetectBtn) {
+  cancelDetectBtn.addEventListener("click", () => {
+    if (!isProcessing) return;
+    cancelRequested = true;
+    cancelDetectBtn.disabled = true;
+    progressLabel.textContent = "Cancelling…";
+    log("detect", "Cancel requested by user");
+  });
+}
+
+const cancelExportBtn = document.getElementById("cancel-export");
+function showCancelExport() { if (cancelExportBtn) cancelExportBtn.classList.add("visible"); }
+function hideCancelExport() { if (cancelExportBtn) cancelExportBtn.classList.remove("visible"); }
+if (cancelExportBtn) {
+  cancelExportBtn.addEventListener("click", () => {
+    if (!isExporting) return;
+    isExporting = false;
+    cancelExportBtn.disabled = true;
+    progressLabel.textContent = "Cancelling export…";
+    log("export", "Cancel requested by user");
+    stopExport();
+  });
+}
+
 async function reDetect(){
   log("redetect", "Re-detect triggered", { params: {...P} });
-  isProcessing=true;progressBar.classList.add("visible");exportOverlay.style.display="none";
+  isProcessing=true;cancelRequested=false;progressBar.classList.add("visible");showCancelDetect();exportOverlay.style.display="none";
   const t0 = performance.now();
   await detectBlobs();
   const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
-  log("redetect", "Re-detect complete", { frames: all_frame_data.length, elapsed_s: elapsed });
-  detectionParamsSnapshot={cl:P.cannyLow,ch:P.cannyHigh,bk:P.blurKernel,mi:P.blobMin,ma:P.blobMax,gm:P.groupingMode,mk:P.mergeKernel,mit:P.mergeIterations};
-  const dur=video.duration,tf=Math.floor(dur*PROCESSING_FPS);
-  for(let i=0;i<all_frame_data.length;i++)all_frame_data[i].time=i/PROCESSING_FPS;
-  isProcessing=false;progressBar.classList.remove("visible");exportOverlay.style.display="flex";
+  log("redetect", "Re-detect complete", { frames: all_frame_data.length, elapsed_s: elapsed, cancelled: cancelRequested });
+  const dur=video.duration;
+  const _effFps2 = getEffectiveFps();
+  const tf=Math.floor(dur*_effFps2);
+  for(let i=0;i<all_frame_data.length;i++)all_frame_data[i].time=i/_effFps2;
+  isProcessing=false;progressBar.classList.remove("visible");hideCancelDetect();exportOverlay.style.display="flex";
   video.currentTime=0;video.play();
 }
 
@@ -1649,8 +2017,9 @@ async function reDetect(){
 // ============================
 const TIPS = {
   "tip-find": "Sensitivity controls how easily edges become tracked objects.\nObject Size sets the accepted size range.\nSmall only lowers Max to reject large foreground objects.\nThese presets adjust the Detection and Blob Size sliders for you.",
-  "tip-detect": "More blobs  ↓ C-Low, ↓ Blur, ↓ Blob Min\nFewer blobs  ↑ C-High, ↑ Blur, ↑ Blob Max\nC-Low/C-High = Canny edge detection thresholds (0–255)",
+  "tip-detect": "Color Channel: pick the channel with highest contrast for your scene.\nLum = weighted grayscale (default). R/G/B = single channel.\n\nMore blobs  ↓ C-Low, ↓ Blur, ↓ Blob Min\nFewer blobs  ↑ C-High, ↑ Blur, ↑ Blob Max\nC-Low/C-High = Canny edge detection thresholds (0–255)\nGPU toggle = accelerate blur+sobel on GPU",
   "tip-blob": "Min = smallest blob area (px²)\nMax = largest blob area (px²)\nLower Min → more small blobs detected\nToo low → noise and artifacts get picked up",
+  "tip-output": "Output FPS sets both the detection sampling rate and the export framerate.\n\nSource = use the source video's native frame rate (no duplicates or drops).\n30 / 60 = force a fixed framerate, with duplicate frames for source < target.\n\nChanging this triggers a re-detect.",
 };
 const tipPopup = document.getElementById("tip-popup");
 const tipPopupText = document.getElementById("tip-popup-text");
@@ -1665,12 +2034,33 @@ function hideTip() { tipPopup.classList.remove("visible"); }
 
 Object.keys(TIPS).forEach(id => {
   const el = document.getElementById(id);
-  if (el) { el.addEventListener("mouseenter", () => showTip(el)); el.addEventListener("mouseleave", hideTip); el.addEventListener("touchstart", (e) => { e.preventDefault(); showTip(el); setTimeout(hideTip, 3000); }); }
+  if (el) {
+    el.addEventListener("mouseenter", () => showTip(el));
+    el.addEventListener("mouseleave", hideTip);
+    el.addEventListener("focus", () => showTip(el));
+    el.addEventListener("blur", hideTip);
+    el.addEventListener("keydown", (e) => { if (e.key === "Escape") hideTip(); });
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); showTip(el); setTimeout(hideTip, 3000); });
+  }
 });
 
 // ============================
 // INIT
 // ============================
 setupControls();
+initGPU();
+
+if (location.protocol === "file:") {
+  console.warn("Running from file:// — presets.json and some features may not work. Use a local server (e.g. `npx serve .`).");
+}
+fetch("presets.json").then(r => r.json()).then(presets => {
+  window.PRESETS = presets;
+  log("init", "Presets loaded", { count: presets.length });
+}).catch(() => {
+  if (location.protocol === "file:") {
+    console.warn("Tip: Run a local server to load presets.json.");
+  }
+  log("init", "presets.json not found — skip");
+});
 </script>
 </html>

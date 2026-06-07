@@ -6,62 +6,64 @@ Inspired by artkit.cc/baby-track and whenistheweekend.com/vfx.html, free and off
 ## Features
 
 - **Real-time preview** — drop a video, instant Canvas playback with live param control
-- **No render needed** — color, thickness, trails, lines, labels all update on Canvas
-- **9:16 crop for Instagram Reels** — center-crop or blob-follow, export at native 1080×1920
-- **Connecting lines** — nearest, all-to-all, chain, or waveform between blobs
-- **14+ basic effects** + **14 filter effects** — cross, frame, glitch, thermal, CRT, etc.
-- **Re-detect** — refine Canny/blur/blob params without re-uploading
-- **Export to WebM or MP4** — WebM via MediaRecorder (all browsers), MP4 via WebCodecs (Chrome/Edge)
+- **Live re-detect** — change Canny / blur / blob-size sliders and re-detect without re-uploading
+- **14 basic effects** — Basic, Cross, Frame, L-Frame, X-Frame, Grid, Particle, Dash, Scope, Win2K, Glow, Backdrop, Outline, Label
+- **Connecting lines** — nearest, all, chain, or waveform between blobs, with rate control
+- **Color & text** — 18-color palette, toggleable text labels with random / position / count content
+- **Centroid dots** — optional tracking dots
+- **Grouping** — keep raw contour fragments, or merge nearby fragments into a single region
+- **Find Objects presets** — Sensitivity (Low / Normal / High / Tiny) and Object Size (Small / Normal / Large) hide the technical sliders
+- **GPU Acceleration** — WebGL2 pipeline for blur + Sobel edge detection (5-10x faster than CPU OpenCV)
+- **Color Channel Select** — detect on Luminance, Red, Green, or Blue channel (like TouchDesigner)
+- **Export to MP4** — WebCodecs H.264 via Chrome / Edge. Cancel button to abort mid-export
+- **Cancel detection** — abort a long-running re-detect without reloading the page
+- **Debug logger** — copy a timestamped log of all events and parameter snapshots
 
 ## Getting Started
 
-Open `index.html` in Chrome/Edge. OpenCV.js loads from CDN.
+Open `index.html` in Chrome or Edge. OpenCV.js loads from CDN.
 
 1. **Drop a video** anywhere on the page (or click Upload / Load sample)
 2. **Tweak parameters** in the right panel — changes render instantly
-3. **Click Export** → select format → file downloads automatically
+3. **Re-detect** if you change Canny / blur / blob-size
+4. **Click Export MP4** → file downloads automatically. Use ⏹ Stop to cancel
 
 ## Parameter Overview
 
 | Section | Controls |
 |---|---|
+| **Find Objects** | Sensitivity preset (Low / Normal / High / Tiny), Object Size preset (Small / Normal / Large), Re-detect button |
 | **Video Speed** | 0.5× / 1× / 2× / 4× playback |
-| **Shape** | Contour / Circle / BBox |
-| **Region Style** | Fill regions, random shapes |
-| **Basic Effects** | Basic, Cross, Frame, L-Frame, X-Frame, Grid, Particle, Dash, Scope, Win2K, Glow, Backdrop, Outline, Label |
-| **Filter Effects** | Inv, Glitch, Thermal, Pixel, Tone, Blur, Dither, Zoom, X-Ray, Water, Mask, CRT, Edge |
-| **Connection** | 4 line styles + rate (0–full) |
+| **Basic Effects** | Basic, Cross, Label, Frame, L-Frame, X-Frame, Grid, Particle, Dash, Scope, Win2K, Glow, Backdrop, Outline |
+| **Connection** | Line style (Nearest / All / Chain / Wave) + rate (0–Full) |
 | **Stroke Width** | 0.5–10px |
-| **Blob Size** | Min/max area filters |
-| **Detection** | Canny low/high, Gaussian blur |
-| **Crop** | Full / Center 9:16 / Follow 9:16 + Preview or Instagram resolution |
-| **Color & Text** | 18-color palette, crazy mode, text position/content/font size |
-| **Trail** | Fade trail with adjustable length |
-| **Centroid** | Show tracking dots |
+| **Blob Size** | Min / Max area filters |
+| **Detection** | Canny low / high, Gaussian blur, **Color Channel** (Lum / R / G / B), **GPU toggle** |
+| **Grouping** | Detail (raw contours) / Grouped (merge nearby fragments), with kernel + iterations |
+| **Color & Text** | 18-color palette, text on/off, position (Center / Top / Bottom), content (Random / Position / Count), font size |
+| **Centroid** | Show tracking dots on/off |
+| **Export** | MP4 export + cancel button |
 
-## Export Formats
+## Export Format
 
 | Format | Engine | Resolution | Bitrate | Best for |
 |---|---|---|---|---|
-| **WebM (Preview)** | MediaRecorder | Canvas size (~540p) | 8 Mbps | Quick previews |
-| **MP4 (Preview)** | WebCodecs H.264 | Canvas size (~540p) | 8 Mbps | Desktop playback |
-| **MP4 (Instagram)** | WebCodecs H.264 High Profile | **1080×1920** (9:16) | **20 Mbps** | Instagram Reels |
-| **WebM (Instagram)** | MediaRecorder | **1080×1920** (9:16) | 8 Mbps | Instagram (may need conversion) |
+| **MP4** | WebCodecs H.264 Baseline | Canvas size | 8 Mbps | Desktop playback, social sharing |
 
-### Instagram Reels Setup
+The MP4 muxer (`mp4-muxer`) is loaded as an ES module from a CDN.
 
-For best Instagram Reels results:
+### Requirements
 
-1. Set **Crop → Center 9:16** (static) or **Follow 9:16** (tracks first blob)
-2. Set **Mode → Instagram** (outputs 1080×1920)
-3. Export as **MP4** — encoded with H.264 High Profile @ 20 Mbps
-4. File saves as `contour_vfx_reels.mp4`, ready to upload
-
-Instagram Reels specs: 1080×1920, H.264, 30fps, max 90 seconds.
+- **Chrome or Edge** for MP4 export — WebCodecs API is not available in Firefox or Safari.
+- **Internet on first load** for OpenCV.js and the MP4 muxer. Once cached, the app runs offline.
+- For `presets.json` and similar local fetches, run a local server (e.g. `npx serve .`) — opening `index.html` directly via `file://` will block those fetches.
 
 ## Known Limitations
 
-- **Contour tracking, not object tracking** — IDs flicker between frames, that's expected
-- **MP4 export requires Chrome/Edge** — WebCodecs API not available in Firefox/Safari
-- **Preview resolution is ~540p** — full-res export only via Instagram mode or Streamlit version (`app.py`)
-- **OpenCV.js loads from CDN** — needs internet on first load
+- **Contour tracking, not object tracking** — IDs can flicker between frames for fast-moving or briefly occluded objects
+- **MP4 export requires Chrome / Edge** — no WebM fallback yet
+- **Preview resolution is downscaled** — detection runs on a frame sized to fit `MAX_PREVIEW_DIM`
+- **No audio in export** — video only
+- **No multi-clip timeline, no keyframes, no webcam input** — see `PLAN.md` for the roadmap
+
+See `PLAN.md` for the development roadmap (Phases 1-6) and `gstack-design-review.md` for the design audit.
