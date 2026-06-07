@@ -10,3 +10,5 @@ output.mp4
 .claude/
 .qwen/
 .gstack/
+.superpowers/
+tests/js/node_modules/

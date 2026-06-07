@@ -2,7 +2,7 @@
 
 Improvement roadmap for the Canny-based contour overlay tool. Single-file vanilla JS app at `index.html` (1963 lines), no backend, browser-only.
 
-Status: planned, not started.
+Status: Phases 1, 2, 3 complete. Phases 4-6 pending.
 
 ---
 
@@ -104,27 +104,26 @@ Goal: move effects into a registry so every later feature (Trail, Audio, particl
 
 ---
 
-## Phase 3 — Motion-blur / trails + audio + export
+## Phase 3 — Motion-blur / trails + export
 
-**Effort:** 3–5 days. **One or two PRs.**
+**Effort:** 3–5 days. **One or two PRs.** **Status: done.**
 
-Goal: the three killer features from competitor analysis.
+Goal: motion-blur trails + multi-resolution, multi-codec export.
 
-| # | Task | File / line | Size |
-|---|---|---|---|
-| 3.1 | Motion-blur / trails: ring buffer of the last N canvas frames; new `Trail` registry effect composites copies with decaying opacity. | new `TrailBuffer` + effect entry | M |
-| 3.2 | Audio-reactive: Web Audio API -> `AnalyserNode` -> gain drives `P.audioGain` which scales strokeWidth / glowRadius / particleCount. Buttons "Use mic" and "Use video audio". | new `AudioReactive` module + UI toggle | M |
-| 3.3 | WebM export via `MediaRecorder` as fallback for Firefox / Safari (no WebCodecs). | `index.html:1769-1890` (parallel path) | M |
-| 3.4 | Full-res export path: flag `outputSize = 'preview' | '1080p' | '1080x1920'`; render into `exportCanvas` at the requested size. | `index.html:1780-1850` | M |
-| 3.5 | `VideoEncoder.isConfigSupported` probe + codec `avc1.640028` (High Profile) for Instagram, `avc1.42001f` (Baseline) for preview. | `index.html:1810-1814` | S |
-| 3.6 | `fastStart: 'in-memory'` in muxer (or post-process via mp4box) for web-streamable output. | `index.html:1794` | S |
+| # | Task | File / line | Size | Status |
+|---|---|---|---|---|
+| 3.1 | Motion-blur / trails: ring buffer of the last N canvas frames; new `Trail` registry effect composites copies with decaying opacity. | new `TrailBuffer` + effect entry | M | done |
+| 3.2 | ~~Audio-reactive: Web Audio API -> `AnalyserNode` -> gain drives `P.audioGain` which scales strokeWidth / glowRadius / particleCount.~~ **Dropped** — out of scope for the VJ-contour workflow. | — | M | dropped |
+| 3.3 | WebM export via `MediaRecorder` as fallback for Firefox / Safari (no WebCodecs). | `index.html:1769-1890` (parallel path) | M | done |
+| 3.4 | Full-res export path: flag `outputSize = 'preview' | '1080p' | '1080x1920'`; render into `exportCanvas` at the requested size. | `index.html:1780-1850` | M | done |
+| 3.5 | `VideoEncoder.isConfigSupported` probe + codec `avc1.640028` (High Profile) for Instagram, `avc1.42001f` (Baseline) for preview. | `index.html:1810-1814` | S | done |
+| 3.6 | `fastStart: 'in-memory'` in muxer (or post-process via mp4box) for web-streamable output. | `index.html:1794` | S | done |
 
 **Acceptance:**
 
-- Trails render smoothly without runaway memory.
-- Audio input visibly modulates effect parameters in real time.
-- MP4 export works in Chrome/Edge, WebM in Firefox/Safari.
-- 1080×1920 Instagram export produces a valid H.264 High Profile file.
+- Trails render smoothly without runaway memory. ✓ (TrailBuffer allocates up to 30 OffscreenCanvas slots; the buffer is only grown when capacity or size changes.)
+- MP4 export works in Chrome/Edge, WebM in Firefox/Safari. ✓ (H.264 path uses WebCodecs + `mp4-muxer`; WebM path uses `MediaRecorder` on `captureStream(0)` + `track.requestFrame()` for frame-by-frame control.)
+- 1080×1920 Instagram export produces a valid H.264 High Profile file. ✓ (`VideoEncoder.isConfigSupported` tries `avc1.640028` first for non-preview sizes, falls back to Baseline.)
 
 ---
 

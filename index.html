@@ -281,7 +281,7 @@
 
   <div id="export-overlay">
     <button type="button" id="redetect-btn" title="Re-run blob detection with current params">🔄 Re-detect</button>
-    <button type="button" id="export-btn" title="Record canvas to video file">⬇ Export MP4</button>
+    <button type="button" id="export-btn" title="Record canvas to video file">⬇ Export</button>
   </div>
   <div class="export-status" id="export-status"></div>
 </div>
@@ -337,6 +337,12 @@
         <button type="button" class="gbtn" data-val="Glow">Glow</button>
         <button type="button" class="gbtn" data-val="Backdrop">Backdrop<span class="dot"></span></button>
         <button type="button" class="gbtn" data-val="Outline">Outline</button>
+        <button type="button" class="gbtn" data-val="Trail">Trail</button>
+      </div>
+      <div class="srow" style="margin-top:8px">
+        <span style="font-size:10px;color:#444;min-width:34px">Trail</span>
+        <input type="range" id="trail-length" min="0" max="30" step="1" value="0" title="Trail length (frames to blend)"/>
+        <span class="sv" id="trail-length-val">0</span>
       </div>
     </div>
 
@@ -479,6 +485,17 @@
         <button type="button" data-val="60">60</button>
       </div>
       <div class="sub" id="output-fps-info" style="margin-top:4px;color:#666">Source FPS: —</div>
+      <div class="sub">Output Size</div>
+      <div class="seg" id="output-size">
+        <button type="button" data-val="preview" class="active" title="Render at the preview canvas size">Preview</button>
+        <button type="button" data-val="1080p" title="Render at 1920×1080 (or 1080×1920 for portrait sources)">1080p</button>
+        <button type="button" data-val="1080x1920" title="Render at 1080×1920 (Instagram Reels / Stories)">9:16</button>
+      </div>
+      <div class="sub">Codec</div>
+      <div class="seg" id="output-codec">
+        <button type="button" data-val="h264" class="active" title="WebCodecs H.264 → MP4 (Chrome / Edge)">MP4</button>
+        <button type="button" data-val="webm" title="MediaRecorder WebM (Firefox / Safari fallback)">WebM</button>
+      </div>
     </div>
 
     <div class="pfooter">
@@ -932,6 +949,10 @@ let P = {
   colorChannel: 0, // 0=luminance, 1=red, 2=green, 3=blue
   useGPU: true,    // GPU acceleration toggle
   outputFps: "source", // "source" | 30 | 60
+  // Phase 3 additions
+  trailLength: 0,       // 0 = off, 1..30 = number of trailing canvas copies blended in
+  outputSize: "preview",// "preview" | "1080p" | "1080x1920"
+  outputCodec: "h264",  // "h264" (WebCodecs MP4) | "webm" (MediaRecorder fallback)
 };
 
 const COLORS = [
@@ -944,6 +965,7 @@ const COLORS = [
 // ============================
 function onCvReady() { cvReady=true; console.log("OpenCV loaded"); }
 function onCvError() { log("opencv", "OpenCV.js failed to load"); console.error("OpenCV failed"); }
+
 
 // ============================
 // UI: segmented controls
@@ -1136,6 +1158,10 @@ function setupControls() {
     });
   });
 
+  // Segmented: output size (preview | 1080p | 1080x1920)
+  setupSeg("output-size", "outputSize", String);
+  // Segmented: output codec (h264 | webm)
+  setupSeg("output-codec", "outputCodec", String);
 
   // Sliders
   setupSlider("stroke-width", "strokeWidth", "stroke-width-val", v => v+"px");
@@ -1146,6 +1172,7 @@ function setupControls() {
   setupSlider("blur-kernel", "blurKernel", "blur-kernel-val", v => v);
   setupSlider("merge-kernel", "mergeKernel", "merge-kernel-val", v => v);
   setupSlider("merge-iterations", "mergeIterations", "merge-iterations-val", v => v);
+  setupSlider("trail-length", "trailLength", "trail-length-val", v => v);
 
   // Color palette
   buildPalette();
@@ -1166,6 +1193,7 @@ function setupControls() {
       centroidEnabled:false,
       groupingMode:"contours", mergeKernel:1, mergeIterations:1,
       colorChannel:0, useGPU:true, outputFps:"source",
+      trailLength:0, outputSize:"preview", outputCodec:"h264",
     };
     // Reset checkboxes
     document.querySelectorAll("input[type='checkbox']").forEach(cb => {
@@ -1181,6 +1209,7 @@ function setupControls() {
     document.getElementById("blur-kernel").value = 5;
     document.getElementById("merge-kernel").value = 1;
     document.getElementById("merge-iterations").value = 1;
+    document.getElementById("trail-length").value = 0;
     document.getElementById("stroke-width-val").textContent = "2px";
     document.getElementById("blob-min-val").textContent = "300";
     document.getElementById("blob-max-val").textContent = "200k";
@@ -1189,10 +1218,15 @@ function setupControls() {
     document.getElementById("blur-kernel-val").textContent = "5";
     document.getElementById("merge-kernel-val").textContent = "1";
     document.getElementById("merge-iterations-val").textContent = "1";
+    document.getElementById("trail-length-val").textContent = "0";
     document.querySelectorAll("#grouping-mode button").forEach(b => b.classList.toggle("active", b.dataset.val === "contours"));
     document.querySelectorAll("#color-channel button").forEach(b => b.classList.toggle("active", b.dataset.val === "0"));
     document.querySelectorAll("#output-fps button").forEach(b => b.classList.toggle("active", b.dataset.val === "source"));
+    document.querySelectorAll("#output-size button").forEach(b => b.classList.toggle("active", b.dataset.val === "preview"));
+    document.querySelectorAll("#output-codec button").forEach(b => b.classList.toggle("active", b.dataset.val === "h264"));
     document.getElementById("gpu-toggle").checked = true;
+    // Drop any in-flight trail ring.
+    TrailBuffer.clear();
     buildPalette();
     log("params", "Reset to defaults");
   });
@@ -1648,6 +1682,88 @@ function getContourPts(b){
 
 const particleStates = new Map();
 
+// ============================
+// TRAIL BUFFER (Phase 3.1)
+// ============================
+// Ring buffer of the last N canvas snapshots. The Trail effect composites
+// older copies with decaying opacity to produce motion-blur trails.
+const TrailBuffer = {
+  frames: [],            // array of OffscreenCanvas (or HTMLCanvasElement fallback)
+  capacity: 0,           // current allocated ring size; resized on demand
+  writeIndex: 0,         // next slot to write into
+  sourceW: 0, sourceH: 0,
+
+  ensureSize(w, h) {
+    if (this.sourceW === w && this.sourceH === h) return;
+    this.sourceW = w; this.sourceH = h;
+    this.frames = [];
+    this.writeIndex = 0;
+  },
+
+  // Allocate a number of slots. Existing slots are released first.
+  setCapacity(n) {
+    if (n === this.capacity && this.frames.length === this.capacity) return;
+    this.frames = [];
+    this.capacity = Math.max(0, n | 0);
+    this.writeIndex = 0;
+    for (let i = 0; i < this.capacity; i++) {
+      this.frames.push(this._makeFrame());
+    }
+  },
+
+  _makeFrame() {
+    if (typeof OffscreenCanvas !== "undefined") return new OffscreenCanvas(this.sourceW, this.sourceH);
+    const c = document.createElement("canvas");
+    c.width = this.sourceW; c.height = this.sourceH;
+    return c;
+  },
+
+  push(srcCanvas) {
+    if (this.capacity === 0) return;
+    if (this.sourceW !== srcCanvas.width || this.sourceH !== srcCanvas.height) {
+      this.ensureSize(srcCanvas.width, srcCanvas.height);
+      // Reallocate at the new size.
+      this.setCapacity(this.capacity);
+    }
+    const slot = this.frames[this.writeIndex];
+    if (!slot || slot.width !== this.sourceW || slot.height !== this.sourceH) {
+      this.frames[this.writeIndex] = this._makeFrame();
+    }
+    const ctx = this.frames[this.writeIndex].getContext("2d");
+    ctx.clearRect(0, 0, this.sourceW, this.sourceH);
+    ctx.drawImage(srcCanvas, 0, 0);
+    this.writeIndex = (this.writeIndex + 1) % this.capacity;
+  },
+
+  // Draw all stored frames oldest-first with decaying alpha. Newest frame is
+  // drawn last and at the highest alpha so the current image dominates.
+  draw(ctx, baseAlpha) {
+    if (this.capacity === 0) return;
+    const n = this.capacity;
+    ctx.save();
+    ctx.globalCompositeOperation = "source-over";
+    for (let i = 0; i < n; i++) {
+      // Walk from oldest to newest. Slot (writeIndex) is the next write target,
+      // so the most recent frame is at (writeIndex - 1) and the oldest is at
+      // (writeIndex) (one past newest, wraps to oldest in ring semantics).
+      const slotIdx = (this.writeIndex + i) % n;
+      const age = n - 1 - i; // 0 = newest
+      // Linear decay: oldest ~ baseAlpha/n, newest ~ baseAlpha.
+      const a = baseAlpha * (1 - age / n);
+      if (a <= 0) continue;
+      ctx.globalAlpha = a;
+      ctx.drawImage(this.frames[slotIdx], 0, 0);
+    }
+    ctx.restore();
+  },
+
+  clear() {
+    this.frames = [];
+    this.capacity = 0;
+    this.writeIndex = 0;
+  },
+};
+
 function drawBasicEffect(ctx2d, blobs) {
   const sw = P.strokeWidth;
   ctx2d.lineWidth = sw; ctx2d.lineJoin = "round";
@@ -1845,6 +1961,25 @@ function drawLabelEffect(ctx2d, blobs) {
   drawLabelsLayer(ctx2d, blobs);
 }
 
+// Trail: blend older canvas copies under the current frame for motion blur.
+// The trail buffer is updated by the draw loop AFTER this effect runs, so the
+// current frame is composited on top of decaying past frames and only then
+// pushed to the ring for the next pass.
+function drawTrailEffect(ctx2d, blobs) {
+  const n = Math.max(0, Math.min(30, P.trailLength | 0));
+  if (n === 0) {
+    TrailBuffer.clear();
+    // Still draw the normal effect on top so the user gets a visible contour.
+    drawBasicEffect(ctx2d, blobs);
+    return;
+  }
+  TrailBuffer.setCapacity(n);
+  // Blend older frames first (they sit at the bottom).
+  TrailBuffer.draw(ctx2d, 0.5);
+  // Then the live effect on top.
+  drawBasicEffect(ctx2d, blobs);
+}
+
 const EFFECTS = [
   { id: "Basic",    label: "Basic",    group: "shape", draw: drawBasicEffect },
   { id: "Cross",    label: "Cross",    group: "shape", draw: drawCrossEffect },
@@ -1860,6 +1995,7 @@ const EFFECTS = [
   { id: "Backdrop", label: "Backdrop", group: "style", draw: drawBackdropEffect },
   { id: "Outline",  label: "Outline",  group: "shape", draw: drawOutlineEffect },
   { id: "Label",    label: "Label",    group: "info",  draw: drawLabelEffect },
+  { id: "Trail",    label: "Trail",    group: "fx",    draw: drawTrailEffect },
 ];
 const EFFECTS_BY_ID = Object.fromEntries(EFFECTS.map(e => [e.id, e]));
 
@@ -1949,12 +2085,24 @@ function drawLoop(){
   drawCentroidDots(ctx,blobs);
   drawLabelsLayer(ctx,blobs);
 
+  // Push the composited frame to the trail buffer AFTER all layers so the
+  // ring stores a complete image (video + contours + labels).
+  if (P.trailLength > 0 && P.selectedEffect === "Trail") {
+    TrailBuffer.push(canvas);
+  }
+
   requestAnimationFrame(drawLoop);
 }
 
 // ============================
-// EXPORT MP4
+// EXPORT (Phase 3.3, 3.4, 3.5, 3.6)
 // ============================
+// Two encoding paths:
+//   - H.264 (WebCodecs) → MP4 via mp4-muxer, manual frame-by-frame seek.
+//   - WebM (MediaRecorder) → real-time canvas.captureStream, fallback for
+//     Firefox / Safari which lack VideoEncoder.
+// Output size can be preview (canvas size) or 1080p / 1080x1920 (full-res
+// with letterbox / pillarbox to fit).
 async function seekTo(t) {
   return new Promise((resolve) => {
     const timeout = setTimeout(() => { video.onseeked = null; resolve(); }, 5000);
@@ -1964,10 +2112,97 @@ async function seekTo(t) {
   });
 }
 
-async function startExportMP4() {
-  if (!window.MP4Muxer) { alert("MP4 muxer not loaded. Wait a moment and try again."); return; }
-  if (typeof VideoEncoder === "undefined") { alert("WebCodecs not supported. Please use Chrome or Edge."); return; }
+// Map outputSize param to a concrete (w, h) target.
+function computeExportSize() {
+  const vw = video.videoWidth, vh = video.videoHeight;
+  if (P.outputSize === "1080p") {
+    // 1920x1080 for landscape sources, 1080x1920 for portrait sources.
+    if (!vw || !vh) return { w: canvas.width, h: canvas.height };
+    return vw >= vh ? { w: 1920, h: 1080 } : { w: 1080, h: 1920 };
+  }
+  if (P.outputSize === "1080x1920") return { w: 1080, h: 1920 };
+  return { w: canvas.width, h: canvas.height };
+}
 
+// Bitrate scales with output area: 8 Mbps at 1920x1080, ~4 Mbps for preview.
+function computeBitrate(w, h) {
+  const px = w * h;
+  return Math.max(2_000_000, Math.round(px * 4.5)); // ~4.5 bits per pixel
+}
+
+// Render a single composited frame (video + effects + labels) to ctx at the
+// given target size. Scales + letterboxes the source video, scales blob
+// coordinates to match.
+function renderToTarget(ctx, blobs, targetW, targetH) {
+  const vw = video.videoWidth, vh = video.videoHeight;
+  if (!vw || !vh) {
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, targetW, targetH);
+    return;
+  }
+  const scale = Math.min(targetW / vw, targetH / vh);
+  const drawW = vw * scale, drawH = vh * scale;
+  const offX = (targetW - drawW) / 2;
+  const offY = (targetH - drawH) / 2;
+
+  ctx.save();
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, targetW, targetH);
+  ctx.drawImage(video, offX, offY, drawW, drawH);
+  ctx.restore();
+
+  if (!blobs || !blobs.length) return;
+  const scaled = blobs.map(b => ({
+    ...b,
+    x: b.x * scale + offX,
+    y: b.y * scale + offY,
+    bx: b.bx * scale + offX,
+    by: b.by * scale + offY,
+    bw: b.bw * scale,
+    bh: b.bh * scale,
+    pts: b.pts ? b.pts.map(p => ({ x: p.x * scale + offX, y: p.y * scale + offY })) : b.pts,
+  }));
+
+  // Save / restore the per-effect "P" hack (e.g. Glow reads audioGain, no
+  // scaling needed). We just draw to the target ctx.
+  drawEffectLayer(ctx, scaled);
+  drawLinesLayer(ctx, scaled);
+  drawCentroidDots(ctx, scaled);
+  drawLabelsLayer(ctx, scaled);
+}
+
+// Probe WebCodecs for a supported H.264 codec. Prefer High Profile for
+// full-res / Instagram output, Baseline for preview.
+async function pickH264Codec(width, height, framerate, bitrate) {
+  const preferHigh = P.outputSize !== "preview";
+  const candidates = preferHigh
+    ? ["avc1.640028", "avc1.4D4028", "avc1.42001F", "avc1.42E01F"]
+    : ["avc1.42001F", "avc1.42E01F", "avc1.640028"];
+  for (const codec of candidates) {
+    try {
+      const r = await VideoEncoder.isConfigSupported({ codec, width, height, bitrate, framerate });
+      if (r && r.supported) return codec;
+    } catch (e) {}
+  }
+  return null;
+}
+
+function pickWebmMime() {
+  if (typeof MediaRecorder === "undefined") return null;
+  const candidates = [
+    "video/webm;codecs=vp9,opus",
+    "video/webm;codecs=vp9",
+    "video/webm;codecs=vp8,opus",
+    "video/webm;codecs=vp8",
+    "video/webm",
+  ];
+  for (const m of candidates) {
+    try { if (MediaRecorder.isTypeSupported(m)) return m; } catch (e) {}
+  }
+  return "video/webm";
+}
+
+function startExportUiBusy(label) {
   isExporting = true;
   exportBtn.disabled = true;
   exportBtn.textContent = "⏹ Stop";
@@ -1975,113 +2210,180 @@ async function startExportMP4() {
   hideCancelDetect();
   showCancelExport();
   if (cancelExportBtn) cancelExportBtn.disabled = false;
-  progressLabel.textContent = "Starting MP4…";
+  progressLabel.textContent = label;
   progressFill.style.width = "0%";
+}
 
-  const ew = canvas.width, eh = canvas.height;
+function endExportUi(label) {
+  isExporting = false;
+  exportBtn.disabled = false;
+  exportBtn.textContent = "⬇ Export";
+  hideCancelExport();
+  if (label) {
+    progressLabel.textContent = label;
+    setTimeout(() => progressBar.classList.remove("visible"), 1500);
+  } else {
+    progressBar.classList.remove("visible");
+  }
+}
+
+async function runWebCodecsExport() {
+  if (!window.MP4Muxer) throw new Error("MP4 muxer not loaded");
+  if (typeof VideoEncoder === "undefined") throw new Error("WebCodecs is not available in this browser");
+
+  const { w: ew, h: eh } = computeExportSize();
   const fps = getEffectiveFps();
   const dur = video.duration;
-  const totalFrames = Math.ceil(dur * fps);
+  const totalFrames = Math.max(1, Math.ceil(dur * fps));
+  const bitrate = computeBitrate(ew, eh);
+
+  const codec = await pickH264Codec(ew, eh, fps, bitrate);
+  if (!codec) throw new Error("No supported H.264 configuration");
+  log("export", "WebCodecs codec selected", { codec, ew, eh, fps, bitrate });
 
   exportCanvas.width = ew;
   exportCanvas.height = eh;
 
-  let muxer;
-  try {
-    muxer = new window.MP4Muxer.Muxer({
-      target: new window.MP4Muxer.ArrayBufferTarget(),
-      video: { codec: "avc", width: ew, height: eh },
-      firstTimestampBehavior: "offset",
-      fastStart: false
-    });
-  } catch (e) {
-    alert("Muxer init error: " + e.message);
-    isExporting = false;
-    progressBar.classList.remove("visible");
-    exportBtn.disabled = false;
-    exportBtn.textContent = "⬇ Export MP4";
-    return;
-  }
+  const muxer = new window.MP4Muxer.Muxer({
+    target: new window.MP4Muxer.ArrayBufferTarget(),
+    video: { codec: "avc", width: ew, height: eh },
+    firstTimestampBehavior: "offset",
+    fastStart: "in-memory",
+  });
 
   const encoder = new VideoEncoder({
     output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
-    error: e => console.error("Encoder error:", e)
+    error: e => log("export", "Encoder error", { error: e.message }),
   });
-  
-  const codecStr = "avc1.42001f";
-  const bitrate = 8000000;
-  
-  try {
-    await encoder.configure({ codec: codecStr, width: ew, height: eh, bitrate: bitrate, framerate: fps });
-  } catch (e) {
-    alert("Encoder configure error: " + e.message);
-    isExporting = false;
-    progressBar.classList.remove("visible");
-    exportBtn.disabled = false;
-    exportBtn.textContent = "⬇ Export MP4";
+
+  await encoder.configure({ codec, width: ew, height: eh, bitrate, framerate: fps });
+  video.pause();
+
+  let cancelled = false;
+  for (let i = 0; i < totalFrames; i++) {
+    if (!isExporting) { cancelled = true; break; }
+    const targetTime = i / fps;
+    await seekTo(targetTime);
+
+    const time = video.currentTime;
+    const { prev, next } = findBracketingFrames(time);
+    const blobs = interpolateBlobs(prev, next, time);
+    renderToTarget(exportCtx, blobs, ew, eh);
+
+    const frame = new VideoFrame(exportCanvas, { timestamp: Math.round(i * (1_000_000 / fps)) });
+    if (encoder.encodeQueueSize > 4) await encoder.queueReady;
+    encoder.encode(frame, { keyFrame: i % 30 === 0 });
+    frame.close();
+
+    const p = Math.round((i + 1) / totalFrames * 100);
+    progressFill.style.width = p + "%";
+    progressLabel.textContent = "Encoding MP4 " + ew + "×" + eh + "… " + p + "% (frame " + (i + 1) + "/" + totalFrames + ")";
+  }
+
+  if (cancelled) {
+    try { encoder.close(); } catch (e) {}
+    return { cancelled: true };
+  }
+
+  progressLabel.textContent = "Finalizing MP4…";
+  await encoder.flush();
+  muxer.finalize();
+  const buf = muxer.target.buffer;
+  try { encoder.close(); } catch (e) {}
+  return { cancelled: false, blob: new Blob([buf], { type: "video/mp4" }), ext: "mp4" };
+}
+
+async function runWebMExport() {
+  if (typeof MediaRecorder === "undefined") throw new Error("MediaRecorder is not available in this browser");
+  if (typeof canvas.captureStream !== "function") throw new Error("canvas.captureStream is not available in this browser");
+
+  const { w: ew, h: eh } = computeExportSize();
+  const fps = getEffectiveFps();
+  const dur = video.duration;
+  const totalFrames = Math.max(1, Math.ceil(dur * fps));
+  const mime = pickWebmMime();
+  if (!mime) throw new Error("No supported WebM codec");
+  log("export", "WebM mime selected", { mime, ew, eh, fps });
+
+  // Render WebM at full export resolution (not the preview canvas size).
+  const target = document.createElement("canvas");
+  target.width = ew;
+  target.height = eh;
+  const targetCtx = target.getContext("2d");
+
+  const stream = target.captureStream(0); // 0 = manual frame request
+  const track = stream.getVideoTracks()[0];
+  const recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: computeBitrate(ew, eh) });
+  const chunks = [];
+  recorder.ondataavailable = e => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+
+  recorder.start();
+  video.pause();
+
+  for (let i = 0; i < totalFrames; i++) {
+    if (!isExporting) {
+      try { recorder.stop(); } catch (e) {}
+      try { track.stop(); } catch (e) {}
+      return { cancelled: true };
+    }
+    const targetTime = i / fps;
+    await seekTo(targetTime);
+    const time = video.currentTime;
+    const { prev, next } = findBracketingFrames(time);
+    const blobs = interpolateBlobs(prev, next, time);
+    renderToTarget(targetCtx, blobs, ew, eh);
+    if (typeof track.requestFrame === "function") track.requestFrame();
+
+    const p = Math.round((i + 1) / totalFrames * 100);
+    progressFill.style.width = p + "%";
+    progressLabel.textContent = "Encoding WebM " + ew + "×" + eh + "… " + p + "% (frame " + (i + 1) + "/" + totalFrames + ")";
+  }
+
+  const finalBlob = await new Promise((resolve) => {
+    recorder.onstop = () => resolve(new Blob(chunks, { type: mime }));
+    try { recorder.stop(); } catch (e) { resolve(new Blob(chunks, { type: mime })); }
+  });
+  try { track.stop(); } catch (e) {}
+  return { cancelled: false, blob: finalBlob, ext: "webm" };
+}
+
+async function startExportMP4() {
+  // Decide path: h264 (WebCodecs) preferred, webm fallback.
+  const wantH264 = (P.outputCodec === "h264") && (typeof VideoEncoder !== "undefined") && window.MP4Muxer;
+  const wantWebm = (P.outputCodec === "webm") || !wantH264;
+  if (!wantH264 && !wantWebm) {
+    alert("No export engine available. Use a modern Chrome / Edge / Firefox / Safari.");
     return;
   }
 
-  video.pause();
+  const ext = wantH264 ? "MP4" : "WebM";
+  startExportUiBusy("Starting " + ext + "…");
 
+  const t0 = performance.now();
+  let res;
   try {
-    for (let i = 0; i < totalFrames; i++) {
-      if (!isExporting) break;
-
-      const targetTime = i / fps;
-      await seekTo(targetTime);
-
-      // Draw fresh frame on canvas
-      ctx.clearRect(0, 0, ew, eh);
-      ctx.drawImage(video, 0, 0, ew, eh);
-
-      const time = video.currentTime;
-      const { prev, next } = findBracketingFrames(time);
-      const blobs = interpolateBlobs(prev, next, time);
-
-      drawEffectLayer(ctx, blobs);
-      drawLinesLayer(ctx, blobs);
-      drawCentroidDots(ctx, blobs);
-      drawLabelsLayer(ctx, blobs);
-
-      exportCtx.clearRect(0, 0, ew, eh);
-      exportCtx.drawImage(canvas, 0, 0, ew, eh);
-
-      const frame = new VideoFrame(exportCanvas, { timestamp: i * (1000000 / fps) });
-      await encoder.queueReady;
-      encoder.encode(frame, { keyFrame: i % 30 === 0 });
-      frame.close();
-
-      const p = Math.round((i + 1) / totalFrames * 100);
-      progressFill.style.width = p + "%";
-      progressLabel.textContent = "Encoding MP4 (" + ew + "×" + eh + ")… " + p + "% (frame " + (i + 1) + "/" + totalFrames + ")";
-    }
-
-    if (isExporting) {
-      progressLabel.textContent = "Finalizing…";
-      await encoder.flush();
-      muxer.finalize();
-      const buf = muxer.target.buffer;
-      downloadBlob(new Blob([buf], { type: "video/mp4" }), trackedFilename("mp4"));
-      progressBar.classList.remove("visible");
-      hideCancelExport();
-      exportStatus.textContent = "✅ MP4 exported!";
-      exportStatus.classList.add("visible");
-      setTimeout(() => exportStatus.classList.remove("visible"), 3000);
-    }
+    res = wantH264 ? await runWebCodecsExport() : await runWebMExport();
   } catch (e) {
-    log("export", "MP4 export failed", { error: e.message, stack: e.stack, params: {...P} });
-    console.error("MP4 export crashed:", e);
-    alert("MP4 export failed: " + e.message);
-    progressBar.classList.remove("visible");
-    hideCancelExport();
+    log("export", ext + " export failed", { error: e.message, stack: e.stack, params: {...P} });
+    console.error(ext + " export crashed:", e);
+    alert(ext + " export failed: " + e.message);
+    endExportUi("Export failed");
+    return;
   }
 
-  exportBtn.disabled = false;
-  exportBtn.textContent = "⬇ Export MP4";
-  isExporting = false;
-  hideCancelExport();
-  try { encoder.close(); } catch (e) {}
+  if (res.cancelled) {
+    endExportUi(ext + " export stopped");
+    log("export", ext + " export cancelled");
+    return;
+  }
+
+  downloadBlob(res.blob, trackedFilename(res.ext));
+  const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
+  log("export", ext + " export complete", { size_bytes: res.blob.size, elapsed_s: elapsed });
+  endExportUi(null);
+  exportStatus.textContent = "✅ " + ext + " exported!";
+  exportStatus.classList.add("visible");
+  setTimeout(() => exportStatus.classList.remove("visible"), 3000);
 }
 
 function startExport(){
@@ -2089,8 +2391,8 @@ function startExport(){
   else {log("export","Export stopped");stopExport();}
 }
 function stopExport(){
-  isExporting=false;progressLabel.textContent="MP4 export stopped";setTimeout(()=>progressBar.classList.remove("visible"),2000);
-  exportBtn.disabled=false;exportBtn.textContent="⬇ Export MP4";
+  isExporting=false;progressLabel.textContent="Export stopped";
+  exportBtn.disabled=false;exportBtn.textContent="⬇ Export";
   hideCancelExport();
 }
 function downloadBlob(blob,filename){
@@ -2150,7 +2452,7 @@ const TIPS = {
   "tip-find": "Sensitivity controls how easily edges become tracked objects.\nObject Size sets the accepted size range.\nSmall only lowers Max to reject large foreground objects.\nThese presets adjust the Detection and Blob Size sliders for you.",
   "tip-detect": "Color Channel: pick the channel with highest contrast for your scene.\nLum = weighted grayscale (default). R/G/B = single channel.\n\nMore blobs  ↓ C-Low, ↓ Blur, ↓ Blob Min\nFewer blobs  ↑ C-High, ↑ Blur, ↑ Blob Max\nC-Low/C-High = Canny edge detection thresholds (0–255)\nGPU toggle = accelerate blur+sobel on GPU",
   "tip-blob": "Min = smallest blob area (px²)\nMax = largest blob area (px²)\nLower Min → more small blobs detected\nToo low → noise and artifacts get picked up",
-  "tip-output": "Output FPS sets both the detection sampling rate and the export framerate.\n\nSource = use the source video's native frame rate (no duplicates or drops).\n30 / 60 = force a fixed framerate, with duplicate frames for source < target.\n\nChanging this triggers a re-detect.",
+  "tip-output": "Output FPS sets both the detection sampling rate and the export framerate.\n\nSource = use the source video's native frame rate (no duplicates or drops).\n30 / 60 = force a fixed framerate, with duplicate frames for source < target.\n\nOutput Size:\nPreview = canvas size. 1080p = 1920×1080 (or 1080×1920 for portrait sources).\n9:16 = 1080×1920 (Instagram Reels / Stories). Letterboxed / pillarboxed to fit.\n\nCodec:\nMP4 = WebCodecs H.264 (Chrome / Edge). WebM = MediaRecorder fallback (Firefox / Safari).\n\nChanging FPS triggers a re-detect.",
 };
 const tipPopup = document.getElementById("tip-popup");
 const tipPopupText = document.getElementById("tip-popup-text");
