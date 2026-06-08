@@ -23,6 +23,8 @@ function extractClass(src, name) {
 
 const source = extractClass(html, 'CentroidTracker');
 const CentroidTracker = eval('(' + source + ')');
+const MIN_AGE = CentroidTracker.MIN_AGE;
+const MAX_MISSED = CentroidTracker.MAX_MISSED;
 
 // Synthetic detection blob (shape matches detectContours output).
 const mk = (x, y = 100, s = 20) => ({
@@ -44,9 +46,9 @@ test('ghost blob (1 frame) is never returned', () => {
 // 2) A real object keeps its id through a short dropout.
 test('object keeps id across a dropout of <= MAX_MISSED frames', () => {
   const tr = new CentroidTracker(1000);
-  tr.update([mk(100)]);           // age 1 (not yet visible)
-  let out = tr.update([mk(100)]); // age 2 -> visible
-  assert.equal(out.length, 1, 'object visible on its second frame');
+  let out;
+  for (let i = 0; i < MIN_AGE; i++) out = tr.update([mk(100)]);
+  assert.equal(out.length, 1, 'object visible once it reaches MIN_AGE');
   const id = out[0].id;
   out = tr.update([]);            // blind frame 1
   assert.equal(out[0].id, id, 'track held during blind frame');
@@ -68,7 +70,7 @@ test('static object center holds steady', () => {
 // 4) A moving object's center tracks toward the new position.
 test('moving object center follows the motion', () => {
   const tr = new CentroidTracker(1000);
-  tr.update([mk(100)]); tr.update([mk(100)]); // establish at x=100
+  for (let i = 0; i < MIN_AGE; i++) tr.update([mk(100)]); // establish at x=100
   let out;
   for (let i = 0; i < 8; i++) out = tr.update([mk(130)]); // drift to x=130
   assert.ok(out[0].x > 125, 'center converged toward 130, got ' + out[0].x);
@@ -77,18 +79,16 @@ test('moving object center follows the motion', () => {
 // 5) A long dropout (> MAX_MISSED frames) drops the track; reappearance gets a NEW id.
 test('track dies after a dropout > MAX_MISSED and returns with a new id', () => {
   const tr = new CentroidTracker(1000);
-  tr.update([mk(100)]);           // age 1
-  let out = tr.update([mk(100)]); // age 2 -> visible
+  let out;
+  for (let i = 0; i < MIN_AGE; i++) out = tr.update([mk(100)]);
   const firstId = out[0].id;
-  // MAX_MISSED = 5, so 6 consecutive blind frames must delete the track.
-  for (let i = 0; i < 6; i++) out = tr.update([]);
+  for (let i = 0; i <= MAX_MISSED; i++) out = tr.update([]);
   assert.equal(out.length, 0, 'track is gone after > MAX_MISSED blind frames');
-  // Reappears: it is a fresh candidate, so still invisible on its first frame...
+  // Reappears: it is a fresh candidate, so it stays hidden until MIN_AGE.
   out = tr.update([mk(100)]);
   assert.equal(out.length, 0, 'reappearance starts as a new unconfirmed candidate');
-  // ...and becomes visible again on the next frame with a brand-new id.
-  out = tr.update([mk(100)]);
-  assert.equal(out.length, 1, 'reappearance promoted on its second frame');
+  for (let i = 1; i < MIN_AGE; i++) out = tr.update([mk(100)]);
+  assert.equal(out.length, 1, 'reappearance promoted once it reaches MIN_AGE');
   assert.notEqual(out[0].id, firstId, 'a dropped-then-returned object gets a new id');
 });
 

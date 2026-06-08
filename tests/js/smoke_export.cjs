@@ -63,6 +63,71 @@ const { chromium } = require('playwright');
     }
   });
   console.log('renderToTarget test:', JSON.stringify(renderResult));
+  if (!renderResult.ok) process.exitCode = 1;
+
+  const mappingResult = await page.evaluate(() => {
+    try {
+      Object.defineProperty(video, 'videoWidth', { configurable: true, value: 1080 });
+      Object.defineProperty(video, 'videoHeight', { configurable: true, value: 1920 });
+      const preview = document.getElementById('canvas');
+      preview.width = 576;
+      preview.height = 1024;
+
+      const target = document.createElement('canvas');
+      target.width = 1080;
+      target.height = 1920;
+      const targetCtx = target.getContext('2d');
+
+      const tiny = document.createElement('canvas');
+      tiny.width = 1080;
+      tiny.height = 1920;
+      const origDrawImage = CanvasRenderingContext2D.prototype.drawImage;
+      const origDrawEffectLayer = drawEffectLayer;
+      const origDrawLinesLayer = drawLinesLayer;
+      const origDrawCentroidDots = drawCentroidDots;
+      const origDrawLabelsLayer = drawLabelsLayer;
+      let captured = null;
+
+      CanvasRenderingContext2D.prototype.drawImage = function (src, ...args) {
+        if (src === video) return origDrawImage.call(this, tiny, ...args);
+        return origDrawImage.apply(this, [src, ...args]);
+      };
+      drawEffectLayer = function (_ctx, blobs) { captured = structuredClone(blobs); };
+      drawLinesLayer = function () {};
+      drawCentroidDots = function () {};
+      drawLabelsLayer = function () {};
+      try {
+        renderToTarget(targetCtx, [{
+          id: 1,
+          x: 288,
+          y: 512,
+          area: 10,
+          bx: 144,
+          by: 256,
+          bw: 288,
+          bh: 512,
+          pts: [{ x: 288, y: 512 }],
+        }], 1080, 1920);
+      } finally {
+        CanvasRenderingContext2D.prototype.drawImage = origDrawImage;
+        drawEffectLayer = origDrawEffectLayer;
+        drawLinesLayer = origDrawLinesLayer;
+        drawCentroidDots = origDrawCentroidDots;
+        drawLabelsLayer = origDrawLabelsLayer;
+      }
+
+      const b = captured && captured[0];
+      return {
+        ok: !!b && Math.abs(b.x - 540) < 0.001 && Math.abs(b.y - 960) < 0.001 &&
+          Math.abs(b.bx - 270) < 0.001 && Math.abs(b.by - 480) < 0.001,
+        blob: b,
+      };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
+  console.log('renderToTarget portrait mapping:', JSON.stringify(mappingResult));
+  if (!mappingResult.ok) process.exitCode = 1;
 
   // Test TrailBuffer push+draw.
   const trailResult = await page.evaluate(() => {

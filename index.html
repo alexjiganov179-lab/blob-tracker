@@ -1624,25 +1624,211 @@ async function startProcessing(videoURL) {
 }
 
 // ============================
+// WebGPU CONNECTED COMPONENT LABELLING
+// ============================
+const WebGPUBlobTracker = (() => {
+  const SHADER_INIT = /* wgsl */ `
+    @group(0) @binding(0) var<storage, read> edges: array<u32>;
+    @group(0) @binding(1) var<storage, read_write> labels: array<u32>;
+    @group(0) @binding(2) var<uniform> dims: vec2<u32>;
+    @compute @workgroup_size(256)
+    fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+      let idx = gid.x;
+      if (idx >= dims.x * dims.y) { return; }
+      if (edges[idx] >= 128u) {
+        labels[idx] = idx + 1u;
+      } else {
+        labels[idx] = 0u;
+      }
+    }
+  `;
+
+  const SHADER_MERGE = /* wgsl */ `
+    @group(0) @binding(0) var<storage, read> src: array<u32>;
+    @group(0) @binding(1) var<storage, read_write> dst: array<u32>;
+    @group(0) @binding(2) var<uniform> params: MergeParams;
+    struct MergeParams { width: u32, height: u32, step: u32, _pad: u32 };
+    @compute @workgroup_size(256)
+    fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+      let idx = gid.x;
+      let w = params.width; let h = params.height;
+      if (idx >= w * h) { return; }
+      let myLabel = src[idx];
+      if (myLabel == 0u) { dst[idx] = 0u; return; }
+      let x = idx % w; let y = idx / w;
+      let s = params.step;
+      var mn = myLabel;
+      var n: u32;
+      if (x >= s)     { n = src[idx - s];      if (n > 0u && n < mn) { mn = n; } }
+      if (x + s < w)  { n = src[idx + s];      if (n > 0u && n < mn) { mn = n; } }
+      if (y >= s)     { n = src[idx - s * w];  if (n > 0u && n < mn) { mn = n; } }
+      if (y + s < h)  { n = src[idx + s * w];  if (n > 0u && n < mn) { mn = n; } }
+      dst[idx] = mn;
+    }
+  `;
+
+  const SHADER_COMPRESS = /* wgsl */ `
+    @group(0) @binding(0) var<storage, read> src: array<u32>;
+    @group(0) @binding(1) var<storage, read_write> dst: array<u32>;
+    @group(0) @binding(2) var<uniform> dims: vec2<u32>;
+    @compute @workgroup_size(256)
+    fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+      let idx = gid.x;
+      if (idx >= dims.x * dims.y) { return; }
+      var cur = src[idx];
+      if (cur == 0u) { dst[idx] = 0u; return; }
+      var ptr = cur;
+      for (var i = 0; i < 64; i++) {
+        let parent = src[ptr - 1u];
+        if (parent >= ptr) { break; }
+        ptr = parent;
+      }
+      dst[idx] = ptr;
+    }
+  `;
+
+  let device = null;
+  let ready = false;
+  let pipelines = {};
+  let buffers = {};
+  let lastW = 0, lastH = 0;
+  const WG_SIZE = 256;
+
+  async function init() {
+    if (!navigator.gpu) { return; }
+    try {
+      const adapter = await navigator.gpu.requestAdapter();
+      if (!adapter) return;
+      device = await adapter.requestDevice();
+      const opts = { layout: "auto" };
+
+      const mInit = device.createShaderModule({ code: SHADER_INIT });
+      const mMerge = device.createShaderModule({ code: SHADER_MERGE });
+      const mCompress = device.createShaderModule({ code: SHADER_COMPRESS });
+
+      pipelines.init = device.createComputePipeline({ ...opts, compute: { module: mInit, entryPoint: "main" } });
+      pipelines.merge = device.createComputePipeline({ ...opts, compute: { module: mMerge, entryPoint: "main" } });
+      pipelines.compress = device.createComputePipeline({ ...opts, compute: { module: mCompress, entryPoint: "main" } });
+
+      ready = true;
+      log("gpu", "WebGPU CCL ready");
+    } catch (e) {
+      console.warn("WebGPU CCL init failed:", e);
+    }
+  }
+
+  function ensureBuffers(w, h) {
+    if (w === lastW && h === lastH && buffers.a) return;
+    lastW = w; lastH = h;
+    const sz = w * h * 4;
+    const usage = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST;
+    if (buffers.a) { buffers.a.destroy(); buffers.b.destroy(); buffers.params.destroy(); buffers.readback.destroy(); }
+    buffers.a = device.createBuffer({ size: sz, usage });
+    buffers.b = device.createBuffer({ size: sz, usage });
+    buffers.params = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    buffers.readback = device.createBuffer({ size: sz, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+  }
+
+  async function detect(edgeMap, w, h, blobMin, blobMax) {
+    if (!ready || !device) return null;
+    try {
+      ensureBuffers(w, h);
+      const size = w * h;
+      device.queue.writeBuffer(buffers.a, 0, edgeMap);
+
+      const bgInit = device.createBindGroup({ layout: pipelines.init.getBindGroupLayout(0), entries: [
+        { binding: 0, resource: { buffer: buffers.a } },
+        { binding: 1, resource: { buffer: buffers.b } },
+        { binding: 2, resource: { buffer: buffers.params } },
+      ]});
+
+      const enc = device.createCommandEncoder();
+      const wg = Math.ceil(size / WG_SIZE);
+
+      // Init: edges → labels (in buffers.b)
+      { const p = enc.beginComputePass(); p.setPipeline(pipelines.init); p.setBindGroup(0, bgInit); p.dispatchWorkgroups(wg); p.end(); }
+
+      // Jump-flood merge: step = maxDim/2, maxDim/4, ..., 1
+      let src = buffers.b, dst = buffers.a;
+      const maxDim = Math.max(w, h);
+      for (let step = 1; step < maxDim; step *= 2) {
+        const paramsData = new ArrayBuffer(16);
+        new Uint32Array(paramsData, 0)[0] = w;
+        new Uint32Array(paramsData, 4)[0] = h;
+        new Uint32Array(paramsData, 8)[0] = step;
+        device.queue.writeBuffer(buffers.params, 0, paramsData);
+        const bg = device.createBindGroup({ layout: pipelines.merge.getBindGroupLayout(0), entries: [
+          { binding: 0, resource: { buffer: src } },
+          { binding: 1, resource: { buffer: dst } },
+          { binding: 2, resource: { buffer: buffers.params } },
+        ]});
+        const p = enc.beginComputePass(); p.setPipeline(pipelines.merge); p.setBindGroup(0, bg); p.dispatchWorkgroups(wg); p.end();
+        [src, dst] = [dst, src];
+      }
+
+      // Compress: src → dst
+      const bgComp = device.createBindGroup({ layout: pipelines.compress.getBindGroupLayout(0), entries: [
+        { binding: 0, resource: { buffer: src } },
+        { binding: 1, resource: { buffer: dst } },
+        { binding: 2, resource: { buffer: buffers.params } },
+      ]});
+      { const p = enc.beginComputePass(); p.setPipeline(pipelines.compress); p.setBindGroup(0, bgComp); p.dispatchWorkgroups(wg); p.end(); }
+
+      enc.copyBufferToBuffer(dst, 0, buffers.readback, 0, size * 4);
+      device.queue.submit([enc.finish()]);
+      await buffers.readback.mapAsync(GPUMapMode.READ);
+      const labels = new Uint32Array(buffers.readback.getMappedRange().slice(0));
+      buffers.readback.unmap();
+
+      const blobMap = new Map();
+      for (let i = 0; i < size; i++) {
+        const lbl = labels[i];
+        if (lbl === 0) continue;
+        const x = i % w, y = (i / w) | 0;
+        let b = blobMap.get(lbl);
+        if (!b) { b = { minX: x, maxX: x, minY: y, maxY: y, area: 0 }; blobMap.set(lbl, b); }
+        if (x < b.minX) b.minX = x; if (x > b.maxX) b.maxX = x;
+        if (y < b.minY) b.minY = y; if (y > b.maxY) b.maxY = y;
+        b.area++;
+      }
+
+      const result = [];
+      for (const [, b] of blobMap) {
+        const bw = b.maxX - b.minX + 1, bh = b.maxY - b.minY + 1;
+        const filterArea = Math.max(b.area, bw * bh);
+        if (filterArea < blobMin || filterArea > blobMax) continue;
+        result.push({ x: (b.minX + b.maxX) >> 1, y: (b.minY + b.maxY) >> 1, area: filterArea, bx: b.minX, by: b.minY, bw, bh });
+      }
+      return result;
+    } catch (e) {
+      console.warn("WebGPU CCL failed:", e);
+      return null;
+    }
+  }
+
+  return { init, detect, get ready() { return ready; } };
+})();
+
+// ============================
 // BLOB DETECTION
 // ============================
 function detectContours(frameMat) {
-  // GPU path: channel extract + blur + sobel + threshold on GPU, findContours on CPU
+  // WebGPU CCL path: WebGL2 blur+Sobel → edge map → WebGPU CCL → bboxes
+  // DISABLED for now — async readback kills FPS. Revisit with GPU-side bbox computation.
+  // if (P.useGPU && GPU.ready && WebGPUBlobTracker.ready) { ... }
+
+  // GPU path: WebGL2 edge detection + OpenCV findContours on CPU
   if (P.useGPU && GPU.ready) {
     try {
       const edgeMap = gpuCanny(tempCanvas, P.cannyLow, P.cannyHigh, P.blurKernel / 3.0);
       if (edgeMap) {
         const w = tempCanvas.width, h = tempCanvas.height;
-        // Convert edge map to OpenCV Mat (single channel)
         const mat = new cv.Mat(h, w, cv.CV_8UC1);
         mat.data.set(edgeMap);
-        // Morphological cleanup: close small gaps then open to remove noise
         const kernelClose = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(3, 3));
         const closed = new cv.Mat();
         cv.morphologyEx(mat, closed, cv.MORPH_CLOSE, kernelClose);
         kernelClose.delete();
-        // Grouping: dilate if in regions mode (GPU-accelerated, falls back to
-        // cv.dilate if the shader didn't load or mergeKernel == 1).
         let mask = closed;
         let mergeKernel = null;
         let gpuMask = null;
@@ -1653,10 +1839,8 @@ function detectContours(frameMat) {
           const iters = Math.max(1, Math.round(P.mergeIterations));
           const radius = Math.min(16, (odd - 1) >> 1);
           if (radius >= 1 && GPU.programDilate) {
-            // Push the closed mat into the GPU as a luminance texture, then
-            // run the dilate shader on it, then read it back.
             gpuEnsureSize(w, h);
-            uploadMaskToTexture(gl, GPU.textureB, w, h, closed.data);
+            uploadMaskToTexture(GPU.gl, GPU.textureB, w, h, closed.data);
             const ok = gpuDilate(w, h, radius, iters);
             if (ok) {
               const dilated = readMaskFromTexture(w, h);
@@ -2575,15 +2759,17 @@ function renderToTarget(ctx, blobs, targetW, targetH) {
   ctx.restore();
 
   if (!blobs || !blobs.length) return;
+  const sx = drawW / canvas.width;
+  const sy = drawH / canvas.height;
   const scaled = blobs.map(b => ({
     ...b,
-    x: b.x * scale + offX,
-    y: b.y * scale + offY,
-    bx: b.bx * scale + offX,
-    by: b.by * scale + offY,
-    bw: b.bw * scale,
-    bh: b.bh * scale,
-    pts: b.pts ? b.pts.map(p => ({ x: p.x * scale + offX, y: p.y * scale + offY })) : b.pts,
+    x: b.x * sx + offX,
+    y: b.y * sy + offY,
+    bx: b.bx * sx + offX,
+    by: b.by * sy + offY,
+    bw: b.bw * sx,
+    bh: b.bh * sy,
+    pts: b.pts ? b.pts.map(p => ({ x: p.x * sx + offX, y: p.y * sy + offY })) : b.pts,
   }));
 
   // Save / restore the per-effect "P" hack (e.g. Glow reads audioGain, no
@@ -2925,6 +3111,7 @@ Object.keys(TIPS).forEach(id => {
 // ============================
 setupControls();
 initGPU();
+WebGPUBlobTracker.init();
 Telemetry.el = document.getElementById("telemetry");
 Telemetry.setTargetFps(PROCESSING_FPS_DEFAULT);
 
