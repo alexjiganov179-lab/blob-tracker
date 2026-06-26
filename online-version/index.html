@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contour VFX Overlay — Blob Tracker</title>
+  <link rel="stylesheet" href="styles.css?v=20260625-ui5" />
+  <script type="importmap">
+  {
+    "imports": {
+      "mediabunny": "https://cdn.jsdelivr.net/npm/mediabunny@1.49.0/+esm"
+    }
+  }
+  </script>
+</head>
+<body>
+  <!-- LOADING SCREEN -->
+  <div id="loading-screen" style="position: fixed; inset: 0; background: #0d0d12; z-index: 1000; display: flex; align-items: center; justify-content: center;">
+    <div style="text-align: center;">
+      <div class="spinner" style="width:40px;height:40px;border-width:4px;margin:0 auto 20px;"></div>
+      <h2 data-i18n="loadingTitle" style="color:#fff;font-size:18px;margin-bottom:12px;">Loading blob_tracker...</h2>
+      <p data-i18n="loadingText" style="color:#a0a0a8;font-size:14px;">Initializing OpenCV.js and preparing rendering pipeline...</p>
+    </div>
+  </div>
+
+  <!-- VIEWER -->
+  <div id="viewer">
+    <main class="stage">
+    <div id="drop-zone">
+      <div class="drop-mark" aria-hidden="true">▣</div>
+      <div class="drop-copy">
+        <div class="drop-title" data-i18n="dropTitle">Drop a video file anywhere</div>
+        <div class="drop-subtitle" data-i18n="dropSubtitle">MP4, WebM, MOV — max 500 MB</div>
+      </div>
+      <button type="button" id="upload-btn" data-i18n="uploadVideo">Upload Video</button>
+      <input type="file" id="file-input" accept="video/*" />
+    </div>
+
+    <div id="canvas-wrap">
+      <video id="video" muted playsinline></video>
+      <canvas id="canvas"></canvas>
+      <div id="progress-bar">
+        <div class="spinner"></div>
+        <span id="progress-label">Detecting…</span>
+        <div id="progress-track"><div id="progress-fill"></div></div>
+        <button type="button" id="cancel-detect" title="Abort detection">✕</button>
+        <button type="button" id="cancel-export" title="Abort export">✕</button>
+      </div>
+      <div id="export-overlay">
+        <button type="button" id="redetect-btn" title="Re-run blob detection">🔄 Re-detect</button>
+        <button type="button" id="export-btn" title="Export video">⬇ Export</button>
+      </div>
+      <div class="export-status" id="export-status"></div>
+      <div id="telemetry"></div>
+    </div>
+    </main>
+
+    <!-- CONTROL PANEL -->
+    <div id="panel">
+      <div class="panel-header">
+        <div class="brand-row">
+          <div>
+            <div class="panel-title" data-i18n="appTitle">Contour VFX Overlay</div>
+            <div class="panel-subtitle" data-i18n="appSubtitle">Blob tracking editor for video overlays</div>
+          </div>
+          <div class="lang-bar" aria-label="Language">
+            <button type="button" data-lang="en" class="active">EN</button>
+            <button type="button" data-lang="ru">RU</button>
+          </div>
+        </div>
+        <div class="panel-tabs" role="tablist" aria-label="Control sections">
+          <button type="button" class="panel-tab active" data-tab-target="quick" data-i18n="tabQuick">Quick</button>
+          <button type="button" class="panel-tab" data-tab-target="style" data-i18n="tabStyle">Style</button>
+          <button type="button" class="panel-tab" data-tab-target="detect" data-i18n="tabDetect">Detect</button>
+          <button type="button" class="panel-tab" data-tab-target="export" data-i18n="tabExport">Export</button>
+        </div>
+      </div>
+
+      <div class="panel-content">
+      <div class="card primary panel-section" data-panel-section="quick">
+        <div class="card-label" data-i18n="quickStart">Quick Start</div>
+        <div class="guide">
+          <div class="guide-row"><span class="guide-num">1</span><span data-i18n="guideUpload">Upload a video or drop it onto the stage.</span></div>
+          <div class="guide-row"><span class="guide-num">2</span><span data-i18n="guideFind">Choose how sensitive object detection should be.</span></div>
+          <div class="guide-row"><span class="guide-num">3</span><span data-i18n="guideExport">Pick a visual style and export the tracked video.</span></div>
+        </div>
+      </div>
+
+      <div class="card panel-section" data-panel-section="quick">
+        <div class="card-label"><span data-i18n="findObjects">Find Objects</span><span class="tip" id="tip-find" role="button" tabindex="0" aria-label="Help: Find Objects" data-i18n-aria="tipFindAria">?</span></div>
+        <div class="sub" data-i18n="sensitivity">Sensitivity</div>
+        <div class="seg" id="sensitivity-preset">
+          <button type="button" data-preset="low" data-i18n="low">Low</button>
+          <button type="button" data-preset="normal" class="active" data-i18n="normal">Normal</button>
+          <button type="button" data-preset="high" data-i18n="high">High</button>
+          <button type="button" data-preset="tiny" data-i18n="tiny" data-i18n-title="tinyTitle" title="For small distant objects">Tiny</button>
+        </div>
+        <div class="sub" data-i18n="objectSize">Object Size</div>
+        <div class="seg" id="object-size-preset">
+          <button type="button" data-size="small" data-i18n="small" data-i18n-title="smallTitle" title="Small objects only">Small</button>
+          <button type="button" data-size="medium" class="active" data-i18n="medium">Medium</button>
+          <button type="button" data-size="large" data-i18n="large">Large</button>
+          <button type="button" data-size="custom" data-i18n="custom">Custom</button>
+        </div>
+      </div>
+
+      <div class="card panel-section" data-panel-section="quick">
+        <div class="card-label" data-i18n="detector">Detector</div>
+        <div class="seg" id="detector-mode">
+          <button type="button" data-val="edge" class="active" data-i18n="edge">Edge</button>
+          <button type="button" data-val="motion" data-i18n="motion">Motion</button>
+          <button type="button" data-val="hsv">HSV</button>
+          <button type="button" data-val="area" data-i18n="area">Area</button>
+        </div>
+      </div>
+
+      <div class="card panel-section" data-panel-section="quick">
+        <div class="card-label" data-i18n="videoSpeed">Video Speed</div>
+        <div class="seg" id="video-speed">
+          <button type="button" data-val="0.5">0.5×</button>
+          <button type="button" data-val="1" class="active">1×</button>
+          <button type="button" data-val="2">2×</button>
+          <button type="button" data-val="4">4×</button>
+        </div>
+      </div>
+
+      <div class="card panel-section" data-panel-section="style" hidden>
+        <div class="card-label" data-i18n="basicEffects">Basic Effects</div>
+        <div class="grid w3" id="basic-effects">
+          <button type="button" class="gbtn active" data-val="Basic"><span data-i18n="effectBasic">Basic</span><span class="dot"></span></button>
+          <button type="button" class="gbtn" data-val="Cross" data-i18n="effectCross">Cross</button>
+          <button type="button" class="gbtn" data-val="Label"><span data-i18n="effectLabel">Label</span><span class="dot"></span></button>
+          <button type="button" class="gbtn" data-val="Frame" data-i18n="effectFrame">Frame</button>
+          <button type="button" class="gbtn" data-val="L-Frame">L-Frame</button>
+          <button type="button" class="gbtn" data-val="X-Frame">X-Frame</button>
+          <button type="button" class="gbtn" data-val="Grid" data-i18n="effectGrid">Grid</button>
+          <button type="button" class="gbtn" data-val="Particle" data-i18n="effectParticle">Particle</button>
+          <button type="button" class="gbtn" data-val="Dash" data-i18n="effectDash">Dash</button>
+          <button type="button" class="gbtn" data-val="Scope" data-i18n="effectScope">Scope</button>
+          <button type="button" class="gbtn" data-val="Win2K">Win2K</button>
+          <button type="button" class="gbtn" data-val="Glow" data-i18n="effectGlow">Glow</button>
+          <button type="button" class="gbtn" data-val="Backdrop"><span data-i18n="effectBackdrop">Backdrop</span><span class="dot"></span></button>
+          <button type="button" class="gbtn" data-val="Outline" data-i18n="effectOutline">Outline</button>
+          <button type="button" class="gbtn" data-val="Trail" data-i18n="effectTrail">Trail</button>
+          <button type="button" class="gbtn" data-val="Emojis" data-i18n="effectEmojis">Emojis</button>
+          <button type="button" class="gbtn" data-val="Silhouette" data-i18n="effectSilhouette">Silhouette</button>
+          <button type="button" class="gbtn" data-val="CCTV-Zoom">CCTV</button>
+          <button type="button" class="gbtn" data-val="Glyphs" data-i18n="effectGlyphs">Glyphs</button>
+          <button type="button" class="gbtn" data-val="Spatial" data-i18n="effectSpatial">Spatial</button>
+          <button type="button" class="gbtn" data-val="Heatmap" data-i18n="effectHeatmap">Heatmap</button>
+          <button type="button" class="gbtn" data-val="Voronoi">Voronoi</button>
+          <button type="button" class="gbtn" data-val="ConvexHull" data-i18n="effectHull">Hull</button>
+        </div>
+        <div class="srow" style="margin-top:8px">
+          <span style="font-size:10px;color:#444;min-width:34px" data-i18n="trail">Trail</span>
+          <input type="range" id="trail-length" min="0" max="30" step="1" value="0"/>
+          <span class="sv" id="trail-length-val">0</span>
+        </div>
+      </div>
+
+      <div class="card panel-section" data-panel-section="style" hidden>
+        <div class="card-label" data-i18n="connection">Connection</div>
+        <div class="sub" data-i18n="lineStyle">Line Style</div>
+        <div class="line-row" id="connection-style">
+          <button type="button" class="lbtn active" data-value="nearest" title="Nearest neighbors" data-i18n-title="nearestTitle">
+            <svg viewBox="0 0 24 20"><line x1="4" y1="4" x2="10" y2="16"/><line x1="10" y1="16" x2="20" y2="6"/></svg>
+          </button>
+          <button type="button" class="lbtn" data-value="all" title="All connections" data-i18n-title="allTitle">
+            <svg viewBox="0 0 24 20"><line x1="4" y1="4" x2="12" y2="4"/><line x1="4" y1="4" x2="12" y2="16"/><line x1="4" y1="4" x2="20" y2="10"/><line x1="12" y1="4" x2="12" y2="16"/><line x1="12" y1="4" x2="20" y2="10"/><line x1="12" y1="16" x2="20" y2="10"/></svg>
+          </button>
+          <button type="button" class="lbtn" data-value="chain" title="Chain" data-i18n-title="chainTitle">
+            <svg viewBox="0 0 24 20"><polyline points="2,10 8,4 14,16 22,8"/></svg>
+          </button>
+          <button type="button" class="lbtn" data-value="wave" title="Waveform" data-i18n-title="waveTitle">
+            <svg viewBox="0 0 24 20"><path d="M2,10 Q6,2 12,10 T22,10"/></svg>
+          </button>
+        </div>
+        <div class="sub" style="margin-top:8px" data-i18n="connectionRate">Connection Rate</div>
+        <div class="seg" id="connection-rate">
+          <button type="button" data-val="0" data-i18n="none">None</button>
+          <button type="button" data-val="0.25">0.25</button>
+          <button type="button" data-val="0.5" class="active">0.5</button>
+          <button type="button" data-val="0.75">0.75</button>
+          <button type="button" data-val="1" data-i18n="full">Full</button>
+        </div>
+      </div>
+
+      <div class="card panel-section" data-panel-section="style" hidden>
+        <div class="card-label" data-i18n="strokeWidth">Stroke Width</div>
+        <div class="srow">
+          <input type="range" id="stroke-width" min="0.5" max="10" step="0.5" value="2"/>
+          <span class="sv" id="stroke-width-val">2px</span>
+        </div>
+      </div>
+
+      <div class="card panel-section" data-panel-section="detect" hidden>
+        <div class="card-label"><span data-i18n="blobSize">Blob Size</span><span class="tip" id="tip-blob" role="button" tabindex="0" aria-label="Help: Blob Size" data-i18n-aria="tipBlobAria">?</span></div>
+        <div class="srow" style="margin-bottom:4px">
+          <span style="font-size:10px;color:#444;min-width:24px" data-i18n="min">Min</span>
+          <input type="range" id="blob-min" min="5" max="5000" step="5" value="300"/>
+          <span class="sv" id="blob-min-val">300</span>
+        </div>
+        <div class="srow">
+          <span style="font-size:10px;color:#444;min-width:24px" data-i18n="max">Max</span>
+          <input type="range" id="blob-max" min="5000" max="500000" step="5000" value="200000"/>
+          <span class="sv" id="blob-max-val">200k</span>
+        </div>
+      </div>
+
+      <div class="card panel-section" data-panel-section="detect" hidden>
+        <div class="card-label"><span data-i18n="detection">Detection</span><span class="tip" id="tip-detect" role="button" tabindex="0" aria-label="Help: Detection" data-i18n-aria="tipDetectAria">?</span></div>
+        <div class="sub" data-i18n="colorChannel">Color Channel</div>
+        <div class="seg" id="color-channel">
+          <button type="button" data-val="0" class="active">Lum</button>
+          <button type="button" data-val="1" data-i18n="red">Red</button>
+          <button type="button" data-val="2" data-i18n="greenShort">Grn</button>
+          <button type="button" data-val="3" data-i18n="blueShort">Blu</button>
+        </div>
+        <div class="pro-row" style="margin-top:6px">
+          <span class="pro-label" data-i18n="gpuAcceleration">GPU Acceleration</span>
+          <label class="sw"><input type="checkbox" id="gpu-toggle" checked><span class="sl"></span></label>
+        </div>
+        <div class="srow" style="margin-bottom:4px">
+          <span style="font-size:10px;color:#444;min-width:28px">C-Low</span>
+          <input type="range" id="canny-low" min="0" max="255" step="5" value="50"/>
+          <span class="sv" id="canny-low-val">50</span>
+        </div>
+        <div class="srow" style="margin-bottom:4px">
+          <span style="font-size:10px;color:#444;min-width:28px">C-High</span>
+          <input type="range" id="canny-high" min="0" max="255" step="5" value="150"/>
+          <span class="sv" id="canny-high-val">150</span>
+        </div>
+        <div class="srow">
+          <span style="font-size:10px;color:#444;min-width:28px">Blur</span>
+          <input type="range" id="blur-kernel" min="1" max="31" step="2" value="5"/>
+          <span class="sv" id="blur-kernel-val">5</span>
+        </div>
+        <div class="sub" data-i18n="grouping">Grouping</div>
+        <div class="seg" id="grouping-mode">
+          <button type="button" data-val="contours" class="active" data-i18n="detail">Detail</button>
+          <button type="button" data-val="regions" data-i18n="grouped">Grouped</button>
+        </div>
+        <div class="srow" style="margin-top:6px;margin-bottom:4px">
+          <span style="font-size:10px;color:#444;min-width:28px" data-i18n="merge">Merge</span>
+          <input type="range" id="merge-kernel" min="1" max="61" step="2" value="1"/>
+          <span class="sv" id="merge-kernel-val">1</span>
+        </div>
+        <div class="srow">
+          <span style="font-size:10px;color:#444;min-width:28px" data-i18n="passes">Passes</span>
+          <input type="range" id="merge-iterations" min="1" max="5" step="1" value="1"/>
+          <span class="sv" id="merge-iterations-val">1</span>
+        </div>
+      </div>
+
+      <div class="card panel-section" data-panel-section="style" hidden>
+        <div class="card-label" data-i18n="colorText">Color & Text</div>
+        <div class="checks">
+          <label class="ck"><input type="checkbox" id="text-enabled" checked> <span data-i18n="text">Text</span></label>
+        </div>
+        <div class="sub" data-i18n="textPosition">Text Position</div>
+        <div class="seg" id="text-position">
+          <button type="button" data-val="center" class="active" data-i18n="center">Center</button>
+          <button type="button" data-val="top" data-i18n="top">Top</button>
+          <button type="button" data-val="bottom" data-i18n="bottom">Bottom</button>
+        </div>
+        <div class="sub" data-i18n="textContentLabel">Text Content</div>
+        <div class="seg" id="text-content">
+          <button type="button" data-val="random" class="active" data-i18n="random">Random</button>
+          <button type="button" data-val="position" data-i18n="position">Position</button>
+          <button type="button" data-val="count" data-i18n="count">Count</button>
+        </div>
+        <div class="sub" data-i18n="fontSize">Font Size</div>
+        <div class="seg" id="font-size">
+          <button type="button" data-val="8">8</button>
+          <button type="button" data-val="10">10</button>
+          <button type="button" data-val="12" class="active">12</button>
+          <button type="button" data-val="16">16</button>
+          <button type="button" data-val="20">20</button>
+        </div>
+        <div class="sub" data-i18n="color">Color</div>
+        <div class="palette" id="color-palette"></div>
+      </div>
+
+      <div class="card panel-section" data-panel-section="style" hidden>
+        <div class="card-label" data-i18n="centroid">Centroid</div>
+        <div class="pro-row">
+          <span class="pro-label" data-i18n="showDots">Show dots</span>
+          <label class="sw"><input type="checkbox" id="centroid-enabled"><span class="sl"></span></label>
+        </div>
+      </div>
+
+      <div class="card panel-section" data-panel-section="export" hidden>
+        <div class="card-label"><span data-i18n="output">Output</span><span class="tip" id="tip-output" role="button" tabindex="0" aria-label="Help: Output" data-i18n-aria="tipOutputAria">?</span></div>
+        <div class="sub" data-i18n="outputFps">Output FPS</div>
+        <div class="seg" id="output-fps">
+          <button type="button" data-val="source" class="active" data-i18n="source">Source</button>
+          <button type="button" data-val="30">30</button>
+          <button type="button" data-val="60">60</button>
+        </div>
+        <div class="sub" id="output-fps-info" style="margin-top:4px;color:#666">Source FPS: —</div>
+        <div class="sub" data-i18n="codec">Codec</div>
+        <div class="seg" id="output-codec">
+          <button type="button" data-val="h264" class="active">MP4</button>
+          <button type="button" data-val="webm">WebM</button>
+        </div>
+      </div>
+      </div>
+
+      <div class="pfooter">
+        <button type="button" id="reset-btn" data-i18n="resetDefaults">Reset to defaults</button>
+        <button type="button" id="debug-log-btn" data-i18n="copyDebugLog">Copy debug log</button>
+      </div>
+    </div>
+
+    <div id="tip-popup"><span id="tip-popup-text"></span></div>
+  </div>
+
+  <!-- SCRIPTS: OpenCV.js -->
+  <script async src="https://docs.opencv.org/4.x/opencv.js" onload="onCvReady()" onerror="onCvError()"></script>
+
+  <!-- SCRIPTS: mp4-muxer fallback (if Mediabunny is not available) -->
+  <script>
+    import("https://unpkg.com/mp4-muxer@5.1.3/build/mp4-muxer.mjs").then(m => {
+      window.MP4Muxer = m;
+      console.log("MP4Muxer loaded");
+    }).catch(e => console.warn("MP4Muxer not available", e));
+  </script>
+
+  <!-- SCRIPTS: Mediabunny -->
+  <script type="module">
+    try {
+      const mb = await import("mediabunny");
+      window.MediaCodecs = mb;
+      console.log("Mediabunny loaded");
+    } catch (e) {
+      console.warn("Mediabunny not available — falling back to native export", e);
+    }
+  </script>
+
+  <!-- SCRIPTS: GPU Shaders (must be global) -->
+  <script>
+    const VERT_QUAD = `#version 300 es
+    in vec2 a_position;
+    out vec2 v_uv;
+    void main() {
+      v_uv = a_position * 0.5 + 0.5;
+      gl_Position = vec4(a_position, 0.0, 1.0);
+    }`;
+
+    const FRAG_EXTRACT = `#version 300 es
+    precision mediump float;
+    in vec2 v_uv;
+    uniform sampler2D u_image;
+    uniform vec2 u_resolution;
+    uniform float u_channel;
+    out vec4 outColor;
+    void main() {
+      vec4 c = texture(u_image, v_uv);
+      float v;
+      if (u_channel < 0.5) { v = dot(c.rgb, vec3(0.299, 0.587, 0.114)); }
+      else if (u_channel < 1.5) { v = c.r; }
+      else if (u_channel < 2.5) { v = c.g; }
+      else { v = c.b; }
+      outColor = vec4(vec3(v), 1.0);
+    }`;
+
+    const FRAG_BLUR_H = `#version 300 es
+    precision mediump float;
+    in vec2 v_uv;
+    uniform sampler2D u_image;
+    uniform vec2 u_resolution;
+    uniform float u_sigma;
+    out vec4 outColor;
+    void main() {
+      vec2 texel = 1.0 / u_resolution;
+      float kernel[5];
+      float s2 = u_sigma * u_sigma;
+      float norm = 1.0 / (sqrt(6.28318) * u_sigma);
+      for (int i = 0; i < 5; i++) { float x = float(i) - 2.0; kernel[i] = norm * exp(-x * x / (2.0 * s2)); }
+      float sum = kernel[0] + 2.0 * (kernel[1] + kernel[2]);
+      vec3 result = vec3(0.0);
+      for (int i = -2; i <= 2; i++) { result += texture(u_image, v_uv + vec2(float(i), 0.0) * texel).rgb * kernel[i+2]; }
+      outColor = vec4(result / sum, 1.0);
+    }`;
+
+    const FRAG_BLUR_V = `#version 300 es
+    precision mediump float;
+    in vec2 v_uv;
+    uniform sampler2D u_image;
+    uniform vec2 u_resolution;
+    uniform float u_sigma;
+    out vec4 outColor;
+    void main() {
+      vec2 texel = 1.0 / u_resolution;
+      float kernel[5];
+      float s2 = u_sigma * u_sigma;
+      float norm = 1.0 / (sqrt(6.28318) * u_sigma);
+      for (int i = 0; i < 5; i++) { float x = float(i) - 2.0; kernel[i] = norm * exp(-x * x / (2.0 * s2)); }
+      float sum = kernel[0] + 2.0 * (kernel[1] + kernel[2]);
+      vec3 result = vec3(0.0);
+      for (int i = -2; i <= 2; i++) { result += texture(u_image, v_uv + vec2(0.0, float(i)) * texel).rgb * kernel[i+2]; }
+      outColor = vec4(result / sum, 1.0);
+    }`;
+
+    const FRAG_SOBEL = `#version 300 es
+    precision mediump float;
+    in vec2 v_uv;
+    uniform sampler2D u_image;
+    uniform vec2 u_resolution;
+    out vec4 outColor;
+    void main() {
+      vec2 texel = 1.0 / u_resolution;
+      float tl = dot(texture(u_image, v_uv + vec2(-texel.x, -texel.y)).rgb, vec3(0.333));
+      float t  = dot(texture(u_image, v_uv + vec2(0.0, -texel.y)).rgb, vec3(0.333));
+      float tr = dot(texture(u_image, v_uv + vec2(texel.x, -texel.y)).rgb, vec3(0.333));
+      float l  = dot(texture(u_image, v_uv + vec2(-texel.x, 0.0)).rgb, vec3(0.333));
+      float r  = dot(texture(u_image, v_uv + vec2(texel.x, 0.0)).rgb, vec3(0.333));
+      float bl = dot(texture(u_image, v_uv + vec2(-texel.x, texel.y)).rgb, vec3(0.333));
+      float b  = dot(texture(u_image, v_uv + vec2(0.0, texel.y)).rgb, vec3(0.333));
+      float br = dot(texture(u_image, v_uv + vec2(texel.x, texel.y)).rgb, vec3(0.333));
+      float gx = -tl - 2.0*l - bl + tr + 2.0*r + br;
+      float gy = -tl - 2.0*t - tr + bl + 2.0*b + br;
+      float mag = sqrt(gx*gx + gy*gy);
+      outColor = vec4(vec3(mag), 1.0);
+    }`;
+
+    const FRAG_THRESHOLD = `#version 300 es
+    precision mediump float;
+    in vec2 v_uv;
+    uniform sampler2D u_image;
+    uniform vec2 u_resolution;
+    uniform vec2 u_thresholds;
+    out vec4 outColor;
+    void main() {
+      float v = dot(texture(u_image, v_uv).rgb, vec3(1.0));
+      float lo = u_thresholds.x / 255.0;
+      float hi = u_thresholds.y / 255.0;
+      float out_v;
+      if (v >= hi) { out_v = 1.0; }
+      else if (v >= lo) { out_v = 0.5; }
+      else { out_v = 0.0; }
+      outColor = vec4(vec3(out_v), 1.0);
+    }`;
+
+    const FRAG_DILATE = `#version 300 es
+    precision mediump float;
+    in vec2 v_uv;
+    uniform sampler2D u_image;
+    uniform vec2 u_resolution;
+    uniform int u_radius;
+    out vec4 outColor;
+    void main() {
+      vec2 texel = 1.0 / u_resolution;
+      float mx = 0.0;
+      for (int dy = -16; dy <= 16; dy++) {
+        if (abs(dy) > u_radius) continue;
+        for (int dx = -16; dx <= 16; dx++) {
+          if (abs(dx) > u_radius) continue;
+          float v = dot(texture(u_image, v_uv + vec2(float(dx), float(dy)) * texel).rgb, vec3(1.0));
+          if (v > mx) mx = v;
+        }
+      }
+      outColor = vec4(vec3(mx), 1.0);
+    }`;
+  </script>
+
+  <!-- SCRIPTS: Application modules loaded after DOM -->
+  <script src="effects.js?v=20260625-ui5"></script>
+  <script src="export.js?v=20260625-ui5"></script>
+  <script src="app.js?v=20260625-ui5"></script>
+</body>
+</html>

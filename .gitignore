@@ -11,4 +11,10 @@ output.mp4
 .qwen/
 .gstack/
 .superpowers/
+.playwright-mcp/
+.tmp/
+awesome-creative-coding/
+opencode.json
 tests/js/node_modules/
+tests/js/fixtures/
+tests/js/_test_output/
