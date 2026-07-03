@@ -50,6 +50,10 @@ function renderToTarget(ctx, blobs, targetW, targetH) {
 }
 
 function renderCurrentPreviewFrame() {
+  if (typeof window.renderCurrentFrame === "function") {
+    window.renderCurrentFrame();
+    return;
+  }
   if (!video || video.readyState < 2) return;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -364,10 +368,29 @@ async function runMediabunnyExport() {
 function seekTo(time) {
   return new Promise((resolve) => {
     if (!video || video.readyState < 2) { resolve(); return; }
-    video.currentTime = time;
-    const check = () => { if (!video.seeking) resolve(); else requestAnimationFrame(check); };
-    check();
+    const target = Math.min(Math.max(0, time), Number.isFinite(video.duration) ? Math.max(0, video.duration - 0.001) : time);
+    if (Math.abs((video.currentTime || 0) - target) < 0.001) { resolve(); return; }
+    let done = false;
+    const cleanup = () => {
+      video.removeEventListener("seeked", onSeeked);
+      clearTimeout(timer);
+    };
+    const finish = () => {
+      if (done) return;
+      done = true;
+      cleanup();
+      resolve();
+    };
+    const onSeeked = () => finish();
+    const timer = setTimeout(finish, 1200);
+    video.addEventListener("seeked", onSeeked, { once: true });
+    video.currentTime = target;
   });
+}
+
+function isCodecReclaimedError(error) {
+  const msg = String((error && error.message) || error || "").toLowerCase();
+  return msg.includes("codec reclaimed") || msg.includes("reclaimed due to inactivity");
 }
 
 async function startExportMP4() {
@@ -390,7 +413,14 @@ async function startExportMP4() {
     if (useMediabunny) {
       res = await runMediabunnyExport();
     } else if (wantH264) {
-      res = await runWebCodecsExport();
+      try {
+        res = await runWebCodecsExport();
+      } catch (e) {
+        if (!isCodecReclaimedError(e)) throw e;
+        log("export", "WebCodecs encoder reclaimed, retrying as WebM", { error: e.message, params: { ...P } });
+        progressLabel.textContent = "MP4 encoder timed out. Retrying as WebM...";
+        res = await runWebMExport();
+      }
     } else {
       res = await runWebMExport();
     }
