@@ -1,6 +1,8 @@
 # blob_tracker — Work Plan
 
-Improvement roadmap for the Canny-based contour overlay tool. Single-file vanilla JS app at `index.html` (1963 lines), no backend, browser-only.
+Historical improvement roadmap for the original single-file Canny-based contour overlay tool. The active implementation now lives in `online-version/` as modular HTML/CSS/JS.
+
+> Current documentation lives in `README.md` and `online-version/README.md`. This file is retained as roadmap history and should not be read as the current product surface.
 
 Status: Phases 1, 2, 3 complete. Phases 4-6 pending.
 

@@ -36,7 +36,8 @@
 
 **Выполнено раундов:** 1‑28 (8 replacement effects, 6 new P1 visualizers, 3 P2 detectors, 12 P3 post‑effects, 9 P4 complex detectors/visualizers).
 
-**Все 44 элемента портированы:** 16 детекторов, 15 визуализаторов, 13 пост-эффектов.
+**Исторический порт Apolotary:** 44 элемента были портированы, но текущий
+продуктовый UI очищен до 14 визуальных эффектов и 4 детекторов.
 
 ## Текущее состояние
 
@@ -57,6 +58,13 @@ playback controls и current-frame probe.
 
 **Обновления 04 июля 2026:**
 
+- Удалены нерабочий CCTV и лишние визуальные эффекты: Label/Метка, Glow/Свечение,
+  Outline/старый Контур, Glyphs/Глифы, Spatial/Пространство и
+  Silhouette/Силуэт. Текущий `Basic` сохранён как рабочий контурный эффект,
+  но в интерфейсе переименован в `Contour` / `Контур`.
+- Фактический набор `EFFECTS` теперь содержит 14 эффектов: Contour, Cross,
+  Frame, L-Frame, X-Frame, Grid, Particle, Dash, Scope, Win2K, Backdrop,
+  Emojis, Heatmap, Voronoi, ConvexHull. `POSTFX` в текущем коде пуст.
 - Карточка «Толщина линии» объединена с карточкой «Связи»: теперь в одной
   карточке находятся «Тип линий», «Плотность связей» и «Толщина линии».
   ID элементов (`stroke-width`, `stroke-width-val`) сохранены, чтобы логика
@@ -173,7 +181,8 @@ https://github.com/Apolotary/blob-tracker (main, 12 commits, май 2026).
 
 ### ✅ Задача 4 — переносить Apolotary небольшими проверяемыми группами (ВЫПОЛНЕНО)
 
-**Раунды 1-29 завершены** — все 48 элементов Apolotary портированы (16 детекторов, 15 визуализаторов, 13 пост-эффектов, 4 аудиофичи).
+**Раунды 1-29 завершены исторически** — после авторской проверки текущий
+продуктовый набор сокращён до 14 визуальных эффектов и 4 детекторов.
 
 **Раунд 1 выполнен** — Basic/Outline заменены на Apolotary outline + bbox.
 
@@ -212,13 +221,13 @@ Win2K, Backdrop) сохраняются.
    - `connectionStyle` (nearest/all/chain/wave) удалён — единое network
    - UI: секция переименована в "Network"
    - Dash (контурный пунктир) не затронут
- 7. ✅ **Раунд 7 — замена Glow → Apolotary edge-glow postfx (ВЫПОЛНЕНО)**
+ 7. ✅ **Раунд 7 — историческая замена Glow → Apolotary edge-glow postfx (сейчас удалено из UI)**
    - Offscreen canvas #1 (crisp edges) → #2 (blur+color+tint)
    - `ctx.filter = "blur(Npx)"` вместо shadowBlur
    - Глоу tint через `parseColor()` + `source-in` compositing
    - Поверх глоу рисуется чёткий контур
    - Параметры: glowRadius (8), glowAlpha (0.5)
-   - UI: кнопка переименована Glow → Edge-Glow
+    - 04 июля 2026: отдельный Glow/Edge-Glow удалён из текущего UI и `EFFECTS`
  8. ✅ **Раунд 8 — замена detectContours → Apolotary edge (ВЫПОЛНЕНО)**
    - Дилитация теперь всегда применяется (не только в режиме "regions")
    - `mergeKernel` + `mergeIterations` → единый `dilateIter` (0-5, default 1)
@@ -230,22 +239,22 @@ Win2K, Backdrop) сохраняются.
    - Hue per particle (golden angle × blobID + random jitter)
    - Шрифт sans-serif (emoji‑совместимый)
    - UI: кнопка Emojis
-10. ✅ **Раунд 10 — новый эффект silhouette (ВЫПОЛНЕНО)**
+10. ✅ **Раунд 10 — исторический эффект silhouette (сейчас удалено из UI)**
     - `drawSilhouetteEffect` — hue-циклическая заливка маски блоба
     - Hue = `(t * 0.012) % 360`, alpha = 0.45
-    - UI: кнопка Silhouette
-11. ✅ **Раунд 11 — новый эффект cctv-zoom (ВЫПОЛНЕНО)**
+    - 04 июля 2026: удалён из текущего UI и `EFFECTS`
+11. ✅ **Раунд 11 — исторический эффект cctv-zoom (сейчас удалено из UI)**
     - `drawCctvZoomEffect` — уголковый inset ×2.5 зум вокруг крупнейшего блоба
     - Зелёная рамка (60,255,80) + crosshair + "ZOOM" label
-    - UI: кнопка CCTV-Zoom
-12. ✅ **Раунд 12 — новый эффект glyphs (ВЫПОЛНЕНО)**
+    - 04 июля 2026: удалён из текущего UI и `EFFECTS`
+12. ✅ **Раунд 12 — исторический эффект glyphs (сейчас удалено из UI)**
     - `drawGlyphsEffect` — Box-Muller 2D Gaussian, 8 глифов/блоб, sigma=30
     - Seeded RNG seed=11, charset "OXVT*+-=#@%"
-    - UI: кнопка Glyphs
-13. ✅ **Раунд 13 — новый эффект spatial-echo (ВЫПОЛНЕНО)**
+    - 04 июля 2026: удалён из текущего UI и `EFFECTS`
+13. ✅ **Раунд 13 — исторический эффект spatial-echo (сейчас удалено из UI)**
     - `drawSpatialEchoEffect` — копия региона (bx+220, by) из кадра t-2 в bbox
     - Розовая рамка (255,100,200), alpha=0.85, ring buffer 32 кадра
-    - UI: кнопка Spatial
+    - 04 июля 2026: удалён из текущего UI и `EFFECTS`
 14. ✅ **Раунд 14 — новый эффект heatmap (ВЫПОЛНЕНО)**
     - `drawHeatmapEffect` — Float32 occupancy-буфер, decay=0.992, +0.12/bbox
     - Inferno-style colormap: black→purple→orange→yellow→white
@@ -339,11 +348,11 @@ Win2K, Backdrop) сохраняются.
 
 | Файл | Строк | Назначение |
 |---|---|---|
-| `index.html` | 451 | DOM, CDN importmap, модальные окна |
-| `styles.css` | 293 | Дизайн-система, цвета, шрифты, раскладка |
-| `app.js` | 1561 | Ядро: инициализация, UI, детекция, состояние |
-| `effects.js` | 546 | 24 эффекта + 13 пост-эффектов |
-| `export.js` | 409 | Mediabunny MP4/WebM, нативные fallback'и, аудио |
+| `index.html` | 470 | DOM, CDN importmap, модальные окна |
+| `styles.css` | 698 | Дизайн-система, цвета, шрифты, раскладка |
+| `app.js` | 2202 | Ядро: инициализация, UI, детекция, состояние |
+| `effects.js` | 342 | 14 визуальных эффектов |
+| `export.js` | 480 | Mediabunny MP4/WebM, нативные fallback'и, аудио |
 
 **Что изменено при рефакторинге:**
 

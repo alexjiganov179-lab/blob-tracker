@@ -10,9 +10,8 @@ Inspired by artkit.cc/baby-track and whenistheweekend.com/vfx.html, free and off
 
 - **Predictable detection start** — drop a video to prepare it, then start detection explicitly after choosing settings
 - **Live re-detect** — change Canny / blur / blob-size sliders and re-detect without re-uploading
-- **23 visual effects** — Outline, BBox, Crosshair, Corner-Ticks, Letters, Emojis, Glyphs, Silhouette, CCTV-Zoom, Spatial-Echo, Heatmap, Voronoi, Convex-Hull, Network, Outline, Label, Dash, Grid, X-Frame, Scope, Win2K, Backdrop, Particle
-- **13 post-FX** — Mosaic, Scanlines, Chroma, RGB-Shift, Luma-LUT, Thresh-Band, Ripple, LagFun, Feedback, Jitter, YUV-Split, Slit-Scan, Edge-Glow
-- **11 detector modes** — Edge, Motion-Diff, Color-HSV, Contour-Area, Simple-Blob, Circles, DoG, Flow, Accumulation, Watershed, Color-Cluster
+- **14 visual effects** — Contour, Cross, Frame, L-Frame, X-Frame, Grid, Particle, Dash, Scope, Win2K, Backdrop, Emojis, Heatmap, Voronoi, Convex-Hull
+- **4 detector modes** — Edge, Motion, HSV, Area
 - **Audio export** — AAC (MP4) and Opus (WebM) passthrough via Mediabunny
 - **Playback controls** — pause/play, scrub the timeline, and inspect a paused frame before export
 - **Current-frame detection probe** — tune detection sliders on the paused frame before running a full re-detect
@@ -48,16 +47,14 @@ Open `online-version/index.html` in Chrome or Edge. OpenCV.js loads from CDN.
 | Section | Controls |
 |---|---|
 | **Find Objects** | Sensitivity preset (Low / Normal / High / Tiny), Object Size preset (Small / Medium / Large), Detector mode (Edge / Motion / HSV / Area), Re-detect button |
-| **Visual Effects** | 23 effects (Outline, BBox, Crosshair, Corner-Ticks, Letters, Emojis, Glyphs, Silhouette, CCTV-Zoom, Spatial-Echo, Heatmap, Voronoi, Convex-Hull, Network, etc.) |
-| **Post-FX** | 13 post-effects (Mosaic, Scanlines, Chroma, RGB-Shift, Luma-LUT, Thresh-Band, Ripple, LagFun, Feedback, Jitter, YUV-Split, Slit-Scan, Edge-Glow) |
-| **Connection** | Network lines between blobs (all pairs within maxDist, alpha falloff) |
+| **Visual Effects** | 14 effects (Contour, Cross, Frame, L-Frame, X-Frame, Grid, Particle, Dash, Scope, Win2K, Backdrop, Emojis, Heatmap, Voronoi, Convex-Hull) |
+| **Connection** | Nearest, all, chain, or waveform lines between blobs, with density and stroke-width controls in one card |
 | **Stroke Width** | 0.5–10px |
 | **Blob Size** | Min / Max area filters |
 | **Detection** | Canny low / high, Gaussian blur, **Color Channel** (Lum / R / G / B), **GPU toggle** |
 | **Grouping** | Detail (raw contours) / Grouped (merge nearby fragments), with kernel + iterations |
 | **Color & Text** | 18-color palette, text on/off, position (Center / Top / Bottom), content (Random / Position / Count / ID), font size |
 | **Centroid** | Show tracking dots on/off |
-| **Audio** | Reactivity toggle + intensity slider (0–100%), modulates 12 effects + 4 PostFX |
 | **Output** | Output FPS (Source / 30 / 60), Codec (MP4 / WebM). Output size is always the source video size. |
 
 ## Export Format
@@ -93,10 +90,10 @@ The project uses a **modular architecture** (primary: `online-version/`):
 
 | File | Lines | Purpose |
 |---|---|---|
-| `index.html` | ~483 | Clean HTML structure (DOM, modals, CDN importmap) |
-| `styles.css` | ~293 | All CSS styles (design system, layout, animations) |
-| `app.js` | ~2198 | Core UI logic, state management, initialization, detection pipeline |
-| `effects.js` | ~546 | 24 visual effects + 13 post-FX |
+| `index.html` | ~470 | Clean HTML structure (DOM, modals, CDN importmap) |
+| `styles.css` | ~698 | All CSS styles (design system, layout, animations) |
+| `app.js` | ~2202 | Core UI logic, state management, initialization, detection pipeline |
+| `effects.js` | ~342 | 14 visual effects |
 | `export.js` | ~480 | Export pipeline (Mediabunny MP4/WebM, native fallbacks, audio passthrough) |
 
 Benefits:
@@ -132,6 +129,6 @@ See `tests/js/run-online-tests.mjs` for details.
 | `online-version/SPEC.md` | Product specification (русский) |
 | `online-version/IMPLEMENTATION-BRIEF.md` | Technical handoff for next agent |
 | `online-version/PLAN-mediabunny.md` | Mediabunny integration status |
-| `online-version/APOLOTARY-INVENTORY.md` | Full inventory of 48 ported effects |
+| `online-version/APOLOTARY-INVENTORY.md` | Historical Apolotary source inventory and current product-surface notes |
 | `PLAN.md` | Development roadmap (Phases 1-6) |
 | `gstack-design-review.md` | Design audit |

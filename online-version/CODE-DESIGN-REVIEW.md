@@ -5,6 +5,10 @@
 > Версия приложения: pre-release (единственный файл)
 > Цель: выявить критические, высокие и средние проблемы UI/UX и кода перед релизом
 
+> Исторический review-снимок. Текущее состояние продукта описано в
+> `online-version/README.md`; набор эффектов и размеры файлов после 04 июля 2026
+> отличаются от значений ниже.
+
 ---
 
 ## Сводка
@@ -185,7 +189,7 @@ GET https://docs.opencv.org/4.x/opencv.js → 404 (если CDN недоступ
 - `index.html` (192 строки) — чистый HTML, только DOM-структура
 - `styles.css` — все CSS-стили вынесены в отдельный файл
 - `app.js` — ядро приложения: инициализация, UI-логика, управление состоянием
-- `effects.js` — 24 визуальных эффекта + 13 пост-эффектов
+- `effects.js` — исторически 24 визуальных эффекта + 13 пост-эффектов; текущий набор см. в `online-version/README.md`
 - `export.js` — экспорт и рендер (MP4, WebM, аудио)
 
 **Проблемы, которые решены:**
@@ -263,15 +267,14 @@ GET https://docs.opencv.org/4.x/opencv.js → 404 (если CDN недоступ
 ├── Sensitivity: [Low|Normal|High|Tiny]
 ├── Object Size: [Small|Medium|Large]
 ├── Detector: [Edge|Motion|HSV|Area] + tooltip
-├── Basic Effects: [Basic|Cross|Label|Frame|L-Frame|X-Frame|Grid|Particle]
-│                 [Emojis|CCTV-Zoom|Glyphs|Spatial|Heatmap|Dash]
-│                 [Silhouette|Scope|Win2K|Edge-Glow|Backdrop|Outline|Trail]
-│                 [Voronoi|C-Hull]
+├── Basic Effects: [Contour|Cross|Frame|L-Frame|X-Frame|Grid|Particle]
+│                 [Dash|Scope|Win2K|Backdrop|Emojis|Heatmap]
+│                 [Voronoi|ConvexHull]
 ├── Blob Size: slider [0]  ⟲
 ├── Detection: [None|0.25|0.5|0.75|Full]
-│   └── Effects: [Off|Mosaic|Lines|Chroma|RGB-Sft|LUT|Band|Ripple|Lag|Fdbk|Jitter|YUV|Slit]
+│   └── Effects: no current post-FX controls
 │   └── Slider A: 2 ⟲ | Slider B: 300 ⟲ | Slider C: 200000 ⟲
-├── Mode: [Edge|Motion|HSV|Area|S-Blob|Circles|DoG|Flow|Accum|KMeans|WShed]
+├── Mode: [Edge|Motion|HSV|Area]
 ├── Channel: [Lum|Red|Grn|Blu] [☑ Invert]
 │   └── Sliders: 50 ⟲ 150 ⟲ 5 ⟲
 ├── Overlay: [Detail|Grouped]
@@ -279,8 +282,7 @@ GET https://docs.opencv.org/4.x/opencv.js → 404 (если CDN недоступ
 ├── Labels: [☑ Text] [Center|Top|Bottom]
 │           [ID|Random|Pos|Count]
 │           Font: [8|10|12|16|20] [☑] [☑]
-├── Audio: (карточка)
-└── Output: [Source|30|60|Preview|1080p|9:16|MP4|WebM]
+└── Output: [Source|30|60|MP4|WebM]
             [↺ Reset|📋 Log|About|EN|RU]
 ```
 

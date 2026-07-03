@@ -9,6 +9,11 @@ Apolotary — Hermes Agent skill для blob‑трекинга с 16 детек
 13 пост‑эффектами. Настоящий документ фиксирует каждый элемент
 для переноса в blob_tracker online-version.
 
+> Актуализация 04 июля 2026: этот файл остаётся историческим инвентарём
+> исходного Apolotary. Текущий продуктовый UI намеренно очищен до 14 визуальных
+> эффектов и 4 детекторов; часть ранее портированных визуализаторов удалена из
+> интерфейса и реестра эффектов после авторской проверки.
+
 Условные обозначения статуса:
 
 | Статус | Значение |
@@ -386,7 +391,7 @@ canvas = v(canvas_bgr, blobs, mask, t=time_s)
 | **Что делает** | Unicode‑созвездие вокруг каждого блоба. K глифов, разбросанных в 2D‑гауссовом облаке. |
 | **Параметры** | `charset="OXVT*+-=#@%"`, `seed=11` |
 | **OpenCV.js** | ✅ `cv.putText()` для ASCII. Gaussian через Box‑Muller в JS. |
-| **blob_tracker** | ✅ **раунд 12** — `drawGlyphsEffect`, Box-Muller Gaussian, 8 glyphs/blob, seed=11 |
+| **blob_tracker** | Удалён из текущего UI и `EFFECTS` 04 июля 2026 |
 | **Критерий** | Глифы, разбросанные вокруг каждого блоба |
 | **Проверка автором** | ❌ |
 
@@ -400,7 +405,7 @@ canvas = v(canvas_bgr, blobs, mask, t=time_s)
 | **Параметры** | `inset_w_frac=0.22`, `border_color=(60,255,80)` |
 | **Аудио** | `amp` → размер inseta (0.8 → 1.2) |
 | **OpenCV.js** | ✅ `cv.resize()`, `cv.rectangle()`, `cv.line()`, `cv.putText()`. Копирование региона через `copyTo()` / циклы. |
-| **blob_tracker** | ✅ **раунд 11** — `drawCctvZoomEffect`, inset ×2.5, crosshair, ZOOM label |
+| **blob_tracker** | Удалён из текущего UI и `EFFECTS` 04 июля 2026: эффект не давал корректного результата |
 | **Критерий** | Увеличенный фрагмент вокруг активного блоба в углу экрана |
 | **Проверка автором** | ❌ |
 
@@ -413,7 +418,7 @@ canvas = v(canvas_bgr, blobs, mask, t=time_s)
 | **Что делает** | Hue‑циклическая цветовая заливка маски блобов. Hue = `(t * 12) % 180`. Alpha‑blend. |
 | **Параметры** | `alpha=0.45` |
 | **OpenCV.js** | ✅ `cv.addWeighted()`, `cv.bitwise_and()`, `cv.cvtColor()` |
-| **blob_tracker** | ✅ **раунд 10** — `drawSilhouetteEffect`, hue=(t*0.012)%360, alpha=0.45 |
+| **blob_tracker** | Удалён из текущего UI и `EFFECTS` 04 июля 2026 |
 | **Критерий** | Цветная полупрозрачная заливка silhouette |
 | **Проверка автором** | ❌ |
 
@@ -482,7 +487,7 @@ canvas = v(canvas_bgr, blobs, mask, t=time_s)
 | **Параметры** | `mode="mirror"`, `offset=(220,0)`, `time_shift_frames=0`, `buf_len=32`, `alpha=1.0`, `border_color=(255,100,200)`, `border_thickness=2` |
 | **Состояние** | Кольцевой буфер предыдущих кадров |
 | **OpenCV.js** | ⚠️ портабельно: `copyTo()` с ROI, `addWeighted()` для alpha, `rectangle()` для рамки. Time‑shift буфер — чистый JS. |
-| **blob_tracker** | ✅ **раунд 13** — `drawSpatialEchoEffect`, offset region copy, time-shift buffer 32 frames |
+| **blob_tracker** | Удалён из текущего UI и `EFFECTS` 04 июля 2026 |
 | **Критерий** | Фрагменты изображения из другого региона/кадра внутри bbox |
 | **Проверка автором** | ❌ |
 
@@ -564,7 +569,7 @@ canvas = v(canvas_bgr, blobs, mask, t=time_s)
 |------|----------|
 | **Описание** | Canny rim‑light с сине/красным tint + blur. |
 | **OpenCV.js** | ✅ `cv.Canny()`, `cv.dilate()`, `cv.GaussianBlur()`, `cv.addWeighted()` |
-| **blob_tracker** | ✅ **раунд 7** — `Glow` заменён на `edge-glow`: offscreen canvas → blur → tint → crisp contour overlay. shadowBlur удалён |
+| **blob_tracker** | Удалён из текущего UI и `EFFECTS` 04 июля 2026 |
 | **Критерий** | Светящиеся края по всему кадру |
 
 ### 3.10 feedback
@@ -608,7 +613,7 @@ canvas = v(canvas_bgr, blobs, mask, t=time_s)
 | Категория | Всего | ✅ round N | ❌ not started | ⛔ wontport |
 |-----------|-------|------------|----------------|-------------|
 | Детекторы | 16 | 14 (edge R8, motion‑diff R15, color‑hsv R16, contour‑area R17, IDTracker done, **flow R20**, **simple‑blob R21**, **circles R22**, **dog R23**, **accumulation R24**, **watershed R25**, **color‑cluster R26**, **voronoi R27**, **convex‑hull R28**)| 0 | 4 (mog2, knn, saliency‑fine, saliency‑spec) |
-| Визуализаторы | 15 | 15 (все: bbox R1, outline R1, crosshair R2, corner‑ticks R3, letters R4, centroid‑trail R5, network R6, emojis R9, silhouette R10, cctv‑zoom R11, glyphs R12, spatial‑echo R13, heatmap R14, **voronoi R27**, **convex‑hull R28**) | 0 | 0 |
+| Визуализаторы | 15 | Исторически портированы; текущий UI оставляет 14 продуктовых эффектов и удаляет bbox/Label, Glow, silhouette, cctv-zoom, glyphs, spatial-echo как отдельные эффекты | 0 | 0 |
 | Пост‑эффекты | 13 | 13 (все: edge‑glow R7, mosaic R18, scanlines R18, chroma R18, rgb‑shift R18, luma‑lut R18, thresh‑band R18, ripple R19, lagfun R19, feedback R19, jitter R19, yuv‑split R19, slit‑scan R19) | 0 | 0 |
 | **Итого** | **44** | **44** | **0** | **4** |
 
@@ -623,8 +628,8 @@ canvas = v(canvas_bgr, blobs, mask, t=time_s)
 | Particle | `letters` | ✅ **раунд 4** — ASCII chars, velocity vector, seeded RNG |
 | Trail | `centroid‑trail` | ✅ **раунд 5** — offscreen canvas, decay, hue per ID |
 | Connection lines | `network` | ✅ **раунд 6** — alpha falloff, maxDist=280, все пары |
-| Glow | `edge‑glow` postfx | ✅ **раунд 7** — offscreen canvas blur, tint, crisp overlay |
-| Label | label в bbox/corner‑ticks | 🟡 merged — Apolotary `#ID area` формат, встроен в bbox |
+| Glow | `edge‑glow` postfx | Удалён из текущего UI и `EFFECTS` 04 июля 2026 |
+| Label | label в bbox/corner‑ticks | Удалён как отдельный эффект 04 июля 2026; глобальный текстовый слой остался |
 | Frame | `corner‑ticks` | ✅ **раунд 3** (тот же эффект) |
 | Dash | — (контурный пунктир) | ⏳ **не network** — остаётся как есть |
 | X-Frame | — (собственный) | 🟡 keep — нет аналога в Apolotary |
@@ -654,12 +659,12 @@ canvas = v(canvas_bgr, blobs, mask, t=time_s)
  8. ✅ **`edge-glow` postfx** — раунд 7: Glow → offscreen canvas blur + tint + crisp contour
  9. ✅ **`edge` detector** — раунд 8: detectContours → dilate всегда, dilateIter 0-5
 
-### P1 — Новые визуализаторы ✅ (все выполнены)
+### P1 — Новые визуализаторы (исторический порт; часть удалена 04 июля 2026)
 10. ✅ **`emojis`** — раунд 9: emoji particles, hue per particle, seeded RNG seed=9
-11. ✅ **`silhouette`** — раунд 10: hue-цикл `(t*0.012)%360`, alpha=0.45
-12. ✅ **`cctv-zoom`** — раунд 11: inset ×2.5, crosshair, "ZOOM" label
-13. ✅ **`glyphs`** — раунд 12: Box-Muller Gaussian, 8 glyphs/blob, seed=11
-14. ✅ **`spatial‑echo`** — раунд 13: offset region copy, time-shift buffer
+11. ~~`silhouette`~~ — удалён из текущего UI и `EFFECTS` 04 июля 2026
+12. ~~`cctv-zoom`~~ — удалён из текущего UI и `EFFECTS` 04 июля 2026
+13. ~~`glyphs`~~ — удалён из текущего UI и `EFFECTS` 04 июля 2026
+14. ~~`spatial‑echo`~~ — удалён из текущего UI и `EFFECTS` 04 июля 2026
 15. ✅ **`heatmap`** — раунд 14: Float32 occupancy, decay=0.992, inferno colormap
 
 ### P2 — Новые детекторы ✅ (все выполнены)

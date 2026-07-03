@@ -175,20 +175,6 @@ function drawWin2KEffect(ctx2d, blobs) {
   }
 }
 
-function drawGlowEffect(ctx2d, blobs) {
-  const sw = P.strokeWidth;
-  ctx2d.lineWidth = sw; ctx2d.strokeStyle = P.contourColor;
-  ctx2d.shadowColor = P.contourColor;
-  ctx2d.shadowBlur = 15;
-  for (const b of blobs) {
-    const pts = getContourPts(b); if (!pts) continue;
-    ctx2d.beginPath(); ctx2d.moveTo(pts[0].x, pts[0].y);
-    for (let i = 1; i < pts.length; i++) ctx2d.lineTo(pts[i].x, pts[i].y);
-    ctx2d.closePath(); ctx2d.stroke();
-  }
-  ctx2d.shadowBlur = 0;
-}
-
 function drawBackdropEffect(ctx2d, blobs) {
   ctx2d.fillStyle = "rgba(0,0,0,0.4)";
   for (const b of blobs) {
@@ -196,24 +182,6 @@ function drawBackdropEffect(ctx2d, blobs) {
     ctx2d.fillRect(b.bx - mar, b.by - mar, b.bw + mar * 2, b.bh + mar * 2);
   }
   drawBasicEffect(ctx2d, blobs);
-}
-
-function drawOutlineEffect(ctx2d, blobs) {
-  const sw = P.strokeWidth;
-  ctx2d.lineWidth = sw; ctx2d.strokeStyle = P.contourColor;
-  for (const b of blobs) {
-    ctx2d.strokeRect(b.bx, b.by, b.bw, b.bh);
-  }
-}
-
-function drawLabelEffect(ctx2d, blobs) {
-  if (!P.textEnabled) return;
-  ctx2d.font = "12px monospace"; ctx2d.fillStyle = P.contourColor;
-  ctx2d.textAlign = "center";
-  for (const b of blobs) {
-    const text = String.fromCharCode(65 + (b.id || 0) % 26);
-    ctx2d.fillText(text, b.x, b.y - 8);
-  }
 }
 
 // ============================
@@ -254,105 +222,6 @@ function drawEmojisEffect(ctx2d, blobs) {
     }
   }
   ctx2d.globalAlpha = 1;
-}
-
-function drawSilhouetteEffect(ctx2d, blobs) {
-  const t = performance.now();
-  for (const b of blobs) {
-    const hue = (t * 0.012 + (b.id || 0) * 30) % 360;
-    ctx2d.fillStyle = `hsla(${hue}, 80%, 50%, 0.45)`;
-    const pts = getContourPts(b);
-    if (pts && pts.length > 2) {
-      ctx2d.beginPath(); ctx2d.moveTo(pts[0].x, pts[0].y);
-      for (let i = 1; i < pts.length; i++) ctx2d.lineTo(pts[i].x, pts[i].y);
-      ctx2d.closePath(); ctx2d.fill();
-    } else {
-      ctx2d.fillRect(b.bx, b.by, b.bw, b.bh);
-    }
-  }
-}
-
-function drawCctvZoomEffect(ctx2d, blobs) {
-  const sw = P.strokeWidth;
-  let largest = blobs[0];
-  for (const b of blobs) if (b.bw * b.bh > largest.bw * largest.bh) largest = b;
-  if (!largest) return;
-  const cx = largest.x, cy = largest.y;
-  const insetX = 12, insetY = 12;
-  const iw = ctx2d.canvas.width * 0.35, ih = ctx2d.canvas.height * 0.35;
-  // Frame
-  ctx2d.strokeStyle = "rgb(60,255,80)";
-  ctx2d.lineWidth = 1.5;
-  ctx2d.strokeRect(insetX, insetY, iw, ih);
-  // Crosshair
-  ctx2d.beginPath();
-  ctx2d.moveTo(insetX + iw / 2 - 6, insetY + ih / 2);
-  ctx2d.lineTo(insetX + iw / 2 + 6, insetY + ih / 2);
-  ctx2d.moveTo(insetX + iw / 2, insetY + ih / 2 - 6);
-  ctx2d.lineTo(insetX + iw / 2, insetY + ih / 2 + 6);
-  ctx2d.stroke();
-  // Label
-  ctx2d.fillStyle = "rgb(60,255,80)";
-  ctx2d.font = "10px monospace";
-  ctx2d.fillText("ZOOM", insetX + 2, insetY + ih - 3);
-}
-
-function drawGlyphsEffect(ctx2d, blobs) {
-  const charset = "OXVT*+-=#@%";
-  if (!drawGlyphsEffect._rng) {
-    drawGlyphsEffect._rng = { seed: 11, next() { this.seed = (this.seed * 1664525 + 1013904223) & 0xFFFFFFFF; return (this.seed >>> 0) / 4294967296; } };
-  }
-  const rng = drawGlyphsEffect._rng;
-  const count = 8;
-  ctx2d.fillStyle = P.contourColor;
-  for (const b of blobs) {
-    for (let i = 0; i < count; i++) {
-      const angle = rng.next() * Math.PI * 2;
-      const radius = rng.next() * 30;
-      const gx = b.x + Math.cos(angle) * radius;
-      const gy = b.y + Math.sin(angle) * radius;
-      const ch = charset[Math.floor(rng.next() * charset.length)];
-      ctx2d.font = "10px monospace";
-      ctx2d.globalAlpha = 0.5 + rng.next() * 0.5;
-      ctx2d.fillText(ch, gx, gy);
-    }
-  }
-  ctx2d.globalAlpha = 1;
-}
-
-function drawSpatialEchoEffect(ctx2d, blobs) {
-  if (!drawSpatialEchoEffect._buffer) {
-    drawSpatialEchoEffect._buffer = [];
-    drawSpatialEchoEffect._frameIdx = 0;
-  }
-  const buf = drawSpatialEchoEffect._buffer;
-  const idx = drawSpatialEchoEffect._frameIdx;
-  const video = document.getElementById("video");
-  if (!video || video.readyState < 2) return;
-  // Store current frame
-  const tempC = document.createElement("canvas");
-  tempC.width = ctx2d.canvas.width;
-  tempC.height = ctx2d.canvas.height;
-  const tctx = tempC.getContext("2d");
-  tctx.drawImage(video, 0, 0);
-  buf[idx % 32] = tempC;
-  drawSpatialEchoEffect._frameIdx = idx + 1;
-  // Draw echo from frame t-2
-  const echoIdx = (idx - 2 + 32) % 32;
-  if (buf[echoIdx]) {
-    for (const b of blobs) {
-      ctx2d.save();
-      ctx2d.globalAlpha = 0.85;
-      ctx2d.beginPath();
-      ctx2d.rect(b.bx, b.by, b.bw, b.bh);
-      ctx2d.clip();
-      ctx2d.drawImage(buf[echoIdx], b.bx + 220, b.by);
-      ctx2d.restore();
-      ctx2d.strokeStyle = "rgb(255,100,200)";
-      ctx2d.lineWidth = 1;
-      ctx2d.strokeRect(b.bx, b.by, b.bw, b.bh);
-    }
-  }
 }
 
 function drawHeatmapEffect(ctx2d, blobs) {
@@ -446,7 +315,7 @@ function drawConvexHullEffect(ctx2d, blobs) {
 // EFFECTS REGISTRY
 // ============================
 const EFFECTS = [
-  { id: "Basic",    label: "Basic",    group: "shape", draw: drawBasicEffect },
+  { id: "Basic",    label: "Contour",  group: "shape", draw: drawBasicEffect },
   { id: "Cross",    label: "Cross",    group: "shape", draw: drawCrossEffect },
   { id: "Frame",    label: "Frame",    group: "shape", draw: drawFrameEffect },
   { id: "L-Frame",  label: "L-Frame",  group: "shape", draw: drawLFrameEffect },
@@ -456,16 +325,9 @@ const EFFECTS = [
   { id: "Dash",     label: "Dash",     group: "style", draw: drawDashEffect },
   { id: "Scope",    label: "Scope",    group: "shape", draw: drawScopeEffect },
   { id: "Win2K",    label: "Win2K",    group: "info",  draw: drawWin2KEffect },
-  { id: "Glow",     label: "Glow",     group: "style", draw: drawGlowEffect },
   { id: "Backdrop", label: "Backdrop", group: "style", draw: drawBackdropEffect },
-  { id: "Outline",  label: "Outline",  group: "shape", draw: drawOutlineEffect },
-  { id: "Label",    label: "Label",    group: "info",  draw: drawLabelEffect },
   // New Apolotary visualizers
   { id: "Emojis",   label: "Emojis",   group: "fx",    draw: drawEmojisEffect },
-  { id: "Silhouette", label: "Silhouette", group: "shape", draw: drawSilhouetteEffect },
-  { id: "CCTV-Zoom", label: "CCTV-Zoom", group: "info", draw: drawCctvZoomEffect },
-  { id: "Glyphs",   label: "Glyphs",   group: "fx",    draw: drawGlyphsEffect },
-  { id: "Spatial",  label: "Spatial",  group: "fx",    draw: drawSpatialEchoEffect },
   { id: "Heatmap",  label: "Heatmap",  group: "fx",    draw: drawHeatmapEffect },
   { id: "Voronoi",  label: "Voronoi",  group: "shape", draw: drawVoronoiEffect },
   { id: "ConvexHull", label: "ConvexHull", group: "shape", draw: drawConvexHullEffect },

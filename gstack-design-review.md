@@ -4,6 +4,10 @@
 **Viewport tested:** 1440×900 (desktop)
 **Project:** Blob Tracker — real-time contour VFX overlay editor
 
+> Historical design review snapshot. The current product surface is documented in
+> `README.md` and `online-version/README.md`; effect names and panel contents may
+> differ from the captured UI below.
+
 ---
 
 ## 1. Layout & Structure

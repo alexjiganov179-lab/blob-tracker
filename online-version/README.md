@@ -14,10 +14,9 @@ in the browser and is not uploaded to a blob_tracker server.
 - Playback controls: play/pause, mute toggle, timeline scrubbing, and current-frame preview while paused. Preview audio is on by default (the source video's sound is no longer muted); the mute toggle is independent of export, which always passes the audio track through when present.
 - Current-frame detection probe for paused detection tuning before a full Re-detect
 - Quick Find Objects controls: Sensitivity (Low / Normal / High / Tiny), Object Size (Small / Medium / Large), and Detector (Edge / Motion / HSV / Area)
-- 23 visual effects (outline, crosshair, corner-ticks, letters, emojis, glyphs, silhouette, CCTV-zoom, spatial-echo, heatmap, Voronoi, convex-hull, glow, backdrop, dash, grid, x-frame, scope, win2k, label, bbox, network, particle)
+- 14 visual effects: Contour, Cross, Frame, L-Frame, X-Frame, Grid, Particle, Dash, Scope, Win2K, Backdrop, Emojis, Heatmap, Voronoi, ConvexHull
 - Visual styles grouped: the Connection card holds Line Style, Connection Rate, and Stroke Width (no separate Stroke Width card)
-- 13 post-FX (mosaic, scanlines, chroma, rgb-shift, luma-lut, thresh-band, ripple, lagfun, feedback, jitter, yuv-split, slit-scan)
-- 11 detector modes (edge, motion-diff, color-hsv, contour-area, simple-blob, circles, DoG, flow, accumulation, K-means, watershed)
+- 4 detector modes (Edge, Motion, HSV, Area)
 - Output frame rate: source, 30, or 60 FPS
 - In-app confirmation before switching to 30 or 60 FPS because it starts a re-detect pass
 - Output dimensions: always the source video's original width, height, and aspect ratio
@@ -45,10 +44,10 @@ fallback. See `PLAN-mediabunny.md` for the broader Mediabunny audit history.
 The online version has been refactored from a single `index.html` (~3131 lines)
 into a modular architecture:
 
-- `index.html` (~483 lines) — DOM structure, CDN loading, modals
-- `styles.css` (~293 lines) — design system extracted from inline styles
+- `index.html` (~470 lines) — DOM structure, CDN loading, modals
+- `styles.css` (~698 lines) — design system extracted from inline styles
 - `app.js` — core logic, UI, detection pipeline
-- `effects.js` (~546 lines) — all 24 visual effects + 13 post-FX
+- `effects.js` (~342 lines) — 14 visual effects
 - `export.js` (~480 lines) — Mediabunny export + native fallbacks (MP4/WebM/audio)
 
 ## Export behavior
@@ -94,7 +93,7 @@ CDNs fail, clear error messages with retry option are shown.
 - `SPEC.md` — product scope, roadmap, and release rules
 - `PLAN-mediabunny.md` — current Mediabunny audit and remaining work
 - `IMPLEMENTATION-BRIEF.md` — handoff for the next implementation agent
-- `APOLOTARY-INVENTORY.md` — full inventory of ported Apolotary effects (48 items)
+- `APOLOTARY-INVENTORY.md` — historical Apolotary inventory plus notes on the current product surface
 - `tests/js/run-online-tests.mjs` — 7 end-to-end test scenarios (82 assertions)
 
 ## Release rule
