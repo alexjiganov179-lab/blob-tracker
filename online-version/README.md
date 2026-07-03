@@ -17,7 +17,6 @@ in the browser and is not uploaded to a blob_tracker server.
 - 23 visual effects (outline, crosshair, corner-ticks, letters, emojis, glyphs, silhouette, CCTV-zoom, spatial-echo, heatmap, Voronoi, convex-hull, glow, backdrop, dash, grid, x-frame, scope, win2k, label, bbox, network, particle)
 - 13 post-FX (mosaic, scanlines, chroma, rgb-shift, luma-lut, thresh-band, ripple, lagfun, feedback, jitter, yuv-split, slit-scan)
 - 11 detector modes (edge, motion-diff, color-hsv, contour-area, simple-blob, circles, DoG, flow, accumulation, K-means, watershed)
-- **Audio reactivity** — per-frame RMS, kick, high, onset features modulate stroke width, glow, particles, network, and post-FX in real time
 - Output frame rate: source, 30, or 60 FPS
 - In-app confirmation before switching to 30 or 60 FPS because it starts a re-detect pass
 - Output dimensions: always the source video's original width, height, and aspect ratio
@@ -48,7 +47,7 @@ into a modular architecture:
 - `index.html` (~483 lines) — DOM structure, CDN loading, modals
 - `styles.css` (~293 lines) — design system extracted from inline styles
 - `app.js` — core logic, UI, detection pipeline
-- `effects.js` (~546 lines) — all 24 visual effects + 13 post-FX + audio modulation
+- `effects.js` (~546 lines) — all 24 visual effects + 13 post-FX
 - `export.js` (~480 lines) — Mediabunny export + native fallbacks (MP4/WebM/audio)
 
 ## Export behavior

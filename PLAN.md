@@ -24,12 +24,12 @@ Competitive landscape:
 |---|---|
 | artkit.cc/baby-track | Pro presets, gallery, paid tier |
 | effect.app/blob-tracker | 70+ effects, keyframe timeline, 4K, 5 min export |
-| blobit.art | Node-based, audio-reactive, native wrapper for sale |
+| blobit.art | Node-based native wrapper for sale |
 | mondniles.com/blob-tracker | Minimalist VJ aesthetic, free |
 | nicholaspjm/web-blob-tracker | MIT, webcam input, single file |
 | TouchDesigner / Notch / cables.gl | Pro real-time, node graph, OSC/MIDI/DMX |
 
-Gap we can fill: **free, open-source, audio-reactive blob tracker with a real effects plugin system and VJ-quality export**.
+Gap we can fill: **free, open-source blob tracker with a real effects plugin system and VJ-quality export**.
 
 ---
 
@@ -113,7 +113,6 @@ Goal: multi-resolution, multi-codec export.
 | # | Task | File / line | Size | Status |
 |---|---|---|---|---|
 | 3.1 | ~~Motion-blur / trails: ring buffer of the last N canvas frames; new `Trail` registry effect composites copies with decaying opacity.~~ **Dropped** — removed in favor of cleaner effect surface; the trail buffer composited whole frames (including video) instead of blob layers. | — | M | dropped |
-| 3.2 | ~~Audio-reactive: Web Audio API -> `AnalyserNode` -> gain drives `P.audioGain` which scales strokeWidth / glowRadius / particleCount.~~ **Dropped** — out of scope for the VJ-contour workflow. | — | M | dropped |
 | 3.3 | WebM export via `MediaRecorder` as fallback for Firefox / Safari (no WebCodecs). | `index.html:1769-1890` (parallel path) | M | done |
 | 3.4 | Full-res export path: flag `outputSize = 'preview' | '1080p' | '1080x1920'`; render into `exportCanvas` at the requested size. | `index.html:1780-1850` | M | done |
 | 3.5 | `VideoEncoder.isConfigSupported` probe + codec `avc1.640028` (High Profile) for Instagram, `avc1.42001f` (Baseline) for preview. | `index.html:1810-1814` | S | done |

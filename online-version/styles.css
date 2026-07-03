@@ -211,10 +211,6 @@ canvas { display: block; max-height: 94vh; max-width: 100%; border-radius: 4px; 
 }
 .gbtn.active { border-color: #f3ac03; background: rgba(249,115,22,.08); color: #f3ac03; }
 .gbtn:hover:not(.active) { border-color: #2a2a34; color: #bbb; }
-.gbtn .dot {
-  position: absolute; top: 3px; right: 3px;
-  width: 5px; height: 5px; border-radius: 50%; background: #f3ac03;
-}
 
 .checks { display: flex; gap: 14px; margin-bottom: 6px; }
 .ck { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #888; cursor: pointer; user-select: none; }

@@ -32,14 +32,11 @@
 | Детекторы | 16 | 14 | 0 | 4 |
 | Визуализаторы | 15 | 15 | 0 | 0 |
 | Пост-эффекты | 13 | 13 | 0 | 0 |
-| Аудиофичи | 4 | 4 | 0 | 0 |
-| **Итого** | **48** | **48** | **0** | **4** |
+| **Итого** | **44** | **44** | **0** | **4** |
 
-**Выполнено раундов:** 1‑29 (8 replacement effects, 6 new P1 visualizers, 3 P2 detectors, 12 P3 post‑effects, 9 P4 complex detectors/visualizers, 4 audio features).
+**Выполнено раундов:** 1‑28 (8 replacement effects, 6 new P1 visualizers, 3 P2 detectors, 12 P3 post‑effects, 9 P4 complex detectors/visualizers).
 
-**Все 48 элементов портированы:** 16 детекторов, 15 визуализаторов, 13 пост-эффектов, 4 аудиофичи.
-
-**Аудио (раунд 29):** RMS amp, FFT kick, FFT high, onset detection — все реализованы через Web Audio API. Модулируют 12 эффектов + 4 PostFX.
+**Все 44 элемента портированы:** 16 детекторов, 15 визуализаторов, 13 пост-эффектов.
 
 ## Текущее состояние
 
@@ -73,12 +70,8 @@ playback controls и current-frame probe.
   настройки, кнопка `Start detection`/`Запустить детекцию` запускает анализ с
   текущими параметрами, а экспорт остаётся недоступен до успешной детекции.
 
-**Создан Apolotary-инвентарь:** `APOLOTARY-INVENTORY.md` (750 строк) —
-48 элементов по исходному проекту Apolotary (https://github.com/Apolotary/blob-tracker).
-
-**Раунд 29 (аудио-фичи):** все 4 фичи реализованы — amp, kick, high, onset.
-Анализ через Web Audio API decodeAudioData → PCM → per-frame RFFT.
-Аудио-модуляция 12 эффектов + 4 PostFX. UI: карточка Audio с toggle + слайдер.
+**Создан Apolotary-инвентарь:** `APOLOTARY-INVENTORY.md` —
+44 элемента по исходному проекту Apolotary (https://github.com/Apolotary/blob-tracker).
 
 Существующие smoke-тесты в `tests/js` относятся к корневому `index.html` и
 старым экспортным функциям. Они не являются тестами `online-version`.
@@ -313,29 +306,6 @@ Win2K, Backdrop) сохраняются.
     - `drawConvexHullEffect(ctx2d, blobs)`: Andrew's monotone chain (canvas 2D)
     - ≥ 3 blobs, `ctx2d.strokeStyle = P.contourColor`, lineWidth=2
     - Centroid dots отображаются для обоих визуализаторов
-29. ✅ **Раунд 29 — аудио-фичи + модуляция (ВЫПОЛНЕНО)**
-    - `analyzeAudio()` — Web Audio API decodeAudioData → PCM → per-frame: RMS, FFT, spectral flux
-    - 4 фичи: amp, kick, high, onset (Float32Array, normalized [0..1], EMA smoothing factor 0.3)
-    - Silence fallback (`silenceAudioFeatures()`) при отсутствии аудиодорожки
-    - Анализ запускается автоматически после детекции
-    - Аудио-модуляция 12 эффектов:
-      - Basic (strokeWidth × amp)
-      - Cross (arm × amp)
-      - Edge-Glow (glowRadius × kick)
-      - Particle/Emojis (count × high)
-      - Glyphs (count × kick+onset)
-      - Silhouette (hue speed × kick)
-      - CCTV-Zoom (inset+zoom × kick)
-      - Network (connectionRate × onset)
-      - Trail (decay × amp)
-    - Аудио-модуляция 4 PostFX:
-      - Mosaic (blockSize × high)
-      - Chroma (hue shift × kick)
-      - Ripple (amplitude × kick+amp)
-      - Jitter (intensity × onset)
-    - UI: карточка Audio (toggle + slider 0-100%)
-    - Экспорт: `renderToTarget()` принимает `frameIndex`, аудио работает в export
-
 Правила для каждого раунда:
 
 - Не переносить весь набор одним большим изменением.
@@ -358,7 +328,7 @@ Win2K, Backdrop) сохраняются.
 | `index.html` | 451 | DOM, CDN importmap, модальные окна |
 | `styles.css` | 293 | Дизайн-система, цвета, шрифты, раскладка |
 | `app.js` | 1561 | Ядро: инициализация, UI, детекция, состояние |
-| `effects.js` | 546 | 24 эффекта + 13 пост-эффектов + аудио-модуляция |
+| `effects.js` | 546 | 24 эффекта + 13 пост-эффектов |
 | `export.js` | 409 | Mediabunny MP4/WebM, нативные fallback'и, аудио |
 
 **Что изменено при рефакторинге:**

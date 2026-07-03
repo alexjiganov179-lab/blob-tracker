@@ -421,9 +421,6 @@ let P = {
   outputFps: "source",
   outputCodec: "h264",
   detector: "edge",
-  // Audio reactivity
-  audioEnabled: false,
-  audioModulation: 50,
   // PostFX
   postFx: "off",
 };
@@ -2170,80 +2167,6 @@ function drawPostFx(ctx, w, h) {
 }
 
 // ============================
-// AUDIO FEATURES
-// ============================
-let _audioFeatures = null;
-
-function silenceAudioFeatures() {
-  _audioFeatures = { amp: new Float32Array(0), kick: new Float32Array(0), high: new Float32Array(0), onset: new Float32Array(0) };
-}
-
-function getAudioFeatures(frameIndex) {
-  if (!_audioFeatures) return { amp: 0, kick: 0, high: 0, onset: 0 };
-  const idx = Math.min(frameIndex, _audioFeatures.amp.length - 1);
-  const get = (arr) => (arr && arr.length > idx) ? arr[idx] : 0;
-  return { amp: get(_audioFeatures.amp), kick: get(_audioFeatures.kick), high: get(_audioFeatures.high), onset: get(_audioFeatures.onset) };
-}
-
-let _audioEma = { amp: 0, kick: 0, high: 0, onset: 0 };
-function getSmoothedAudioFeatures(frameIndex) {
-  const raw = getAudioFeatures(frameIndex);
-  const f = 0.3;
-  _audioEma.amp = _audioEma.amp * (1 - f) + raw.amp * f;
-  _audioEma.kick = _audioEma.kick * (1 - f) + raw.kick * f;
-  _audioEma.high = _audioEma.high * (1 - f) + raw.high * f;
-  _audioEma.onset = _audioEma.onset * (1 - f) + raw.onset * f;
-  return _audioEma;
-}
-
-async function analyzeAudio(file) {
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const buf = await file.arrayBuffer();
-    const audio = await ctx.decodeAudioData(buf);
-    const sr = audio.sampleRate;
-    const totalFrames = all_frame_data.length || 1;
-    const fps = getEffectiveFps();
-    const frameLen = Math.max(1, Math.round(sr / fps));
-    const fftSize = 256;
-    const totalSamples = audio.getChannelData(0).length;
-    const numFrames = Math.min(totalFrames, Math.ceil(totalSamples / frameLen));
-    const amp = new Float32Array(numFrames);
-    const kick = new Float32Array(numFrames);
-    const high = new Float32Array(numFrames);
-    const onset = new Float32Array(numFrames);
-    const channel = audio.getChannelData(0);
-    let prevRms = 0;
-    for (let i = 0; i < numFrames; i++) {
-      const start = i * frameLen;
-      const end = Math.min(start + frameLen, totalSamples);
-      let sum = 0;
-      for (let j = start; j < end; j++) sum += channel[j] * channel[j];
-      const rms = Math.sqrt(sum / (end - start));
-      amp[i] = Math.min(1, rms * 4);
-      // FFT-based bands (simplified)
-      const half = Math.min(fftSize / 2, (end - start) / 2);
-      let lowSum = 0, highSum = 0;
-      for (let j = 0; j < half; j++) {
-        const val = Math.abs(channel[start + j] || 0);
-        if (j < half * 0.1) lowSum += val;
-        else highSum += val;
-      }
-      kick[i] = Math.min(1, lowSum / half * 8);
-      high[i] = Math.min(1, highSum / half * 4);
-      onset[i] = (i > 0 && rms > prevRms * 1.5) ? Math.min(1, (rms - prevRms) * 5) : 0;
-      prevRms = rms;
-    }
-    _audioFeatures = { amp, kick, high, onset };
-    ctx.close();
-    log("audio", "Audio analysis complete", { frames: numFrames, sampleRate: sr });
-  } catch (e) {
-    console.warn("Audio analysis failed:", e);
-    silenceAudioFeatures();
-  }
-}
-
-// ============================
 // INIT
 // ============================
 function initApp() {
@@ -2255,7 +2178,6 @@ function initApp() {
   initGPU();
   Telemetry.el = document.getElementById("telemetry");
   Telemetry.setTargetFps(PROCESSING_FPS_DEFAULT);
-  silenceAudioFeatures();
 
   if (location.protocol === "file:") {
     console.warn("Running from file:// — use a local server (e.g. `npx serve .`).");

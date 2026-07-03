@@ -6,7 +6,7 @@
 > Дата инвентаризации: 23 июня 2026
 
 Apolotary — Hermes Agent skill для blob‑трекинга с 16 детекторами, 15 визуализаторами,
-13 пост‑эффектами и аудиореактивностью. Настоящий документ фиксирует каждый элемент
+13 пост‑эффектами. Настоящий документ фиксирует каждый элемент
 для переноса в blob_tracker online-version.
 
 Условные обозначения статуса:
@@ -278,8 +278,7 @@ blobs, mask = det(frame_bgr)    # blobs = list[{x, y, w, h, score, id}]
 ```python
 v = get_visualizer("centroid-trail", **params)
 v.setup(frame_h, frame_w)
-canvas = v(canvas_bgr, blobs, mask, t=time_s, audio=audio_dict)
-# audio_dict = {"amp": float, "kick": float, "high": float, "onset": float}
+canvas = v(canvas_bgr, blobs, mask, t=time_s)
 ```
 
 ### 2.1 bbox
@@ -288,11 +287,10 @@ canvas = v(canvas_bgr, blobs, mask, t=time_s, audio=audio_dict)
 |------|----------|
 | **Название** | `bbox` |
 | **Тип** | визуализатор |
-| **Что делает** | Прямоугольники вокруг каждого блоба. Опциональный label, опциональный аудиореактивный pulse толщины. |
-| **Параметры** | `color=(255,255,255) BGR`, `thickness=2`, `show_label=False`, `pulse_audio=False`, `pulse_band="kick"`, `max_thickness=6` |
-| **Аудио** | `pulse_band` + `onset` → толщина линии |
+| **Что делает** | Прямоугольники вокруг каждого блоба. Опциональный label. |
+| **Параметры** | `color=(255,255,255) BGR`, `thickness=2`, `show_label=False` |
 | **OpenCV.js** | ✅ `cv.rectangle()`, `cv.putText()` |
-| **blob_tracker** | 🟡 **in progress** — эффект `Outline` заменён на Apolotary `bbox` (раунд 1). strokeRect + Apolotary label. Нет pulse_audio (ждёт аудиофич). |
+| **blob_tracker** | 🟡 **in progress** — эффект `Outline` заменён на Apolotary `bbox` (раунд 1). strokeRect + Apolotary label. |
 | **Критерий** | Прямоугольные рамки с ID/label |
 | **Проверка автором** | ❌ |
 
@@ -302,11 +300,10 @@ canvas = v(canvas_bgr, blobs, mask, t=time_s, audio=audio_dict)
 |------|----------|
 | **Название** | `corner-ticks` |
 | **Тип** | визуализатор |
-| **Что делает** | L‑образные скобки на каждом углу блоба + центроидная метка + ID/score. HUD с временем и количеством. Пульсация скобок от onset. |
+| **Что делает** | L‑образные скобки на каждом углу блоба + центроидная метка + ID/score. HUD с временем и количеством. |
 | **Параметры** | `primary_color=(255,240,220)`, `accent_color=(40,255,80)`, `label=""` |
-| **Аудио** | `amp` → размер скобок, `onset` → accent pulse |
 | **OpenCV.js** | ✅ `cv.line()`, `cv.putText()` |
-| **blob_tracker** | 🟡 **in progress** — Frame + L-Frame → Apolotary `corner-ticks` (раунд 3): 4 угла, центроид, HUD, ID. Нет audio pulse. |
+| **blob_tracker** | 🟡 **in progress** — Frame + L-Frame → Apolotary `corner-ticks` (раунд 3): 4 угла, центроид, HUD, ID. |
 | **Критерий** | L‑скобки с центроидным крестом и HUD |
 | **Проверка автором** | ❌ |
 
@@ -344,12 +341,11 @@ canvas = v(canvas_bgr, blobs, mask, t=time_s, audio=audio_dict)
 |------|----------|
 | **Название** | `network` |
 | **Тип** | визуализатор |
-| **Что делает** | Линии между ближайшими блобами. alpha падает с расстоянием. Аудио пульсирует радиус соединения. |
-| **Параметры** | `color=(255,240,220)`, `max_distance=280`, `pulse_audio=False`, `pulse_band="kick"`, `max_thickness=3` |
-| **Аудио** | `amp` → расширение `max_distance` (+220×amp), `pulse_band` → толщина |
+| **Что делает** | Линии между ближайшими блобами. alpha падает с расстоянием. |
+| **Параметры** | `color=(255,240,220)`, `max_distance=280`, `max_thickness=3` |
 | **OpenCV.js** | ✅ чистая математика + `cv.line()` |
 | **blob_tracker** | ✅ **раунд 6** — `drawLinesLayer` заменён на Apolotary `network`: все пары, alpha falloff, maxDist=280. Стили (nearest/all/chain/wave) удалены. UI → "Network" |
-| **Критерий** | Соединительные линии с затуханием по расстоянию и аудио‑реакцией |
+| **Критерий** | Соединительные линии с затуханием по расстоянию |
 | **Проверка автором** | ❌ |
 
 ### 2.6 letters
@@ -389,10 +385,9 @@ canvas = v(canvas_bgr, blobs, mask, t=time_s, audio=audio_dict)
 | **Тип** | визуализатор |
 | **Что делает** | Unicode‑созвездие вокруг каждого блоба. K глифов, разбросанных в 2D‑гауссовом облаке. |
 | **Параметры** | `charset="OXVT*+-=#@%"`, `seed=11` |
-| **Аудио** | `kick + 0.4*onset` → плотность (K: 4 → 32) |
 | **OpenCV.js** | ✅ `cv.putText()` для ASCII. Gaussian через Box‑Muller в JS. |
 | **blob_tracker** | ✅ **раунд 12** — `drawGlyphsEffect`, Box-Muller Gaussian, 8 glyphs/blob, seed=11 |
-| **Критерий** | Глифы, разбросанные вокруг каждого блоба, с аудио‑плотностью |
+| **Критерий** | Глифы, разбросанные вокруг каждого блоба |
 | **Проверка автором** | ❌ |
 
 ### 2.9 cctv-zoom
@@ -495,9 +490,9 @@ canvas = v(canvas_bgr, blobs, mask, t=time_s, audio=audio_dict)
 
 ## 3. Пост-эффекты (13)
 
-Интерфейс: `fx = get_postfx("rgb-shift", **params)`, `canvas = fx(canvas, blobs, mask, t=t, audio=audio)`
+Интерфейс: `fx = get_postfx("rgb-shift", **params)`, `canvas = fx(canvas, blobs, mask, t=t)`
 
-Все пост-эффекты глобальные (не зависят от блобов). Все аудиореактивные (параметры модулируются audio dict).
+Все пост-эффекты глобальные (не зависят от блобов).
 
 ### 3.1 rgb-shift
 
@@ -606,32 +601,7 @@ canvas = v(canvas_bgr, blobs, mask, t=time_s, audio=audio_dict)
 
 ---
 
-## 4. Аудиофичи
-
-### 4.1 `compute_features(audio_path, fps, n_frames)` → `{amp, kick, high, onset}`
-
-| Фича | Формула | JS‑эквивалент |
-|------|---------|---------------|
-| **amp** (broadband RMS) | `sqrt(mean(chunk**2))` | `decodeAudioData()` → PCM → `sqrt(mean(frame_samples²))` → normalize ✅ **round 29** |
-| **kick** (low‑band) | FFT 2048 → 64 sub‑bands → mean(bands[0:3]) (~0‑85 Hz) | Ручное RFFT (Hann window) → 64 бина → mean(0:3) ✅ **round 29** |
-| **high** (high‑band) | mean(bands[30:]) (~860‑22050 Hz) | mean(30:64) ✅ **round 29** |
-| **onset** | librosa spectral flux → pulse‑decay state machine (`*0.78` per frame) | Spectral flux = sum положительных дельт спектра → peak → decay ×0.78 ✅ **round 29** |
-| **silence_features** | Все нули | `Float32Array(nFrames)` с нулями ✅ **round 29** |
-| **slice_at(features, frame)** | Возвращает скаляры для одного кадра | `getSmoothedAudioFeatures(frameIndex)` с EMA-сглаживанием (factor 0.3) ✅ **round 29** |
-
-### Аудио в интерфейсе blob_tracker
-
-| Компонент | Статус |
-|-----------|--------|
-| Загрузка аудио | ✅ **round 29** — `decodeAudioData()` от загруженного видео (`currentVideoFile`) |
-| RMS (amp) | ✅ **round 29** — `sqrt(mean(chunk²))` через PCM samples |
-| FFT → kick/high | ✅ **round 29** — ручное RFFT, 64 бина, grouping bins 0:3 и 30: |
-| Onset detection | ✅ **round 29** — spectral flux + pulse-decay ×0.78 |
-| Аудио‑модуляция визуализаторов | ✅ **round 29** — 12 эффектов + 4 postFX (см. README) |
-
----
-
-## 5. Сводка
+## 4. Сводка
 
 ### По типам
 
@@ -640,8 +610,7 @@ canvas = v(canvas_bgr, blobs, mask, t=time_s, audio=audio_dict)
 | Детекторы | 16 | 14 (edge R8, motion‑diff R15, color‑hsv R16, contour‑area R17, IDTracker done, **flow R20**, **simple‑blob R21**, **circles R22**, **dog R23**, **accumulation R24**, **watershed R25**, **color‑cluster R26**, **voronoi R27**, **convex‑hull R28**)| 0 | 4 (mog2, knn, saliency‑fine, saliency‑spec) |
 | Визуализаторы | 15 | 15 (все: bbox R1, outline R1, crosshair R2, corner‑ticks R3, letters R4, centroid‑trail R5, network R6, emojis R9, silhouette R10, cctv‑zoom R11, glyphs R12, spatial‑echo R13, heatmap R14, **voronoi R27**, **convex‑hull R28**) | 0 | 0 |
 | Пост‑эффекты | 13 | 13 (все: edge‑glow R7, mosaic R18, scanlines R18, chroma R18, rgb‑shift R18, luma‑lut R18, thresh‑band R18, ripple R19, lagfun R19, feedback R19, jitter R19, yuv‑split R19, slit‑scan R19) | 0 | 0 |
-| Аудиофичи | 4 | 4 (**round 29** — amp, kick, high, onset) | 0 | 0 |
-| **Итого** | **48** | **48** | **0** | **4** |
+| **Итого** | **44** | **44** | **0** | **4** |
 
 ### Визуальное соответствие с существующими эффектами
 
@@ -666,7 +635,7 @@ canvas = v(canvas_bgr, blobs, mask, t=time_s, audio=audio_dict)
 
 ---
 
-## 6. Приоритетность портирования
+## 5. Приоритетность портирования
 
 **Принцип:** все существующие эффекты blob_tracker, у которых есть аналог
 в Apolotary, заменяются на Apolotary-версию. Собственные эффекты без аналога
@@ -739,11 +708,9 @@ canvas = v(canvas_bgr, blobs, mask, t=time_s, audio=audio_dict)
 | `scripts/detectors.py` | Все 16 детекторов |
 | `scripts/visualizers.py` | Все 15 визуализаторов |
 | `scripts/postfx.py` | Все 13 пост‑эффектов |
-| `scripts/audio_features.py` | RMS, FFT, onset |
 | `references/detector-flavors.md` | Документация детекторов |
 | `references/viz-flavors.md` | Документация визуализаторов |
 | `references/postfx-glossary.md` | Документация пост‑эффектов |
-| `references/audio-design.md` | Дизайн аудио‑синта |
 
 ---
 

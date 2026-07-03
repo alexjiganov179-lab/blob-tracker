@@ -13,7 +13,6 @@ Inspired by artkit.cc/baby-track and whenistheweekend.com/vfx.html, free and off
 - **23 visual effects** — Outline, BBox, Crosshair, Corner-Ticks, Letters, Emojis, Glyphs, Silhouette, CCTV-Zoom, Spatial-Echo, Heatmap, Voronoi, Convex-Hull, Network, Outline, Label, Dash, Grid, X-Frame, Scope, Win2K, Backdrop, Particle
 - **13 post-FX** — Mosaic, Scanlines, Chroma, RGB-Shift, Luma-LUT, Thresh-Band, Ripple, LagFun, Feedback, Jitter, YUV-Split, Slit-Scan, Edge-Glow
 - **11 detector modes** — Edge, Motion-Diff, Color-HSV, Contour-Area, Simple-Blob, Circles, DoG, Flow, Accumulation, Watershed, Color-Cluster
-- **Audio reactivity** — RMS amp, kick, high, onset modulate stroke width, glow, particles, network, and post-FX in real time
 - **Audio export** — AAC (MP4) and Opus (WebM) passthrough via Mediabunny
 - **Playback controls** — pause/play, scrub the timeline, and inspect a paused frame before export
 - **Current-frame detection probe** — tune detection sliders on the paused frame before running a full re-detect
@@ -97,7 +96,7 @@ The project uses a **modular architecture** (primary: `online-version/`):
 | `index.html` | ~483 | Clean HTML structure (DOM, modals, CDN importmap) |
 | `styles.css` | ~293 | All CSS styles (design system, layout, animations) |
 | `app.js` | ~2198 | Core UI logic, state management, initialization, detection pipeline |
-| `effects.js` | ~546 | 24 visual effects + 13 post-FX + audio modulation |
+| `effects.js` | ~546 | 24 visual effects + 13 post-FX |
 | `export.js` | ~480 | Export pipeline (Mediabunny MP4/WebM, native fallbacks, audio passthrough) |
 
 Benefits:
