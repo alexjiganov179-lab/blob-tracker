@@ -71,7 +71,6 @@ function capturePlaybackState() {
     time: Number.isFinite(video.currentTime) ? video.currentTime : 0,
     wasPaused: video.paused,
     loop: video.loop,
-    playbackRate: video.playbackRate || 1,
   };
 }
 
@@ -82,7 +81,6 @@ async function restorePlaybackState(state) {
   const restoreTime = Math.min(Math.max(0, state.time), Math.max(0, maxTime));
   try {
     video.loop = state.loop;
-    video.playbackRate = state.playbackRate;
     await seekTo(restoreTime);
     renderCurrentPreviewFrame();
     if (state.wasPaused) {

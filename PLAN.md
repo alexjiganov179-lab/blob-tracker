@@ -108,11 +108,11 @@ Goal: move effects into a registry so every later feature (Trail, Audio, particl
 
 **Effort:** 3–5 days. **One or two PRs.** **Status: done.**
 
-Goal: motion-blur trails + multi-resolution, multi-codec export.
+Goal: multi-resolution, multi-codec export.
 
 | # | Task | File / line | Size | Status |
 |---|---|---|---|---|
-| 3.1 | Motion-blur / trails: ring buffer of the last N canvas frames; new `Trail` registry effect composites copies with decaying opacity. | new `TrailBuffer` + effect entry | M | done |
+| 3.1 | ~~Motion-blur / trails: ring buffer of the last N canvas frames; new `Trail` registry effect composites copies with decaying opacity.~~ **Dropped** — removed in favor of cleaner effect surface; the trail buffer composited whole frames (including video) instead of blob layers. | — | M | dropped |
 | 3.2 | ~~Audio-reactive: Web Audio API -> `AnalyserNode` -> gain drives `P.audioGain` which scales strokeWidth / glowRadius / particleCount.~~ **Dropped** — out of scope for the VJ-contour workflow. | — | M | dropped |
 | 3.3 | WebM export via `MediaRecorder` as fallback for Firefox / Safari (no WebCodecs). | `index.html:1769-1890` (parallel path) | M | done |
 | 3.4 | Full-res export path: flag `outputSize = 'preview' | '1080p' | '1080x1920'`; render into `exportCanvas` at the requested size. | `index.html:1780-1850` | M | done |
@@ -121,7 +121,6 @@ Goal: motion-blur trails + multi-resolution, multi-codec export.
 
 **Acceptance:**
 
-- Trails render smoothly without runaway memory. ✓ (TrailBuffer allocates up to 30 OffscreenCanvas slots; the buffer is only grown when capacity or size changes.)
 - MP4 export works in Chrome/Edge, WebM in Firefox/Safari. ✓ (H.264 path uses WebCodecs + `mp4-muxer`; WebM path uses `MediaRecorder` on `captureStream(0)` + `track.requestFrame()` for frame-by-frame control.)
 - 1080×1920 Instagram export produces a valid H.264 High Profile file. ✓ (`VideoEncoder.isConfigSupported` tries `avc1.640028` first for non-preview sizes, falls back to Baseline.)
 

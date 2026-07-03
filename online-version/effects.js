@@ -5,59 +5,6 @@
 const particleStates = new Map();
 
 // ============================
-// TRAIL BUFFER
-// ============================
-const TrailBuffer = {
-  frames: [], capacity: 0, writeIndex: 0, sourceW: 0, sourceH: 0,
-  ensureSize(w, h) {
-    if (this.sourceW === w && this.sourceH === h) return;
-    this.sourceW = w; this.sourceH = h;
-    this.frames = []; this.writeIndex = 0;
-  },
-  setCapacity(n) {
-    if (n === this.capacity && this.frames.length === this.capacity) return;
-    this.frames = []; this.capacity = Math.max(0, n | 0); this.writeIndex = 0;
-    for (let i = 0; i < this.capacity; i++) this.frames.push(this._makeFrame());
-  },
-  _makeFrame() {
-    if (typeof OffscreenCanvas !== "undefined") return new OffscreenCanvas(this.sourceW, this.sourceH);
-    const c = document.createElement("canvas");
-    c.width = this.sourceW; c.height = this.sourceH; return c;
-  },
-  push(srcCanvas) {
-    if (this.capacity === 0) return;
-    if (this.sourceW !== srcCanvas.width || this.sourceH !== srcCanvas.height) {
-      this.ensureSize(srcCanvas.width, srcCanvas.height);
-      this.setCapacity(this.capacity);
-    }
-    const slot = this.frames[this.writeIndex];
-    if (!slot || slot.width !== this.sourceW || slot.height !== this.sourceH) {
-      this.frames[this.writeIndex] = this._makeFrame();
-    }
-    const ctx = this.frames[this.writeIndex].getContext("2d");
-    ctx.clearRect(0, 0, this.sourceW, this.sourceH);
-    ctx.drawImage(srcCanvas, 0, 0);
-    this.writeIndex = (this.writeIndex + 1) % this.capacity;
-  },
-  draw(ctx, baseAlpha) {
-    if (this.capacity === 0) return;
-    const n = this.capacity;
-    ctx.save();
-    ctx.globalCompositeOperation = "source-over";
-    for (let i = 0; i < n; i++) {
-      const slotIdx = (this.writeIndex + i) % n;
-      const age = n - 1 - i;
-      const a = baseAlpha * (1 - age / n);
-      if (a <= 0) continue;
-      ctx.globalAlpha = a;
-      ctx.drawImage(this.frames[slotIdx], 0, 0);
-    }
-    ctx.restore();
-  },
-  clear() { this.frames = []; this.capacity = 0; this.writeIndex = 0; },
-};
-
-// ============================
 // BASIC EFFECTS
 // ============================
 function drawBasicEffect(ctx2d, blobs) {
@@ -267,18 +214,6 @@ function drawLabelEffect(ctx2d, blobs) {
     const text = String.fromCharCode(65 + (b.id || 0) % 26);
     ctx2d.fillText(text, b.x, b.y - 8);
   }
-}
-
-function drawTrailEffect(ctx2d, blobs) {
-  const n = Math.max(0, Math.min(30, P.trailLength | 0));
-  if (n === 0) {
-    TrailBuffer.clear();
-    drawBasicEffect(ctx2d, blobs);
-    return;
-  }
-  TrailBuffer.setCapacity(n);
-  TrailBuffer.draw(ctx2d, 0.5);
-  drawBasicEffect(ctx2d, blobs);
 }
 
 // ============================
@@ -525,7 +460,6 @@ const EFFECTS = [
   { id: "Backdrop", label: "Backdrop", group: "style", draw: drawBackdropEffect },
   { id: "Outline",  label: "Outline",  group: "shape", draw: drawOutlineEffect },
   { id: "Label",    label: "Label",    group: "info",  draw: drawLabelEffect },
-  { id: "Trail",    label: "Trail",    group: "fx",    draw: drawTrailEffect },
   // New Apolotary visualizers
   { id: "Emojis",   label: "Emojis",   group: "fx",    draw: drawEmojisEffect },
   { id: "Silhouette", label: "Silhouette", group: "shape", draw: drawSilhouetteEffect },

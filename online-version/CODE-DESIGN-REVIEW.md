@@ -260,9 +260,9 @@ GET https://docs.opencv.org/4.x/opencv.js → 404 (если CDN недоступ
   ── Drop-зона: 🎬 Drop a video file anywhere
 
 Панель управления (340px):
-├── Sensitivity: [Low|Normal|High]
-├── Object Size: [Tiny objects|Small only|Medium|Large|Custom]
-├── Video Speed: [0.5×|1×|2×|4×]
+├── Sensitivity: [Low|Normal|High|Tiny]
+├── Object Size: [Small|Medium|Large]
+├── Detector: [Edge|Motion|HSV|Area] + tooltip
 ├── Basic Effects: [Basic|Cross|Label|Frame|L-Frame|X-Frame|Grid|Particle]
 │                 [Emojis|CCTV-Zoom|Glyphs|Spatial|Heatmap|Dash]
 │                 [Silhouette|Scope|Win2K|Edge-Glow|Backdrop|Outline|Trail]

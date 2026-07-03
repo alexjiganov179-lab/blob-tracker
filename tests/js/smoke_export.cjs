@@ -129,29 +129,6 @@ const { chromium } = require('playwright');
   console.log('renderToTarget portrait mapping:', JSON.stringify(mappingResult));
   if (!mappingResult.ok) process.exitCode = 1;
 
-  // Test TrailBuffer push+draw.
-  const trailResult = await page.evaluate(() => {
-    try {
-      const c = document.createElement('canvas');
-      c.width = 100; c.height = 100;
-      const ctx = c.getContext('2d');
-      ctx.fillStyle = '#f00'; ctx.fillRect(0, 0, 100, 100);
-      TrailBuffer.setCapacity(3);
-      TrailBuffer.push(c);
-      TrailBuffer.push(c);
-      TrailBuffer.push(c);
-      // Draw onto a target.
-      const target = document.createElement('canvas');
-      target.width = 100; target.height = 100;
-      const tctx = target.getContext('2d');
-      TrailBuffer.draw(tctx, 0.5);
-      return { ok: true, capacity: TrailBuffer.capacity };
-    } catch (e) {
-      return { ok: false, error: e.message };
-    }
-  });
-  console.log('TrailBuffer test:', JSON.stringify(trailResult));
-
   // Test computeExportSize.
   const sizes = await page.evaluate(() => {
     // Fake video dimensions.

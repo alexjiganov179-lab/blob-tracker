@@ -38,7 +38,6 @@ const I18N = {
     sensitivity: "Sensitivity",
     objectSize: "Object Size",
     detector: "Detector",
-    videoSpeed: "Video Speed",
     basicEffects: "Basic Effects",
     connection: "Connection",
     lineStyle: "Line Style",
@@ -90,7 +89,6 @@ const I18N = {
     count: "Count",
     source: "Source",
     preview: "Preview",
-    trail: "Trail",
     resetDefaults: "Reset to defaults",
     copyDebugLog: "Copy debug log",
     copied: "Copied",
@@ -129,6 +127,7 @@ const I18N = {
     resetTitle: "Reset to default",
     colorAria: "Color: {color}",
     tipFindAria: "Help: Find Objects",
+    tipDetectorAria: "Help: Detector",
     tipBlobAria: "Help: Blob Size",
     tipDetectAria: "Help: Detection",
     tipOutputAria: "Help: Output",
@@ -149,7 +148,6 @@ const I18N = {
     effectGlow: "Glow",
     effectBackdrop: "Backdrop",
     effectOutline: "Outline",
-    effectTrail: "Trail",
     effectEmojis: "Emojis",
     effectSilhouette: "Silhouette",
     effectGlyphs: "Glyphs",
@@ -180,7 +178,6 @@ const I18N = {
     sensitivity: "Чувствительность",
     objectSize: "Размер объектов",
     detector: "Детектор",
-    videoSpeed: "Скорость видео",
     basicEffects: "Базовые эффекты",
     connection: "Связи",
     lineStyle: "Тип линий",
@@ -232,7 +229,6 @@ const I18N = {
     count: "Номер",
     source: "Исходный",
     preview: "Превью",
-    trail: "Шлейф",
     resetDefaults: "Сбросить настройки",
     copyDebugLog: "Скопировать лог",
     copied: "Скопировано",
@@ -271,6 +267,7 @@ const I18N = {
     resetTitle: "Сбросить к значению по умолчанию",
     colorAria: "Цвет: {color}",
     tipFindAria: "Справка: Поиск объектов",
+    tipDetectorAria: "Справка: Детектор",
     tipBlobAria: "Справка: Размер объектов",
     tipDetectAria: "Справка: Детекция",
     tipOutputAria: "Справка: Экспорт",
@@ -291,7 +288,6 @@ const I18N = {
     effectGlow: "Свечение",
     effectBackdrop: "Фон",
     effectOutline: "Контур",
-    effectTrail: "Шлейф",
     effectEmojis: "Эмодзи",
     effectSilhouette: "Силуэт",
     effectGlyphs: "Глифы",
@@ -304,12 +300,14 @@ const I18N = {
 const TIP_TEXTS = {
   en: {
     "tip-find": "Sensitivity presets adjust Canny thresholds and blur for different object types.\n- Low: clear, large objects\n- Normal: balanced default\n- High: faint edges\n- Tiny: small, distant blobs\n\nObject Size filters detected blob area.",
+    "tip-detector": "Choose the detection algorithm.\n- Edge: contours from object edges\n- Motion: moving objects between frames; requires full Re-detect\n- HSV: color-based detection\n- Area: filled bright/dark regions",
     "tip-blob": "Min / Max contour area in pixels.\nObjects outside this range are filtered out.\nUse Object Size presets for quick setup.",
     "tip-detect": "Canny edge detection parameters.\n- C-Low / C-High: edge thresholds\n- Blur: softens noise before detection\n- Color Channel: detect on one channel\n- GPU: WebGL2 acceleration when available",
     "tip-output": "Output FPS: Source, 30, or 60.\nExport keeps the source video's original width, height, and aspect ratio.\nCodec: MP4 or WebM.",
   },
   ru: {
     "tip-find": "Пресеты чувствительности меняют пороги Canny и размытие.\n- Низкая: четкие крупные объекты\n- Нормальная: сбалансированный режим\n- Высокая: слабые контуры\n- Мелкие: маленькие объекты вдали\n\nРазмер объектов отсекает лишние blob-области.",
+    "tip-detector": "Выбор алгоритма детекции.\n- Грани: контуры по краям объектов\n- Движение: движущиеся объекты между кадрами, нужен полный Re-detect\n- HSV: поиск по цвету\n- Площадь: заполненные светлые/темные области",
     "tip-blob": "Мин / Макс - площадь контура в пикселях.\nОбъекты вне диапазона отфильтровываются.\nДля быстрого старта используйте пресеты размера.",
     "tip-detect": "Параметры Canny-детекции.\n- C-Low / C-High: пороги контуров\n- Blur: убирает шум перед поиском\n- Канал цвета: поиск по отдельному каналу\n- GPU: ускорение через WebGL2, если доступно",
     "tip-output": "FPS экспорта: исходный, 30 или 60.\nЭкспорт сохраняет исходную ширину, высоту и соотношение сторон видео.\nКодек: MP4 или WebM.",
@@ -400,7 +398,6 @@ const MAX_PREVIEW_DIM = 540;
 // STATE
 // ============================
 let P = {
-  playbackSpeed: 1,
   selectedEffect: "Basic",
   connectionStyle: "nearest",
   connectionRate: 0.5,
@@ -422,7 +419,6 @@ let P = {
   colorChannel: 0,
   useGPU: true,
   outputFps: "source",
-  trailLength: 0,
   outputCodec: "h264",
   detector: "edge",
   // Audio reactivity
@@ -927,7 +923,6 @@ function setupToggle(id, stateKey) {
 // ============================
 function syncControlsFromP() {
   const map = [
-    ["video-speed", "playbackSpeed", "val", parseFloat],
     ["connection-rate", "connectionRate", "val", parseFloat],
     ["text-position", "textPosition", "val", String],
     ["text-content", "textContent", "val", String],
@@ -969,7 +964,6 @@ function syncControlsFromP() {
     ["blur-kernel", "blurKernel", "blur-kernel-val", v => v],
     ["merge-kernel", "mergeKernel", "merge-kernel-val", v => v],
     ["merge-iterations", "mergeIterations", "merge-iterations-val", v => v],
-    ["trail-length", "trailLength", "trail-length-val", v => v],
   ];
   for (const [id, key, valId, fmt] of smap) {
     const el = document.getElementById(id);
@@ -1123,7 +1117,6 @@ function setupControls() {
     setSliderValue("blob-max", "blobMax", values[size].max, "blob-max-val", formatBlobMax);
   });
 
-  setupSeg("video-speed", "playbackSpeed", parseFloat);
   setupSeg("connection-rate", "connectionRate", parseFloat);
   setupSeg("text-position", "textPosition", String);
   setupSeg("text-content", "textContent", String);
@@ -1147,7 +1140,6 @@ function setupControls() {
   setupSlider("blur-kernel", "blurKernel", "blur-kernel-val", v => v);
   setupSlider("merge-kernel", "mergeKernel", "merge-kernel-val", v => v);
   setupSlider("merge-iterations", "mergeIterations", "merge-iterations-val", v => v);
-  setupSlider("trail-length", "trailLength", "trail-length-val", v => v);
 
   buildPalette();
 
@@ -1169,7 +1161,6 @@ function setupControls() {
     document.getElementById("blur-kernel").value = 5;
     document.getElementById("merge-kernel").value = 1;
     document.getElementById("merge-iterations").value = 1;
-    document.getElementById("trail-length").value = 0;
     document.getElementById("stroke-width-val").textContent = "2px";
     document.getElementById("blob-min-val").textContent = "300";
     document.getElementById("blob-max-val").textContent = "200k";
@@ -1178,13 +1169,11 @@ function setupControls() {
     document.getElementById("blur-kernel-val").textContent = "5";
     document.getElementById("merge-kernel-val").textContent = "1";
     document.getElementById("merge-iterations-val").textContent = "1";
-    document.getElementById("trail-length-val").textContent = "0";
     document.querySelectorAll("#grouping-mode button").forEach(b => b.classList.toggle("active", b.dataset.val === "contours"));
     document.querySelectorAll("#color-channel button").forEach(b => b.classList.toggle("active", b.dataset.val === "0"));
     document.querySelectorAll("#output-fps button").forEach(b => b.classList.toggle("active", b.dataset.val === "source"));
     document.querySelectorAll("#output-codec button").forEach(b => b.classList.toggle("active", b.dataset.val === "h264"));
     document.getElementById("gpu-toggle").checked = true;
-    if (typeof TrailBuffer !== "undefined") TrailBuffer.clear();
     buildPalette();
     clearCurrentFrameProbe();
     scheduleCurrentFrameProbe();
@@ -1455,10 +1444,6 @@ function renderCurrentFrame(options = {}) {
   drawCentroidDots(ctx, blobs);
   drawLabelsLayer(ctx, blobs);
 
-  if (options.updateTrail && P.trailLength > 0 && P.selectedEffect === "Trail") {
-    TrailBuffer.push(canvas);
-  }
-
   drawPostFx(ctx, canvas.width, canvas.height);
 
   if (options.recordTelemetry) {
@@ -1485,7 +1470,6 @@ function handlePresetChanged(container) {
 }
 
 function handleParamChanged(stateKey) {
-  if (stateKey === "playbackSpeed" && video) video.playbackRate = P.playbackSpeed;
   if (stateKey === "outputFps" || stateKey === "outputCodec") return;
   if (!currentVideoURL || isProcessing || isExporting) return;
   if (DETECTION_PARAM_KEYS.has(stateKey)) {
@@ -1953,7 +1937,6 @@ async function startProcessing(videoURL) {
     await seekVideo(video, 0);
     exportOverlay.classList.add("visible");
     showPlaybackControls();
-    video.playbackRate = P.playbackSpeed;
     video.play();
     video.loop = true;
     Telemetry.setTargetFps(getEffectiveFps());
@@ -1978,7 +1961,7 @@ async function startProcessing(videoURL) {
 function drawLoop() {
   if (!video || video.readyState < 2) { requestAnimationFrame(drawLoop); return; }
   if (video.paused && !isExporting) { updatePlaybackUi(); requestAnimationFrame(drawLoop); return; }
-  renderCurrentFrame({ recordTelemetry: true, updateTrail: true });
+  renderCurrentFrame({ recordTelemetry: true });
 
   requestAnimationFrame(drawLoop);
 }
@@ -2079,7 +2062,6 @@ async function reDetect() {
     exportOverlay.classList.add("visible");
     exportOverlay.style.display = "";
     showPlaybackControls();
-    video.playbackRate = P.playbackSpeed;
     video.play();
     video.loop = true;
   } catch (e) {

@@ -358,12 +358,6 @@
         <button type="button" class="gbtn" data-val="Glow">Glow</button>
         <button type="button" class="gbtn" data-val="Backdrop">Backdrop<span class="dot"></span></button>
         <button type="button" class="gbtn" data-val="Outline">Outline</button>
-        <button type="button" class="gbtn" data-val="Trail">Trail</button>
-      </div>
-      <div class="srow" style="margin-top:8px">
-        <span style="font-size:10px;color:#444;min-width:34px">Trail</span>
-        <input type="range" id="trail-length" min="0" max="30" step="1" value="0" title="Trail length (frames to blend)"/>
-        <span class="sv" id="trail-length-val">0</span>
       </div>
     </div>
 
@@ -1040,7 +1034,6 @@ let P = {
   useGPU: true,    // GPU acceleration toggle
   outputFps: "source", // "source" | 30 | 60
   // Phase 3 additions
-  trailLength: 0,       // 0 = off, 1..30 = number of trailing canvas copies blended in
   outputSize: "preview",// "preview" | "1080p" | "1080x1920"
   outputCodec: "h264",  // "h264" (WebCodecs MP4) | "webm" (MediaRecorder fallback)
 };
@@ -1179,7 +1172,6 @@ function syncControlsFromP() {
     ["blur-kernel", "blurKernel", "blur-kernel-val", v => v],
     ["merge-kernel", "mergeKernel", "merge-kernel-val", v => v],
     ["merge-iterations", "mergeIterations", "merge-iterations-val", v => v],
-    ["trail-length", "trailLength", "trail-length-val", v => v],
   ];
   for (const [id, key, valId, fmt] of smap) {
     const el = document.getElementById(id);
@@ -1393,7 +1385,6 @@ function setupControls() {
   setupSlider("blur-kernel", "blurKernel", "blur-kernel-val", v => v);
   setupSlider("merge-kernel", "mergeKernel", "merge-kernel-val", v => v);
   setupSlider("merge-iterations", "mergeIterations", "merge-iterations-val", v => v);
-  setupSlider("trail-length", "trailLength", "trail-length-val", v => v);
 
   // Color palette
   buildPalette();
@@ -1414,7 +1405,7 @@ function setupControls() {
       centroidEnabled:false,
       groupingMode:"contours", mergeKernel:1, mergeIterations:1,
       colorChannel:0, useGPU:true, outputFps:"source",
-      trailLength:0, outputSize:"preview", outputCodec:"h264",
+      outputSize:"preview", outputCodec:"h264",
     };
     // Reset checkboxes
     document.querySelectorAll("input[type='checkbox']").forEach(cb => {
@@ -1430,7 +1421,6 @@ function setupControls() {
     document.getElementById("blur-kernel").value = 5;
     document.getElementById("merge-kernel").value = 1;
     document.getElementById("merge-iterations").value = 1;
-    document.getElementById("trail-length").value = 0;
     document.getElementById("stroke-width-val").textContent = "2px";
     document.getElementById("blob-min-val").textContent = "300";
     document.getElementById("blob-max-val").textContent = "200k";
@@ -1439,15 +1429,12 @@ function setupControls() {
     document.getElementById("blur-kernel-val").textContent = "5";
     document.getElementById("merge-kernel-val").textContent = "1";
     document.getElementById("merge-iterations-val").textContent = "1";
-    document.getElementById("trail-length-val").textContent = "0";
     document.querySelectorAll("#grouping-mode button").forEach(b => b.classList.toggle("active", b.dataset.val === "contours"));
     document.querySelectorAll("#color-channel button").forEach(b => b.classList.toggle("active", b.dataset.val === "0"));
     document.querySelectorAll("#output-fps button").forEach(b => b.classList.toggle("active", b.dataset.val === "source"));
     document.querySelectorAll("#output-size button").forEach(b => b.classList.toggle("active", b.dataset.val === "preview"));
     document.querySelectorAll("#output-codec button").forEach(b => b.classList.toggle("active", b.dataset.val === "h264"));
     document.getElementById("gpu-toggle").checked = true;
-    // Drop any in-flight trail ring.
-    TrailBuffer.clear();
     buildPalette();
     log("params", "Reset to defaults");
   });
@@ -2259,88 +2246,6 @@ window.addEventListener("keydown", (e) => {
 
 const particleStates = new Map();
 
-// ============================
-// TRAIL BUFFER (Phase 3.1)
-// ============================
-// Ring buffer of the last N canvas snapshots. The Trail effect composites
-// older copies with decaying opacity to produce motion-blur trails.
-const TrailBuffer = {
-  frames: [],            // array of OffscreenCanvas (or HTMLCanvasElement fallback)
-  capacity: 0,           // current allocated ring size; resized on demand
-  writeIndex: 0,         // next slot to write into
-  sourceW: 0, sourceH: 0,
-
-  ensureSize(w, h) {
-    if (this.sourceW === w && this.sourceH === h) return;
-    this.sourceW = w; this.sourceH = h;
-    this.frames = [];
-    this.writeIndex = 0;
-  },
-
-  // Allocate a number of slots. Existing slots are released first.
-  setCapacity(n) {
-    if (n === this.capacity && this.frames.length === this.capacity) return;
-    this.frames = [];
-    this.capacity = Math.max(0, n | 0);
-    this.writeIndex = 0;
-    for (let i = 0; i < this.capacity; i++) {
-      this.frames.push(this._makeFrame());
-    }
-  },
-
-  _makeFrame() {
-    if (typeof OffscreenCanvas !== "undefined") return new OffscreenCanvas(this.sourceW, this.sourceH);
-    const c = document.createElement("canvas");
-    c.width = this.sourceW; c.height = this.sourceH;
-    return c;
-  },
-
-  push(srcCanvas) {
-    if (this.capacity === 0) return;
-    if (this.sourceW !== srcCanvas.width || this.sourceH !== srcCanvas.height) {
-      this.ensureSize(srcCanvas.width, srcCanvas.height);
-      // Reallocate at the new size.
-      this.setCapacity(this.capacity);
-    }
-    const slot = this.frames[this.writeIndex];
-    if (!slot || slot.width !== this.sourceW || slot.height !== this.sourceH) {
-      this.frames[this.writeIndex] = this._makeFrame();
-    }
-    const ctx = this.frames[this.writeIndex].getContext("2d");
-    ctx.clearRect(0, 0, this.sourceW, this.sourceH);
-    ctx.drawImage(srcCanvas, 0, 0);
-    this.writeIndex = (this.writeIndex + 1) % this.capacity;
-  },
-
-  // Draw all stored frames oldest-first with decaying alpha. Newest frame is
-  // drawn last and at the highest alpha so the current image dominates.
-  draw(ctx, baseAlpha) {
-    if (this.capacity === 0) return;
-    const n = this.capacity;
-    ctx.save();
-    ctx.globalCompositeOperation = "source-over";
-    for (let i = 0; i < n; i++) {
-      // Walk from oldest to newest. Slot (writeIndex) is the next write target,
-      // so the most recent frame is at (writeIndex - 1) and the oldest is at
-      // (writeIndex) (one past newest, wraps to oldest in ring semantics).
-      const slotIdx = (this.writeIndex + i) % n;
-      const age = n - 1 - i; // 0 = newest
-      // Linear decay: oldest ~ baseAlpha/n, newest ~ baseAlpha.
-      const a = baseAlpha * (1 - age / n);
-      if (a <= 0) continue;
-      ctx.globalAlpha = a;
-      ctx.drawImage(this.frames[slotIdx], 0, 0);
-    }
-    ctx.restore();
-  },
-
-  clear() {
-    this.frames = [];
-    this.capacity = 0;
-    this.writeIndex = 0;
-  },
-};
-
 function drawBasicEffect(ctx2d, blobs) {
   const sw = P.strokeWidth;
   ctx2d.lineWidth = sw; ctx2d.lineJoin = "round";
@@ -2564,25 +2469,6 @@ function drawLabelEffect(ctx2d, blobs) {
   drawLabelsLayer(ctx2d, blobs);
 }
 
-// Trail: blend older canvas copies under the current frame for motion blur.
-// The trail buffer is updated by the draw loop AFTER this effect runs, so the
-// current frame is composited on top of decaying past frames and only then
-// pushed to the ring for the next pass.
-function drawTrailEffect(ctx2d, blobs) {
-  const n = Math.max(0, Math.min(30, P.trailLength | 0));
-  if (n === 0) {
-    TrailBuffer.clear();
-    // Still draw the normal effect on top so the user gets a visible contour.
-    drawBasicEffect(ctx2d, blobs);
-    return;
-  }
-  TrailBuffer.setCapacity(n);
-  // Blend older frames first (they sit at the bottom).
-  TrailBuffer.draw(ctx2d, 0.5);
-  // Then the live effect on top.
-  drawBasicEffect(ctx2d, blobs);
-}
-
 const EFFECTS = [
   { id: "Basic",    label: "Basic",    group: "shape", draw: drawBasicEffect },
   { id: "Cross",    label: "Cross",    group: "shape", draw: drawCrossEffect },
@@ -2598,7 +2484,6 @@ const EFFECTS = [
   { id: "Backdrop", label: "Backdrop", group: "style", draw: drawBackdropEffect },
   { id: "Outline",  label: "Outline",  group: "shape", draw: drawOutlineEffect },
   { id: "Label",    label: "Label",    group: "info",  draw: drawLabelEffect },
-  { id: "Trail",    label: "Trail",    group: "fx",    draw: drawTrailEffect },
 ];
 const EFFECTS_BY_ID = Object.fromEntries(EFFECTS.map(e => [e.id, e]));
 
@@ -2688,12 +2573,6 @@ function drawLoop(){
   drawLinesLayer(ctx,blobs);
   drawCentroidDots(ctx,blobs);
   drawLabelsLayer(ctx,blobs);
-
-  // Push the composited frame to the trail buffer AFTER all layers so the
-  // ring stores a complete image (video + contours + labels).
-  if (P.trailLength > 0 && P.selectedEffect === "Trail") {
-    TrailBuffer.push(canvas);
-  }
 
   Telemetry.record(blobs.length);
   Telemetry.render();

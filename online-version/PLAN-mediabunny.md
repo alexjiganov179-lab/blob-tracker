@@ -1,8 +1,8 @@
 # Mediabunny Integration Status and Verification Plan
 
-Status: **audio fix implemented and verified. Not yet accepted for release.**
+Status: **Mediabunny export verified for the current Chrome online test suite. Not yet accepted for public release.**
 
-Audit date: 22 June 2026 (audio fix re-verified 23 June 2026). Inventory: 23 June 2026.
+Audit date: 22 June 2026 (audio fix re-verified 23 June 2026). Inventory: 23 June 2026. Documentation refreshed 03 July 2026.
 
 This section is the current source of truth for Mediabunny. The original
 integration proposal remains below as historical reference; its code snippets,
@@ -20,6 +20,11 @@ acceptance evidence.
 - Export dimensions are taken from the loaded source video's original width and
   height. The online interface no longer exposes Preview / 1080p / 9:16 size
   presets.
+- Playback controls and current-frame probe are part of the preview workflow.
+- Switching from source FPS to 30 or 60 FPS requires an in-app confirmation and
+  starts a full re-detect pass.
+- The legacy WebCodecs MP4 fallback retries as WebM if Chrome reclaims the H.264
+  encoder due to inactivity during a slow frame-by-frame export.
 - The full output is currently accumulated in memory before download.
 
 ## Reproduction used for this audit
@@ -114,27 +119,25 @@ assertion: "Audio track present (Opus), duration 2.060s, full decode").
 
 ## Readiness decision
 
-Mediabunny is **partially ready**. Video-only export works. Audio export
-with AAC → AAC (MP4) has been fixed and passes automated verification.
+Mediabunny is **ready for continued internal testing in Chrome**. MP4 and WebM
+export work with and without audio in the current automated online suite.
 
 **Release blockers still open:**
-- WebM export with audio is not yet automatically verified
-- Full browser matrix not tested (Edge, Firefox, Safari)
-- Large / long-duration input boundary not tested (1 min, 4K, 500 MB)
-- ✅ Apolotary inventory created (`APOLOTARY-INVENTORY.md`) — 48 items catalogued (16 detectors, 15 visualizers, 13 postfx, 4 audio features). 9 already done, 3 partial, 32 not started, 4 wontport.
-- Apolotary effect porting not started
+- Full browser matrix not tested (Edge, Firefox, Safari).
+- Large / long-duration input boundary not tested (1 min, 4K, 500 MB).
+- Audio/video sync is verified indirectly by duration and decode checks, but not
+  by a dedicated sync analysis.
+- Author visual QA and explicit publication approval are still required.
 
-The existing repository smoke tests (`tests/js/`) open the root `index.html`
-and assert the old `mp4-muxer`, `MediaRecorder`, `pickH264Codec`, and
-`pickWebmMime` paths. These do not cover `online-version`. The new
-`tests/js/audio-export-check.mjs` is the first test that exercises the
-actual Mediabunny integration.
+The root `index.html` remains a legacy single-file version. Current online-version
+tests live in `tests/js/run-online-tests.mjs`; older ad-hoc checks should not be
+used as acceptance evidence for `online-version`.
 
 ## Required work before acceptance
 
 ### ✅ P0 — repair audio timing and cleanup (DONE)
 
-Fixed in `online-version/index.html`:
+Fixed in `online-version/export.js` / `online-version/app.js`:
 - ✅ Negative audio timestamps normalized via `getFirstTimestamp()` + `timeOffset`
 - ✅ Shared timeline origin for video and audio
 - ✅ Every `AudioSample` closed in `finally` block
@@ -151,13 +154,14 @@ Full 7-scenario suite in `tests/js/run-online-tests.mjs`:
 
 | Fixture | Status | Test |
 |---|---|---|
-| H.264 + AAC → MP4 | ✅ done | scenario 1 (8 assertions) |
-| H.264 + AAC → WebM | ✅ done | scenario 2 (8 assertions) |
-| video-only → MP4 | ✅ done | scenario 3 (7 assertions) |
-| video-only → WebM | ✅ done | scenario 4 (7 assertions) |
-| Vertical 9:16 → MP4 1080p | ✅ done | scenario 5 (8 assertions) |
-| 60 FPS → Source FPS | ✅ done | scenario 6 (7 assertions) |
-| Cancel long export | ✅ done | scenario 7 (5 assertions) |
+| H.264 + AAC → MP4 | ✅ done | scenario 1 |
+| H.264 + AAC → WebM | ✅ done | scenario 2 |
+| video-only → MP4 | ✅ done | scenario 3 |
+| video-only → WebM | ✅ done | scenario 4 |
+| Vertical source size → MP4 | ✅ done | scenario 5 |
+| 60 FPS → Source FPS | ✅ done | scenario 6 |
+| Cancel long export | ✅ done | scenario 7 |
+| Playback controls + current-frame probe | ✅ done | covered inside standard export flows |
 | Source with Opus audio | ❌ still missing | needs fixture and test coverage |
 
 Every successful output check must verify:
@@ -172,7 +176,7 @@ Every successful output check must verify:
 
 ### P1 — memory and long-input behavior
 
-- Measure Preview, 1080p, 9:16, and 4K output.
+- Measure source-size output at common source resolutions, including 1080p and 4K.
 - Test the one-minute and 500 MB product targets.
 - Record peak memory and export time.
 - Decide whether `BufferTarget` is safe for the supported envelope.
@@ -182,7 +186,7 @@ Every successful output check must verify:
 ### P1 — browser matrix and interface truth
 
 - Run the same export fixtures in Chrome, Edge, Firefox, and Safari.
-- Update UI tooltips that still describe the removed MediaRecorder path.
+- Keep UI tooltips aligned with source-size export and fallback behavior.
 - Show actionable messages for missing codecs, CDN failure, audio failure,
   memory failure, and unsupported inputs.
 
@@ -196,7 +200,7 @@ Mediabunny may be marked ready only when all of the following are true:
 4. No `AudioSample` leak warning or unhandled rejection appears — ✅ **all 7 scenarios: 0 leaks**
 5. Output files pass metadata inspection and full decoding — ✅ **all 7 scenarios: ffprobe + ffmpeg decode pass**
 6. The supported size/duration/browser matrix is documented from actual runs — ❌
-7. `SPEC.md` and `README.md` match the verified result — ✅ **updated 24 June 2026**
+7. `SPEC.md` and `README.md` match the verified result — ✅ **updated 03 July 2026**
 
 ---
 
@@ -670,15 +674,15 @@ Phase 0 ──→ Phase 1 ──→ Phase 2 ──→ Phase 3 ──→ Phase 4 
 
 1. **Branch:** `git checkout -b feat/mediabunny-integration`
 2. **Phase 0:** Add `importmap`, expose `window.MediaCodecs`, verify load
-3. **Phase 1:** Rewrite `runWebCodecsExport()` → `runMediabunnyExport()`. Remove `mp4-muxer` import. Test MP4 at all 3 sizes.
+3. **Phase 1:** Rewrite `runWebCodecsExport()` → `runMediabunnyExport()`. Remove `mp4-muxer` import. Test MP4 at source size.
 4. **Phase 2:** Rewrite `runWebMExport()` → `runMediabunnyWebMExport()`. Remove MediaRecorder path. Test in Firefox.
 5. **Phase 3:** Replace `pickH264Codec()`/`pickWebmMime()` with `getFirstEncodableVideoCodec()`.
 6. **Phase 4:** Add audio passthrough (Conversion API preferred). Test exported files have audio.
 7. **Phase 5 (optional):** Add StreamTarget for large files.
 8. **Phase 6 (optional):** Rewrite detection loop with `VideoSampleSink`.
 9. **Test:**
-   - MP4 export: Preview, 1080p, 9:16 — all produce valid, playable files
-   - WebM export: same sizes in Firefox/Safari
+   - MP4 export: source-size output produces valid, playable files
+   - WebM export: source-size output in Firefox/Safari
    - Audio: exported files have source audio
    - Cancel: export stops mid-way without leaving broken state
    - Progress bar: shows accurate percentage

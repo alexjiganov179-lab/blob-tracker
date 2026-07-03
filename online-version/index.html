@@ -124,27 +124,16 @@
           <button type="button" data-size="small" data-i18n="small" data-i18n-title="smallTitle" title="Small objects only">Small</button>
           <button type="button" data-size="medium" class="active" data-i18n="medium">Medium</button>
           <button type="button" data-size="large" data-i18n="large">Large</button>
-          <button type="button" data-size="custom" data-i18n="custom">Custom</button>
         </div>
       </div>
 
       <div class="card panel-section" data-panel-section="quick">
-        <div class="card-label" data-i18n="detector">Detector</div>
+        <div class="card-label"><span data-i18n="detector">Detector</span><span class="tip" id="tip-detector" role="button" tabindex="0" aria-label="Help: Detector" data-i18n-aria="tipDetectorAria">?</span></div>
         <div class="seg" id="detector-mode">
           <button type="button" data-val="edge" class="active" data-i18n="edge">Edge</button>
           <button type="button" data-val="motion" data-i18n="motion">Motion</button>
           <button type="button" data-val="hsv">HSV</button>
           <button type="button" data-val="area" data-i18n="area">Area</button>
-        </div>
-      </div>
-
-      <div class="card panel-section" data-panel-section="quick">
-        <div class="card-label" data-i18n="videoSpeed">Video Speed</div>
-        <div class="seg" id="video-speed">
-          <button type="button" data-val="0.5">0.5×</button>
-          <button type="button" data-val="1" class="active">1×</button>
-          <button type="button" data-val="2">2×</button>
-          <button type="button" data-val="4">4×</button>
         </div>
       </div>
 
@@ -165,7 +154,6 @@
           <button type="button" class="gbtn" data-val="Glow" data-i18n="effectGlow">Glow</button>
           <button type="button" class="gbtn" data-val="Backdrop"><span data-i18n="effectBackdrop">Backdrop</span><span class="dot"></span></button>
           <button type="button" class="gbtn" data-val="Outline" data-i18n="effectOutline">Outline</button>
-          <button type="button" class="gbtn" data-val="Trail" data-i18n="effectTrail">Trail</button>
           <button type="button" class="gbtn" data-val="Emojis" data-i18n="effectEmojis">Emojis</button>
           <button type="button" class="gbtn" data-val="Silhouette" data-i18n="effectSilhouette">Silhouette</button>
           <button type="button" class="gbtn" data-val="CCTV-Zoom">CCTV</button>
@@ -174,11 +162,6 @@
           <button type="button" class="gbtn" data-val="Heatmap" data-i18n="effectHeatmap">Heatmap</button>
           <button type="button" class="gbtn" data-val="Voronoi">Voronoi</button>
           <button type="button" class="gbtn" data-val="ConvexHull" data-i18n="effectHull">Hull</button>
-        </div>
-        <div class="srow" style="margin-top:8px">
-          <span style="font-size:10px;color:#444;min-width:34px" data-i18n="trail">Trail</span>
-          <input type="range" id="trail-length" min="0" max="30" step="1" value="0"/>
-          <span class="sv" id="trail-length-val">0</span>
         </div>
       </div>
 
