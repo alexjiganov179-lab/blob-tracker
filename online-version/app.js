@@ -95,6 +95,12 @@ const I18N = {
     sourceFpsEmpty: "Source FPS: -",
     sourceFpsValue: "Source FPS: {fps}",
     sourceFpsExport: "Source FPS: {fps} -> Export: {exportFps} fps",
+    outputFpsConfirm: "Your current FPS is {current}. Do you want to {direction} it to {target} FPS? This will take some time and start re-processing.",
+    outputFpsIncrease: "increase",
+    outputFpsDecrease: "decrease",
+    fpsConfirmTitle: "Confirm FPS change",
+    confirm: "Confirm",
+    cancel: "Cancel",
     fileTooLarge: "File is too large (max 500 MB).",
     unrecognizedFile: "Unrecognized file type. Try opening anyway?",
     unsupportedVideo: "Unsupported video format. Please use MP4, WebM, or MOV.",
@@ -108,6 +114,10 @@ const I18N = {
     loadingVideo: "Loading video...",
     detectingFps: "Detecting source frame rate...",
     redetecting: "Re-detecting...",
+    probingFrame: "Probing current frame...",
+    probeReady: "Current frame preview: {count} blobs",
+    probeSkippedMotion: "Motion detector needs full Re-detect",
+    probeUnavailable: "Pause playback to preview detection changes",
     errorPrefix: "Error: ",
     resetTitle: "Reset to default",
     colorAria: "Color: {color}",
@@ -221,6 +231,12 @@ const I18N = {
     sourceFpsEmpty: "FPS источника: -",
     sourceFpsValue: "FPS источника: {fps}",
     sourceFpsExport: "FPS источника: {fps} -> экспорт: {exportFps} fps",
+    outputFpsConfirm: "Текущий FPS: {current}. Хотите {direction} его до {target} FPS? Это займет время и запустит повторную обработку.",
+    outputFpsIncrease: "увеличить",
+    outputFpsDecrease: "уменьшить",
+    fpsConfirmTitle: "Подтвердите смену FPS",
+    confirm: "Подтвердить",
+    cancel: "Отмена",
     fileTooLarge: "Файл слишком большой (максимум 500 МБ).",
     unrecognizedFile: "Тип файла не распознан. Все равно попробовать открыть?",
     unsupportedVideo: "Формат видео не поддерживается. Используйте MP4, WebM или MOV.",
@@ -234,6 +250,10 @@ const I18N = {
     loadingVideo: "Загружаем видео...",
     detectingFps: "Определяем частоту кадров...",
     redetecting: "Повторная детекция...",
+    probingFrame: "Пробуем текущий кадр...",
+    probeReady: "Превью текущего кадра: {count} объектов",
+    probeSkippedMotion: "Детектор движения требует полного Re-detect",
+    probeUnavailable: "Поставьте видео на паузу для превью детекции",
     errorPrefix: "Ошибка: ",
     resetTitle: "Сбросить к значению по умолчанию",
     colorAria: "Цвет: {color}",
@@ -596,8 +616,19 @@ const exportOverlay = document.getElementById("export-overlay");
 const exportBtn = document.getElementById("export-btn");
 const redetectBtn = document.getElementById("redetect-btn");
 const exportStatus = document.getElementById("export-status");
+const probeStatus = document.getElementById("probe-status");
+const playbackControls = document.getElementById("playback-controls");
+const playToggle = document.getElementById("play-toggle");
+const timeline = document.getElementById("timeline");
+const timeReadout = document.getElementById("time-readout");
 const exportCanvas = document.createElement("canvas");
 const exportCtx = exportCanvas.getContext("2d", { willReadFrequently: true });
+
+let timelineDragging = false;
+let currentFrameProbe = null;
+let liveProbeTimer = null;
+let liveProbeRunId = 0;
+let pendingProbeOnPause = false;
 
 // ============================
 // CANCEL BUTTONS
@@ -655,6 +686,7 @@ function getLogText() {
   out += "cvReady: " + cvReady + "\n\n";
   for (const e of logBuffer) {
     out += `[${e.t}] [${e.tag}] ${e.msg}`;
+    if (e.error) out += " | error: " + e.error;
     if (e.params) out += " | params: " + JSON.stringify(e.params);
     out += "\n";
   }
@@ -752,6 +784,73 @@ function setupSeg(container, stateKey, parse) {
       el.querySelectorAll("button").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       P[stateKey] = next;
+      handleParamChanged(stateKey);
+    });
+  });
+}
+
+function showAppConfirm(message) {
+  const dialog = document.getElementById("fps-confirm");
+  const messageEl = document.getElementById("fps-confirm-message");
+  const confirmBtn = dialog?.querySelector("[data-dialog-confirm]");
+  const cancelEls = dialog?.querySelectorAll("[data-dialog-cancel]");
+  if (!dialog || !messageEl || !confirmBtn || !cancelEls) return Promise.resolve(confirm(message));
+
+  messageEl.textContent = message;
+  dialog.hidden = false;
+  dialog.setAttribute("aria-hidden", "false");
+  confirmBtn.focus();
+
+  return new Promise(resolve => {
+    const close = (result) => {
+      dialog.hidden = true;
+      dialog.setAttribute("aria-hidden", "true");
+      confirmBtn.removeEventListener("click", onConfirm);
+      cancelEls.forEach(el => el.removeEventListener("click", onCancel));
+      document.removeEventListener("keydown", onKeydown);
+      resolve(result);
+    };
+    const onConfirm = () => close(true);
+    const onCancel = () => close(false);
+    const onKeydown = (e) => {
+      if (e.key === "Escape") close(false);
+      if (e.key === "Enter") close(true);
+    };
+    confirmBtn.addEventListener("click", onConfirm);
+    cancelEls.forEach(el => el.addEventListener("click", onCancel));
+    document.addEventListener("keydown", onKeydown);
+  });
+}
+
+function setupOutputFpsControls() {
+  const el = document.getElementById("output-fps");
+  if (!el) return;
+  el.querySelectorAll("button").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const next = String(btn.dataset.val);
+      if (P.outputFps === next) return;
+      const targetFps = Number(next);
+      const currentFps = sourceFps || getEffectiveFps();
+      if (currentVideoURL && Number.isFinite(targetFps) && Number.isFinite(currentFps) && Math.abs(currentFps - targetFps) > 0.01) {
+        const direction = targetFps > currentFps ? t("outputFpsIncrease") : t("outputFpsDecrease");
+        const confirmed = await showAppConfirm(t("outputFpsConfirm", {
+          current: currentFps.toFixed(2),
+          target: targetFps,
+          direction,
+        }));
+        if (!confirmed) return;
+      }
+      History.commit();
+      el.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      P.outputFps = next;
+      handleParamChanged("outputFps");
+      if (currentVideoURL && !isProcessing) {
+        log("detect", "Output FPS changed, re-detecting", { newFps: P.outputFps, effectiveFps: getEffectiveFps() });
+        reDetect();
+      }
+      Telemetry.setTargetFps(getEffectiveFps());
+      updateOutputFpsInfo();
     });
   });
 }
@@ -767,6 +866,7 @@ function setupIconRow(container, stateKey) {
       el.querySelectorAll("button").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       P[stateKey] = next;
+      handleParamChanged(stateKey);
     });
   });
 }
@@ -782,6 +882,7 @@ function setupGrid(container, stateKey) {
       el.querySelectorAll("button").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       P[stateKey] = next;
+      handleParamChanged(stateKey);
     });
   });
 }
@@ -793,6 +894,7 @@ function setupToggle(id, stateKey) {
     if (P[stateKey] === el.checked) return;
     History.commit();
     P[stateKey] = el.checked;
+    handleParamChanged(stateKey);
   });
 }
 
@@ -811,6 +913,7 @@ function syncControlsFromP() {
     ["basic-effects", "selectedEffect", "val", String],
     ["sensitivity-preset", "_sensitivity", "preset", String],
     ["object-size-preset", "_objectSize", "size", String],
+    ["detector-mode", "detector", "val", String],
     ["color-channel", "colorChannel", "val", parseInt],
     ["output-fps", "outputFps", "val", String],
     ["output-codec", "outputCodec", "val", String],
@@ -907,6 +1010,7 @@ function setupSlider(id, stateKey, valId, format) {
     History.commit();
     P[stateKey] = v;
     if (ve) ve.textContent = fmt(v);
+    handleParamChanged(stateKey);
   });
 }
 
@@ -930,6 +1034,7 @@ function buildPalette() {
       P.contourColor = c;
       el.querySelectorAll(".cs").forEach(s => s.classList.remove("active"));
       sw.classList.add("active");
+      handleParamChanged("contourColor");
     });
     sw.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === " ") { e.preventDefault(); sw.click(); }
@@ -961,6 +1066,7 @@ function setupPresetRow(container, dataKey, onSelect) {
       el.querySelectorAll("button").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       onSelect(btn.dataset[dataKey]);
+      handlePresetChanged(container);
     });
   });
 }
@@ -1001,21 +1107,12 @@ function setupControls() {
   setupSeg("grouping-mode", "groupingMode", String);
   setupIconRow("connection-style", "connectionStyle");
   setupGrid("basic-effects", "selectedEffect");
+  setupSeg("detector-mode", "detector", String);
   setupToggle("text-enabled", "textEnabled");
   setupToggle("centroid-enabled", "centroidEnabled");
   setupToggle("gpu-toggle", "useGPU");
   setupSeg("color-channel", "colorChannel", parseInt);
-  setupSeg("output-fps", "outputFps", String);
-  document.querySelectorAll("#output-fps button").forEach(b => {
-    b.addEventListener("click", () => {
-      if (currentVideoURL && !isProcessing) {
-        log("detect", "Output FPS changed, re-detecting", { newFps: P.outputFps, effectiveFps: getEffectiveFps() });
-        reDetect();
-      }
-      Telemetry.setTargetFps(getEffectiveFps());
-      updateOutputFpsInfo();
-    });
-  });
+  setupOutputFpsControls();
   setupSeg("output-codec", "outputCodec", String);
 
   setupSlider("stroke-width", "strokeWidth", "stroke-width-val", v => v+"px");
@@ -1065,6 +1162,8 @@ function setupControls() {
     document.getElementById("gpu-toggle").checked = true;
     if (typeof TrailBuffer !== "undefined") TrailBuffer.clear();
     buildPalette();
+    clearCurrentFrameProbe();
+    scheduleCurrentFrameProbe();
     log("params", "Reset to defaults");
   });
 
@@ -1166,6 +1265,7 @@ function recoverFromFatal(msg) {
   if (progressLabel) progressLabel.textContent = t("errorPrefix") + msg;
   if (dropZone) dropZone.classList.remove("hidden");
   if (canvasWrap) canvasWrap.style.display = "none";
+  hidePlaybackControls();
 }
 
 window.addEventListener("unhandledrejection", (ev) => {
@@ -1254,6 +1354,218 @@ function interpolateBlobs(prev, next, time) {
 }
 
 function getContourPts(b) { return b.pts || []; }
+
+// ============================
+// PLAYBACK + CURRENT FRAME PREVIEW
+// ============================
+const DETECTION_PARAM_KEYS = new Set([
+  "detector", "colorChannel", "useGPU",
+  "cannyLow", "cannyHigh", "blurKernel",
+  "blobMin", "blobMax",
+  "groupingMode", "mergeKernel", "mergeIterations",
+]);
+
+function formatTime(seconds) {
+  if (!Number.isFinite(seconds) || seconds < 0) seconds = 0;
+  const total = Math.floor(seconds);
+  const mins = Math.floor(total / 60);
+  const secs = total % 60;
+  return String(mins).padStart(2, "0") + ":" + String(secs).padStart(2, "0");
+}
+
+function setProbeStatus(text, visible = true) {
+  if (!probeStatus) return;
+  probeStatus.textContent = text || "";
+  probeStatus.classList.toggle("visible", !!visible && !!text);
+}
+
+function clearCurrentFrameProbe() {
+  currentFrameProbe = null;
+  setProbeStatus("", false);
+}
+
+function showPlaybackControls() {
+  if (playbackControls) playbackControls.classList.add("visible");
+  updatePlaybackUi();
+}
+
+function hidePlaybackControls() {
+  if (playbackControls) playbackControls.classList.remove("visible");
+  pendingProbeOnPause = false;
+  clearCurrentFrameProbe();
+}
+
+function updatePlaybackUi() {
+  if (!video || !timeline || !timeReadout || !playToggle) return;
+  const dur = Number.isFinite(video.duration) ? video.duration : 0;
+  const time = Number.isFinite(video.currentTime) ? video.currentTime : 0;
+  if (!timelineDragging) {
+    timeline.value = dur > 0 ? String(Math.round((time / dur) * 1000)) : "0";
+  }
+  timeReadout.textContent = formatTime(time) + " / " + formatTime(dur);
+  playToggle.textContent = video.paused ? "▶" : "⏸";
+  playToggle.title = video.paused ? "Play" : "Pause";
+  playToggle.setAttribute("aria-label", playToggle.title);
+}
+
+function getCurrentPreviewBlobs(time) {
+  if (currentFrameProbe && video.paused) {
+    const tolerance = Math.max(0.08, 1 / Math.max(1, getEffectiveFps()));
+    if (Math.abs(currentFrameProbe.time - time) <= tolerance) return currentFrameProbe.blobs;
+  }
+  const { prev, next } = findBracketingFrames(time);
+  return interpolateBlobs(prev, next, time);
+}
+
+function renderCurrentFrame(options = {}) {
+  if (!video || video.readyState < 2 || !canvas.width || !canvas.height) return [];
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const time = video.currentTime || 0;
+  const blobs = getCurrentPreviewBlobs(time);
+
+  drawEffectLayer(ctx, blobs);
+  drawLinesLayer(ctx, blobs);
+  drawCentroidDots(ctx, blobs);
+  drawLabelsLayer(ctx, blobs);
+
+  if (options.updateTrail && P.trailLength > 0 && P.selectedEffect === "Trail") {
+    TrailBuffer.push(canvas);
+  }
+
+  drawPostFx(ctx, canvas.width, canvas.height);
+
+  if (options.recordTelemetry) {
+    Telemetry.record(blobs.length);
+    Telemetry.render();
+  }
+  updatePlaybackUi();
+  return blobs;
+}
+
+window.renderCurrentFrame = renderCurrentFrame;
+
+function renderPausedFrameSoon() {
+  if (isProcessing || isExporting || !currentVideoURL) return;
+  requestAnimationFrame(() => {
+    if (!isProcessing && !isExporting && video.readyState >= 2) renderCurrentFrame();
+  });
+}
+
+function handlePresetChanged(container) {
+  if (container === "sensitivity-preset" || container === "object-size-preset") {
+    scheduleCurrentFrameProbe();
+  }
+}
+
+function handleParamChanged(stateKey) {
+  if (stateKey === "playbackSpeed" && video) video.playbackRate = P.playbackSpeed;
+  if (stateKey === "outputFps" || stateKey === "outputCodec") return;
+  if (!currentVideoURL || isProcessing || isExporting) return;
+  if (DETECTION_PARAM_KEYS.has(stateKey)) {
+    scheduleCurrentFrameProbe();
+    return;
+  }
+  renderPausedFrameSoon();
+}
+
+function scheduleCurrentFrameProbe() {
+  if (!currentVideoURL || isProcessing || isExporting) return;
+  if (liveProbeTimer) clearTimeout(liveProbeTimer);
+  clearCurrentFrameProbe();
+  if (!video.paused) {
+    pendingProbeOnPause = true;
+    setProbeStatus(t("probeUnavailable"), true);
+    return;
+  }
+  pendingProbeOnPause = false;
+  if (P.detector === "motion") {
+    setProbeStatus(t("probeSkippedMotion"), true);
+    renderPausedFrameSoon();
+    return;
+  }
+  setProbeStatus(t("probingFrame"), true);
+  liveProbeTimer = setTimeout(runCurrentFrameProbe, 180);
+}
+
+function runCurrentFrameProbe() {
+  liveProbeTimer = null;
+  const runId = ++liveProbeRunId;
+  if (!cvReady || !currentVideoURL || isProcessing || isExporting || !video.paused || video.readyState < 2) return;
+  if (P.detector === "motion") {
+    setProbeStatus(t("probeSkippedMotion"), true);
+    return;
+  }
+  let mat = null;
+  try {
+    tempCtx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    mat = cv.imread(tempCanvas);
+    const cts = detectContours(mat);
+    if (runId !== liveProbeRunId) return;
+    const tracker = new CentroidTracker(Math.hypot(canvas.width, canvas.height));
+    const blobs = tracker.update(cts).map(b => ({ ...b }));
+    currentFrameProbe = { time: video.currentTime || 0, blobs };
+    renderCurrentFrame();
+    setProbeStatus(t("probeReady", { count: blobs.length }), true);
+    log("detect", "Current-frame probe complete", { time: currentFrameProbe.time, blobs: blobs.length, detector: P.detector });
+  } catch (e) {
+    setProbeStatus("Probe failed: " + e.message, true);
+    log("detect", "Current-frame probe failed", { error: e.message });
+  } finally {
+    if (mat) mat.delete();
+  }
+}
+
+function setupPlaybackControls() {
+  if (!playToggle || !timeline) return;
+  playToggle.addEventListener("click", async () => {
+    if (!currentVideoURL || isProcessing || isExporting) return;
+    if (video.paused) {
+      clearCurrentFrameProbe();
+      await video.play().catch(e => log("video", "Play failed", { error: e.message }));
+    } else {
+      video.pause();
+      renderCurrentFrame();
+    }
+    updatePlaybackUi();
+  });
+
+  timeline.addEventListener("input", () => {
+    if (!currentVideoURL || isProcessing || isExporting) return;
+    timelineDragging = true;
+    const dur = Number.isFinite(video.duration) ? video.duration : 0;
+    const nextTime = dur > 0 ? (Number(timeline.value) / 1000) * dur : 0;
+    video.pause();
+    clearCurrentFrameProbe();
+    video.currentTime = Math.min(Math.max(0, nextTime), Math.max(0, dur - 0.001));
+    updatePlaybackUi();
+  });
+
+  timeline.addEventListener("change", () => {
+    timelineDragging = false;
+    renderPausedFrameSoon();
+  });
+
+  video.addEventListener("play", () => {
+    clearCurrentFrameProbe();
+    updatePlaybackUi();
+  });
+  video.addEventListener("pause", () => {
+    updatePlaybackUi();
+    if (pendingProbeOnPause && !isProcessing && !isExporting) {
+      scheduleCurrentFrameProbe();
+      return;
+    }
+    if (!isProcessing && !isExporting) renderPausedFrameSoon();
+  });
+  video.addEventListener("timeupdate", updatePlaybackUi);
+  video.addEventListener("durationchange", updatePlaybackUi);
+  video.addEventListener("seeked", () => {
+    timelineDragging = false;
+    if (!isProcessing && !isExporting && video.paused) renderCurrentFrame();
+    updatePlaybackUi();
+  });
+}
 
 // ============================
 // CENTROID TRACKER
@@ -1537,6 +1849,7 @@ async function startProcessing(videoURL) {
   progressFill.style.width = "0%";
   progressLabel.textContent = t("loadingVideo");
   exportOverlay.classList.remove("visible");
+  hidePlaybackControls();
   Telemetry.hide();
   Telemetry.reset();
   try {
@@ -1559,6 +1872,7 @@ async function startProcessing(videoURL) {
     video.muted = true;
     await seekVideo(video, 0);
     exportOverlay.classList.add("visible");
+    showPlaybackControls();
     video.playbackRate = P.playbackSpeed;
     video.play();
     video.loop = true;
@@ -1574,6 +1888,7 @@ async function startProcessing(videoURL) {
     isProcessing = false;
     progressBar.classList.remove("visible");
     hideCancelDetect();
+    if (currentVideoURL && video.readyState >= 2) showPlaybackControls();
   }
 }
 
@@ -1582,27 +1897,8 @@ async function startProcessing(videoURL) {
 // ============================
 function drawLoop() {
   if (!video || video.readyState < 2) { requestAnimationFrame(drawLoop); return; }
-  if (video.paused && !isExporting) { requestAnimationFrame(drawLoop); return; }
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-  const time = video.currentTime;
-  const { prev, next } = findBracketingFrames(time);
-  const blobs = interpolateBlobs(prev, next, time);
-
-  drawEffectLayer(ctx, blobs);
-  drawLinesLayer(ctx, blobs);
-  drawCentroidDots(ctx, blobs);
-  drawLabelsLayer(ctx, blobs);
-
-  if (P.trailLength > 0 && P.selectedEffect === "Trail") {
-    TrailBuffer.push(canvas);
-  }
-
-  // Run post-FX
-  drawPostFx(ctx, canvas.width, canvas.height);
-
-  Telemetry.record(blobs.length);
-  Telemetry.render();
+  if (video.paused && !isExporting) { updatePlaybackUi(); requestAnimationFrame(drawLoop); return; }
+  renderCurrentFrame({ recordTelemetry: true, updateTrail: true });
 
   requestAnimationFrame(drawLoop);
 }
@@ -1681,6 +1977,7 @@ async function reDetect() {
   log("detect", "Re-detect triggered", { params: { ...P } });
   video.pause();
   video.loop = false;
+  hidePlaybackControls();
   isProcessing = true;
   cancelRequested = false;
   progressBar.classList.add("visible");
@@ -1696,6 +1993,7 @@ async function reDetect() {
     await seekVideo(video, 0);
     exportOverlay.classList.add("visible");
     exportOverlay.style.display = "";
+    showPlaybackControls();
     video.playbackRate = P.playbackSpeed;
     video.play();
     video.loop = true;
@@ -1883,6 +2181,7 @@ function initApp() {
   setupLanguageControls();
   setupPanelTabs();
   setupControls();
+  setupPlaybackControls();
   applyLanguage();
   initGPU();
   Telemetry.el = document.getElementById("telemetry");

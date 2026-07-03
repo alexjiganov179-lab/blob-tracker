@@ -10,7 +10,8 @@ in the browser and is not uploaded to a blob_tracker server.
 
 - Local single-video input with file validation (size ≤500 MB, format check, duration warning)
 - OpenCV.js contour detection
-- Video preview with automatic playback after detection
+- Playback controls: play/pause, timeline scrubbing, and current-frame preview while paused
+- Current-frame detection probe for paused detection tuning before a full Re-detect
 - 24 visual effects (outline, crosshair, corner-ticks, letters, emojis, glyphs, silhouette, CCTV-zoom, spatial-echo, heatmap, Voronoi, convex-hull, trail, glow, backdrop, dash, grid, x-frame, scope, win2k, label, bbox, network, particle)
 - 13 post-FX (mosaic, scanlines, chroma, rgb-shift, luma-lut, thresh-band, ripple, lagfun, feedback, jitter, yuv-split, slit-scan)
 - 11 detector modes (edge, motion-diff, color-hsv, contour-area, simple-blob, circles, DoG, flow, accumulation, K-means, watershed)
@@ -28,9 +29,9 @@ in the browser and is not uploaded to a blob_tracker server.
 ## Export status
 
 Mediabunny 1.49.0 integration is verified. Both MP4 and WebM export work
-with and without audio. Source-size export and post-export playback recovery
-are covered by the current online test scenarios. See `PLAN-mediabunny.md` for
-the broader Mediabunny audit history.
+with and without audio. Source-size export, playback controls, current-frame
+probe, and post-export playback recovery are covered by the current online test
+scenarios. See `PLAN-mediabunny.md` for the broader Mediabunny audit history.
 
 ## Modular refactoring (24 June 2026)
 

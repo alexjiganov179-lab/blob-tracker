@@ -4,7 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Contour VFX Overlay — Blob Tracker</title>
-  <link rel="stylesheet" href="styles.css?v=20260625-ui5" />
+  <link rel="stylesheet" href="styles.css?v=20260626-ui8" />
+  <style>
+    .app-dialog[hidden] { display: none !important; }
+    .app-dialog { position: fixed; inset: 0; z-index: 900; }
+  </style>
   <script type="importmap">
   {
     "imports": {
@@ -25,6 +29,18 @@
 
   <!-- VIEWER -->
   <div id="viewer">
+    <div id="fps-confirm" class="app-dialog" hidden aria-hidden="true">
+      <div class="app-dialog__backdrop" data-dialog-cancel></div>
+      <div class="app-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="fps-confirm-title" aria-describedby="fps-confirm-message">
+        <div class="app-dialog__eyebrow" data-i18n="outputFps">Output FPS</div>
+        <h2 id="fps-confirm-title" data-i18n="fpsConfirmTitle">Confirm FPS change</h2>
+        <p id="fps-confirm-message"></p>
+        <div class="app-dialog__actions">
+          <button type="button" class="app-dialog__button secondary" data-dialog-cancel data-i18n="cancel">Cancel</button>
+          <button type="button" class="app-dialog__button primary" data-dialog-confirm data-i18n="confirm">Confirm</button>
+        </div>
+      </div>
+    </div>
     <main class="stage">
     <div id="drop-zone">
       <div class="drop-mark" aria-hidden="true">▣</div>
@@ -51,6 +67,12 @@
         <button type="button" id="export-btn" title="Export video">⬇ Export</button>
       </div>
       <div class="export-status" id="export-status"></div>
+      <div id="probe-status" aria-live="polite"></div>
+      <div id="playback-controls" aria-label="Playback controls">
+        <button type="button" id="play-toggle" title="Play / pause" aria-label="Play / pause">⏸</button>
+        <input type="range" id="timeline" min="0" max="1000" step="1" value="0" aria-label="Video timeline" />
+        <span id="time-readout">00:00 / 00:00</span>
+      </div>
       <div id="telemetry"></div>
     </div>
     </main>
@@ -465,8 +487,8 @@
   </script>
 
   <!-- SCRIPTS: Application modules loaded after DOM -->
-  <script src="effects.js?v=20260625-ui5"></script>
-  <script src="export.js?v=20260625-ui5"></script>
-  <script src="app.js?v=20260625-ui5"></script>
+  <script src="effects.js?v=20260626-ui8"></script>
+  <script src="export.js?v=20260626-ui8"></script>
+  <script src="app.js?v=20260626-ui8"></script>
 </body>
 </html>

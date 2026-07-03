@@ -39,6 +39,7 @@ async function standardExportFlow(page, port, fixtureName, {
 
   const detectTime = await uploadAndDetect(page, getFixturePath(fixtureName));
   console.log(`     Detection: ${detectTime.toFixed(1)}s`);
+  await verifyPlaybackAndCurrentFrameProbe(page);
 
   if (codec !== 'h264') {
     await setCodec(page, codec);
@@ -69,6 +70,62 @@ async function standardExportFlow(page, port, fixtureName, {
 
   const logs = getPageLogs(page);
   return { ...result, detectTime, logs, postExportState };
+}
+
+async function verifyPlaybackAndCurrentFrameProbe(page) {
+  await page.waitForSelector('#playback-controls.visible', { timeout: 10000 });
+  const controlsVisible = await page.locator('#playback-controls.visible').count();
+  assert(controlsVisible === 1, `Playback controls are visible (${controlsVisible})`);
+
+  await page.click('#play-toggle');
+  await page.waitForFunction(() => video.paused === true, { timeout: 5000 });
+  const pausedState = await page.evaluate(() => ({
+    paused: video.paused,
+    time: video.currentTime,
+    duration: video.duration,
+    button: document.getElementById('play-toggle')?.textContent,
+  }));
+  assert(pausedState.paused, `Play toggle pauses playback (${pausedState.paused})`);
+  assert(pausedState.button === '▶', `Play button switches to play icon (${pausedState.button})`);
+
+  const seekState = await page.evaluate(async () => {
+    const tl = document.getElementById('timeline');
+    tl.value = '500';
+    tl.dispatchEvent(new Event('input', { bubbles: true }));
+    tl.dispatchEvent(new Event('change', { bubbles: true }));
+    await new Promise(resolve => setTimeout(resolve, 600));
+    return {
+      paused: video.paused,
+      time: video.currentTime,
+      duration: video.duration,
+      timeline: tl.value,
+      readout: document.getElementById('time-readout')?.textContent || '',
+    };
+  });
+  assert(seekState.paused, `Timeline scrub keeps video paused (${seekState.paused})`);
+  assert(seekState.duration > 0 && Math.abs(seekState.time - seekState.duration / 2) < 0.35,
+    `Timeline seeks near midpoint (t=${seekState.time.toFixed(3)}, d=${seekState.duration.toFixed(3)})`);
+  assert(seekState.readout.includes('/'), `Time readout updates (${seekState.readout})`);
+
+  const probeState = await page.evaluate(async () => {
+    const slider = document.getElementById('canny-low');
+    slider.value = String(Math.min(255, Number(slider.value) + 5));
+    slider.dispatchEvent(new Event('input', { bubbles: true }));
+    await new Promise(resolve => setTimeout(resolve, 900));
+    const status = document.getElementById('probe-status');
+    return {
+      visible: status?.classList.contains('visible') || false,
+      text: status?.textContent || '',
+      probeCount: currentFrameProbe ? currentFrameProbe.blobs.length : -1,
+    };
+  });
+  assert(probeState.visible, `Current-frame probe status is visible (${probeState.text})`);
+  assert(probeState.text.includes('Current frame preview') || probeState.text.includes('Превью текущего кадра'),
+    `Current-frame probe completes (${probeState.text})`);
+  assert(probeState.probeCount >= 0, `Current-frame probe stores blobs (${probeState.probeCount})`);
+
+  await page.click('#play-toggle');
+  await page.waitForFunction(() => video.paused === false, { timeout: 5000 });
 }
 
 function checkCommon(logs) {
