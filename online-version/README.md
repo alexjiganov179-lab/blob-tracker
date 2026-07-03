@@ -11,10 +11,11 @@ in the browser and is not uploaded to a blob_tracker server.
 - Local single-video input with file validation (size ≤500 MB, format check, duration warning)
 - Explicit detection start: loading a video prepares preview/settings, and analysis starts only after `Start detection`
 - OpenCV.js contour detection
-- Playback controls: play/pause, timeline scrubbing, and current-frame preview while paused
+- Playback controls: play/pause, mute toggle, timeline scrubbing, and current-frame preview while paused. Preview audio is on by default (the source video's sound is no longer muted); the mute toggle is independent of export, which always passes the audio track through when present.
 - Current-frame detection probe for paused detection tuning before a full Re-detect
 - Quick Find Objects controls: Sensitivity (Low / Normal / High / Tiny), Object Size (Small / Medium / Large), and Detector (Edge / Motion / HSV / Area)
 - 23 visual effects (outline, crosshair, corner-ticks, letters, emojis, glyphs, silhouette, CCTV-zoom, spatial-echo, heatmap, Voronoi, convex-hull, glow, backdrop, dash, grid, x-frame, scope, win2k, label, bbox, network, particle)
+- Visual styles grouped: the Connection card holds Line Style, Connection Rate, and Stroke Width (no separate Stroke Width card)
 - 13 post-FX (mosaic, scanlines, chroma, rgb-shift, luma-lut, thresh-band, ripple, lagfun, feedback, jitter, yuv-split, slit-scan)
 - 11 detector modes (edge, motion-diff, color-hsv, contour-area, simple-blob, circles, DoG, flow, accumulation, K-means, watershed)
 - Output frame rate: source, 30, or 60 FPS

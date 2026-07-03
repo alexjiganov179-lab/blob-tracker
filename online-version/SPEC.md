@@ -215,7 +215,7 @@
 - [x] Исправлен экспорт аудио в MP4 и WebM (нормализация отрицательных timestamp'ов).
 - [x] Корректное закрытие аудиосэмплов и ресурсов (AudioSample в finally).
 - [x] 7 сценариев: MP4/WebM с аудио и без, вертикальное видео, 60 FPS, отмена,
-  playback controls и current-frame probe.
+  playback controls (play/pause, mute, scrub) и current-frame probe.
 - [ ] Определить безопасную стратегию памяти для крупных файлов (ещё открыто).
 
 ### Этап 2: Apolotary — сделано ✅

@@ -43,6 +43,8 @@ const I18N = {
     lineStyle: "Line Style",
     connectionRate: "Connection Rate",
     strokeWidth: "Stroke Width",
+    mute: "Mute",
+    unmute: "Unmute",
     blobSize: "Blob Size",
     detection: "Detection",
     colorChannel: "Color Channel",
@@ -183,6 +185,8 @@ const I18N = {
     lineStyle: "Тип линий",
     connectionRate: "Плотность связей",
     strokeWidth: "Толщина линии",
+    mute: "Выкл звук",
+    unmute: "Вкл звук",
     blobSize: "Размер blob-объектов",
     detection: "Детекция",
     colorChannel: "Канал цвета",
@@ -636,6 +640,7 @@ const exportStatus = document.getElementById("export-status");
 const probeStatus = document.getElementById("probe-status");
 const playbackControls = document.getElementById("playback-controls");
 const playToggle = document.getElementById("play-toggle");
+const muteToggle = document.getElementById("mute-toggle");
 const timeline = document.getElementById("timeline");
 const timeReadout = document.getElementById("time-readout");
 const exportCanvas = document.createElement("canvas");
@@ -1418,6 +1423,14 @@ function updatePlaybackUi() {
   playToggle.textContent = video.paused ? "▶" : "⏸";
   playToggle.title = video.paused ? "Play" : "Pause";
   playToggle.setAttribute("aria-label", playToggle.title);
+  if (muteToggle) {
+    const muted = !!video.muted;
+    muteToggle.textContent = muted ? "🔇" : "🔊";
+    const key = muted ? "unmute" : "mute";
+    const tx = (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || (muted ? "Unmute" : "Mute");
+    muteToggle.title = tx;
+    muteToggle.setAttribute("aria-label", tx);
+  }
 }
 
 function getCurrentPreviewBlobs(time) {
@@ -1536,6 +1549,16 @@ function setupPlaybackControls() {
     }
     updatePlaybackUi();
   });
+
+  if (muteToggle) {
+    muteToggle.addEventListener("click", () => {
+      if (!currentVideoURL) return;
+      video.muted = !video.muted;
+      updatePlaybackUi();
+    });
+    video.addEventListener("volumechange", updatePlaybackUi);
+    video.muted = false;
+  }
 
   timeline.addEventListener("input", () => {
     if (!currentVideoURL || isProcessing || isExporting) return;
@@ -1930,7 +1953,6 @@ async function startProcessing(videoURL) {
     for (let i = 0; i < all_frame_data.length; i++) all_frame_data[i].time = i / _effFps;
     detectionReady = !cancelRequested && all_frame_data.length > 0;
     updateDetectionActions();
-    video.muted = true;
     await seekVideo(video, 0);
     exportOverlay.classList.add("visible");
     showPlaybackControls();
@@ -2054,7 +2076,6 @@ async function reDetect() {
     for (let i = 0; i < all_frame_data.length; i++) all_frame_data[i].time = i / _effFps;
     detectionReady = !cancelRequested && all_frame_data.length > 0;
     updateDetectionActions();
-    video.muted = true;
     await seekVideo(video, 0);
     exportOverlay.classList.add("visible");
     exportOverlay.style.display = "";

@@ -138,6 +138,12 @@ canvas { display: block; max-height: 94vh; max-width: 100%; border-radius: 4px; 
 }
 #play-toggle:hover { border-color: #f3ac03; color: #fff; }
 #play-toggle:disabled { color: #555; border-color: #222; cursor: not-allowed; }
+#mute-toggle {
+  width: 34px; height: 26px; border: 1px solid #333; border-radius: 6px;
+  background: #1a1a24; color: #d0d0d0; font-size: 13px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+#mute-toggle:hover { border-color: #f3ac03; color: #fff; }
 #timeline { flex: 1; min-width: 120px; accent-color: #f3ac03; height: 4px; }
 #time-readout {
   width: 86px; color: #aaa; font: 10px/1 ui-monospace, Menlo, monospace;
