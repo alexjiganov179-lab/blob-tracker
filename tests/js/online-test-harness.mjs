@@ -396,20 +396,27 @@ export async function openApp(page, serverPort) {
 }
 
 /**
- * Upload a video file, wait for detection to complete.
+ * Upload a video file, explicitly start detection, and wait for completion.
  * Returns time taken in seconds.
  */
 export async function uploadAndDetect(page, filePath) {
   const t0 = Date.now();
 
   await page.setInputFiles('#file-input', filePath);
-  // Wait for the change handler to fire and detection to start
-  await page.waitForTimeout(300);
-
-  // Wait for detection to complete (export overlay becomes visible)
+  // Wait for the change handler to load the video and expose the explicit start action.
   await page.waitForFunction(() => {
     const overlay = document.getElementById('export-overlay');
-    return overlay && overlay.classList.contains('visible');
+    const startBtn = document.getElementById('redetect-btn');
+    return overlay && overlay.classList.contains('visible') && startBtn && !startBtn.disabled;
+  }, { timeout: 30000, polling: 250 });
+
+  await page.click('#redetect-btn');
+
+  // Wait for detection to complete (export becomes enabled).
+  await page.waitForFunction(() => {
+    const overlay = document.getElementById('export-overlay');
+    const exportBtn = document.getElementById('export-btn');
+    return overlay && overlay.classList.contains('visible') && exportBtn && !exportBtn.disabled;
   }, { timeout: 120000, polling: 1000 });
 
   await page.waitForTimeout(300);

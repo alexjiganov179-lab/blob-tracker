@@ -9,6 +9,7 @@ in the browser and is not uploaded to a blob_tracker server.
 ## Current capabilities
 
 - Local single-video input with file validation (size ≤500 MB, format check, duration warning)
+- Explicit detection start: loading a video prepares preview/settings, and analysis starts only after `Start detection`
 - OpenCV.js contour detection
 - Playback controls: play/pause, timeline scrubbing, and current-frame preview while paused
 - Current-frame detection probe for paused detection tuning before a full Re-detect
@@ -48,6 +49,11 @@ into a modular architecture:
 
 Export is not a pixel-for-pixel copy of the source. The app redraws the source
 video and selected effects to a Canvas and re-encodes the result.
+
+Loading or dropping a video does not start blob detection. It prepares the
+preview and exposes detection/style controls. The first analysis starts only
+when the user clicks `Start detection`; after a successful pass the same action
+becomes `Re-detect`.
 
 The user can select:
 

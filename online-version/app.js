@@ -9,6 +9,7 @@ let cancelRequested = false;
 let isExporting = false;
 let currentVideoURL = null;
 let currentVideoName = null;
+let detectionReady = false;
 
 const PROCESSING_FPS_DEFAULT = 30;
 let sourceFps = null;
@@ -29,8 +30,10 @@ const I18N = {
     tabExport: "Export",
     quickStart: "Quick Start",
     guideUpload: "Upload a video or drop it onto the stage.",
-    guideFind: "Choose how sensitive object detection should be.",
-    guideExport: "Pick a visual style and export the tracked video.",
+    guideFind: "Choose detection sensitivity and object size.",
+    guideStyle: "Pick a visual style.",
+    guideDetect: "Click Start detection when settings are ready.",
+    guideExport: "Review and export the tracked video.",
     findObjects: "Find Objects",
     sensitivity: "Sensitivity",
     objectSize: "Object Size",
@@ -91,6 +94,10 @@ const I18N = {
     resetDefaults: "Reset to defaults",
     copyDebugLog: "Copy debug log",
     copied: "Copied",
+    startDetection: "Start detection",
+    startDetectionTitle: "Start blob detection with current settings",
+    redetect: "Re-detect",
+    redetectTitle: "Re-run blob detection with current settings",
     sourceFpsLoading: "Source FPS: - (loading...)",
     sourceFpsEmpty: "Source FPS: -",
     sourceFpsValue: "Source FPS: {fps}",
@@ -165,8 +172,10 @@ const I18N = {
     tabExport: "Экспорт",
     quickStart: "Быстрый старт",
     guideUpload: "Загрузите видео или перетащите его на рабочее поле.",
-    guideFind: "Выберите чувствительность поиска объектов.",
-    guideExport: "Настройте стиль и экспортируйте видео с трекингом.",
+    guideFind: "Выберите чувствительность и размер объектов.",
+    guideStyle: "Выберите визуальный стиль.",
+    guideDetect: "Нажмите «Запустить детекцию», когда настройки готовы.",
+    guideExport: "Проверьте результат и экспортируйте видео.",
     findObjects: "Поиск объектов",
     sensitivity: "Чувствительность",
     objectSize: "Размер объектов",
@@ -227,6 +236,10 @@ const I18N = {
     resetDefaults: "Сбросить настройки",
     copyDebugLog: "Скопировать лог",
     copied: "Скопировано",
+    startDetection: "Запустить детекцию",
+    startDetectionTitle: "Запустить детекцию с текущими настройками",
+    redetect: "Re-detect",
+    redetectTitle: "Повторить детекцию с текущими настройками",
     sourceFpsLoading: "FPS источника: - (определяем...)",
     sourceFpsEmpty: "FPS источника: -",
     sourceFpsValue: "FPS источника: {fps}",
@@ -328,6 +341,17 @@ function applyLanguage() {
     if (color) sw.setAttribute("aria-label", t("colorAria", { color }));
   });
   updateOutputFpsInfo();
+  updateDetectionActions();
+}
+
+function updateDetectionActions() {
+  if (redetectBtn) {
+    const key = detectionReady ? "redetect" : "startDetection";
+    const titleKey = detectionReady ? "redetectTitle" : "startDetectionTitle";
+    redetectBtn.textContent = t(key);
+    redetectBtn.title = t(titleKey);
+  }
+  if (exportBtn) exportBtn.disabled = !detectionReady;
 }
 
 function setupLanguageControls() {
@@ -845,7 +869,7 @@ function setupOutputFpsControls() {
       btn.classList.add("active");
       P.outputFps = next;
       handleParamChanged("outputFps");
-      if (currentVideoURL && !isProcessing) {
+      if (detectionReady && currentVideoURL && !isProcessing) {
         log("detect", "Output FPS changed, re-detecting", { newFps: P.outputFps, effectiveFps: getEffectiveFps() });
         reDetect();
       }
@@ -1216,7 +1240,7 @@ function loadFile(file) {
   if (file.type === "video/mp4" || file.type === "video/webm" || file.type === "video/quicktime" || !file.type) {
     currentVideoName = file.name;
     currentVideoFile = file;
-    startProcessing(URL.createObjectURL(file));
+    prepareVideo(URL.createObjectURL(file));
   } else {
     alert(t("unsupportedVideo"));
   }
@@ -1261,6 +1285,8 @@ function seekVideo(videoEl, time, maxTries = 500) {
 
 function recoverFromFatal(msg) {
   isProcessing = false;
+  detectionReady = false;
+  updateDetectionActions();
   if (progressBar) progressBar.classList.remove("visible");
   if (progressLabel) progressLabel.textContent = t("errorPrefix") + msg;
   if (dropZone) dropZone.classList.remove("hidden");
@@ -1835,11 +1861,63 @@ async function detectBlobs() {
 // ============================
 // START PROCESSING
 // ============================
+async function prepareVideo(videoURL) {
+  log("video", "prepareVideo called", { params: { ...P } });
+  if (currentVideoURL && currentVideoURL !== videoURL) URL.revokeObjectURL(currentVideoURL);
+  currentVideoURL = videoURL;
+  all_frame_data = [];
+  detectionReady = false;
+  isProcessing = true;
+  cancelRequested = false;
+  updateDetectionActions();
+  dropZone.classList.add("hidden");
+  canvasWrap.style.display = "block";
+  progressBar.classList.add("visible");
+  progressFill.style.width = "0%";
+  progressLabel.textContent = t("loadingVideo");
+  exportOverlay.classList.remove("visible");
+  hidePlaybackControls();
+  Telemetry.hide();
+  Telemetry.reset();
+  try {
+    await loadVideoMetadata(video, videoURL);
+    const vw = video.videoWidth, vh = video.videoHeight;
+    if (!vw || !vh) throw new Error("Video has zero frame size — file may be corrupted.");
+    const scale = MAX_PREVIEW_DIM / Math.min(vw, vh);
+    const targetW = Math.round(vw * scale), targetH = Math.round(vh * scale);
+    canvas.width = targetW;
+    canvas.height = targetH;
+    tempCanvas.width = targetW;
+    tempCanvas.height = targetH;
+    progressLabel.textContent = t("detectingFps");
+    sourceFps = await detectSourceFps(video);
+    log("video", "Detected source FPS", { sourceFps });
+    updateOutputFpsInfo();
+    await seekVideo(video, 0);
+    video.loop = false;
+    video.pause();
+    renderCurrentFrame();
+    exportOverlay.classList.add("visible");
+    showPlaybackControls();
+    updateDetectionActions();
+  } catch (e) {
+    const msg = (e && e.message) || String(e);
+    log("video", "prepareVideo failed", { error: msg });
+    recoverFromFatal(msg);
+    alert(t("failedProcess", { msg }));
+  } finally {
+    isProcessing = false;
+    progressBar.classList.remove("visible");
+  }
+}
+
 async function startProcessing(videoURL) {
   if (!cvReady) { alert(t("openCvLoading")); return; }
   log("video", "startProcessing called", { params: { ...P } });
   currentVideoURL = videoURL;
   all_frame_data = [];
+  detectionReady = false;
+  updateDetectionActions();
   isProcessing = true;
   cancelRequested = false;
   dropZone.classList.add("hidden");
@@ -1869,6 +1947,8 @@ async function startProcessing(videoURL) {
     await detectBlobs();
     const _effFps = getEffectiveFps();
     for (let i = 0; i < all_frame_data.length; i++) all_frame_data[i].time = i / _effFps;
+    detectionReady = !cancelRequested && all_frame_data.length > 0;
+    updateDetectionActions();
     video.muted = true;
     await seekVideo(video, 0);
     exportOverlay.classList.add("visible");
@@ -1974,7 +2054,10 @@ document.querySelectorAll(".tip").forEach(el => {
 async function reDetect() {
   if (!currentVideoURL) return;
   if (!video.src) return;
-  log("detect", "Re-detect triggered", { params: { ...P } });
+  const wasDetectionReady = detectionReady;
+  log("detect", wasDetectionReady ? "Re-detect triggered" : "Detection triggered", { params: { ...P } });
+  detectionReady = false;
+  updateDetectionActions();
   video.pause();
   video.loop = false;
   hidePlaybackControls();
@@ -1983,12 +2066,14 @@ async function reDetect() {
   progressBar.classList.add("visible");
   showCancelDetect();
   progressFill.style.width = "0%";
-  progressLabel.textContent = t("redetecting");
+  progressLabel.textContent = t(wasDetectionReady ? "redetecting" : "detecting");
   exportOverlay.style.display = "none";
   try {
     await detectBlobs();
     const _effFps = getEffectiveFps();
     for (let i = 0; i < all_frame_data.length; i++) all_frame_data[i].time = i / _effFps;
+    detectionReady = !cancelRequested && all_frame_data.length > 0;
+    updateDetectionActions();
     video.muted = true;
     await seekVideo(video, 0);
     exportOverlay.classList.add("visible");
@@ -2004,6 +2089,7 @@ async function reDetect() {
     isProcessing = false;
     progressBar.classList.remove("visible");
     hideCancelDetect();
+    updateDetectionActions();
   }
   log("detect", "Re-detect complete", { frames: all_frame_data.length, elapsed_s: "—", cancelled: cancelRequested });
 }
@@ -2012,7 +2098,8 @@ exportBtn.addEventListener("click", startExport);
 redetectBtn.addEventListener("click", async () => {
   if (isProcessing || !currentVideoURL) return;
   if (!video.src) return;
-  await reDetect();
+  if (detectionReady) await reDetect();
+  else await startProcessing(currentVideoURL);
 });
 
 // ============================

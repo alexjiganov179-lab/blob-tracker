@@ -63,7 +63,7 @@
         <button type="button" id="cancel-export" title="Abort export">✕</button>
       </div>
       <div id="export-overlay">
-        <button type="button" id="redetect-btn" title="Re-run blob detection">🔄 Re-detect</button>
+        <button type="button" id="redetect-btn" title="Start blob detection" data-i18n="startDetection" data-i18n-title="startDetectionTitle">Start detection</button>
         <button type="button" id="export-btn" title="Export video">⬇ Export</button>
       </div>
       <div class="export-status" id="export-status"></div>
@@ -104,7 +104,9 @@
         <div class="guide">
           <div class="guide-row"><span class="guide-num">1</span><span data-i18n="guideUpload">Upload a video or drop it onto the stage.</span></div>
           <div class="guide-row"><span class="guide-num">2</span><span data-i18n="guideFind">Choose how sensitive object detection should be.</span></div>
-          <div class="guide-row"><span class="guide-num">3</span><span data-i18n="guideExport">Pick a visual style and export the tracked video.</span></div>
+          <div class="guide-row"><span class="guide-num">3</span><span data-i18n="guideStyle">Pick a visual style.</span></div>
+          <div class="guide-row"><span class="guide-num">4</span><span data-i18n="guideDetect">Click Start detection when settings are ready.</span></div>
+          <div class="guide-row"><span class="guide-num">5</span><span data-i18n="guideExport">Review and export the tracked video.</span></div>
         </div>
       </div>
 

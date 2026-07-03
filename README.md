@@ -8,7 +8,7 @@ Inspired by artkit.cc/baby-track and whenistheweekend.com/vfx.html, free and off
 
 ## Features
 
-- **Real-time preview** — drop a video, instant Canvas playback with live param control
+- **Predictable detection start** — drop a video to prepare it, then start detection explicitly after choosing settings
 - **Live re-detect** — change Canny / blur / blob-size sliders and re-detect without re-uploading
 - **24 visual effects** — Outline, BBox, Crosshair, Corner-Ticks, Letters, Emojis, Glyphs, Silhouette, CCTV-Zoom, Spatial-Echo, Heatmap, Voronoi, Convex-Hull, Trail, Network, Outline, Label, Dash, Grid, X-Frame, Scope, Win2K, Backdrop, Particle
 - **13 post-FX** — Mosaic, Scanlines, Chroma, RGB-Shift, Luma-LUT, Thresh-Band, Ripple, LagFun, Feedback, Jitter, YUV-Split, Slit-Scan, Edge-Glow
@@ -34,12 +34,13 @@ Inspired by artkit.cc/baby-track and whenistheweekend.com/vfx.html, free and off
 
 Open `online-version/index.html` in Chrome or Edge. OpenCV.js loads from CDN.
 
-1. **Drop a video** anywhere on the page (or click Upload / Load sample)
-2. **Tweak parameters** in the right panel — changes render instantly
-3. **Optional:** click the **Trail** effect and raise the Trail slider for motion-blur
-4. **Pick an Output Size and Codec** (Preview / 1080p / 9:16, MP4 / WebM)
-5. **Re-detect** if you change Canny / blur / blob-size
-6. **Click Export** → file downloads automatically with audio. Use ⏹ Stop to cancel
+1. **Drop a video** anywhere on the page (or click Upload) to load the preview
+2. **Choose detection settings** in Find Objects / Detect before analysis starts
+3. **Pick a visual style** and optional effects such as **Trail**
+4. **Click Start detection** to run analysis with the current settings
+5. **Pick Output FPS and Codec** (Source / 30 / 60, MP4 / WebM)
+6. **Confirm FPS changes** when switching to 30 or 60 FPS after detection; this starts a re-detect pass
+7. **Click Export** → file downloads automatically with audio. Use cancel controls to abort long runs
 
 ## Parameter Overview
 
