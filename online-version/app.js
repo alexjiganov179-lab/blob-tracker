@@ -128,6 +128,8 @@ const I18N = {
     errorPrefix: "Error: ",
     resetTitle: "Reset to default",
     colorAria: "Color: {color}",
+    colorPickerAria: "Pick color",
+    colorHexAria: "Hex color code",
     tipFindAria: "Help: Find Objects",
     tipDetectorAria: "Help: Detector",
     tipBlobAria: "Help: Blob Size",
@@ -264,6 +266,8 @@ const I18N = {
     errorPrefix: "Ошибка: ",
     resetTitle: "Сбросить к значению по умолчанию",
     colorAria: "Цвет: {color}",
+    colorPickerAria: "Выбрать цвет",
+    colorHexAria: "Hex-код цвета",
     tipFindAria: "Справка: Поиск объектов",
     tipDetectorAria: "Справка: Детектор",
     tipBlobAria: "Справка: Размер объектов",
@@ -328,8 +332,12 @@ function applyLanguage() {
   document.querySelectorAll(".sreset").forEach(btn => { btn.title = t("resetTitle"); });
   document.querySelectorAll(".cs").forEach(sw => {
     const color = rgbToHex(sw.style.background || "");
-    if (color) sw.setAttribute("aria-label", t("colorAria", { color }));
+    if (color) setColorSwatchLabel(sw, color);
   });
+  const colorPicker = document.getElementById("color-picker");
+  const colorHex = document.getElementById("color-hex");
+  if (colorPicker) colorPicker.setAttribute("aria-label", t("colorPickerAria"));
+  if (colorHex) colorHex.setAttribute("aria-label", t("colorHexAria"));
   updateOutputFpsInfo();
   updateDetectionActions();
 }
@@ -423,6 +431,27 @@ const COLORS = [
   "#ffffff","#f3ac03","#ef4444","#f59e0b","#84cc16","#22c55e","#06b6d4","#3b82f6","#8b5cf6",
   "#ec4899","#000000","#d4d4d4","#9a9a9a","#666666","#333333","#1a1a1a","#a855f7","#6366f1"
 ];
+
+const COLOR_NAMES = {
+  "#ffffff": { en: "White", ru: "Белый" },
+  "#f3ac03": { en: "Gold", ru: "Золотой" },
+  "#ef4444": { en: "Red", ru: "Красный" },
+  "#f59e0b": { en: "Amber", ru: "Янтарный" },
+  "#84cc16": { en: "Lime", ru: "Лаймовый" },
+  "#22c55e": { en: "Green", ru: "Зеленый" },
+  "#06b6d4": { en: "Cyan", ru: "Циан" },
+  "#3b82f6": { en: "Blue", ru: "Синий" },
+  "#8b5cf6": { en: "Violet", ru: "Фиолетовый" },
+  "#ec4899": { en: "Pink", ru: "Розовый" },
+  "#000000": { en: "Black", ru: "Черный" },
+  "#d4d4d4": { en: "Light gray", ru: "Светло-серый" },
+  "#9a9a9a": { en: "Gray", ru: "Серый" },
+  "#666666": { en: "Dark gray", ru: "Темно-серый" },
+  "#333333": { en: "Charcoal", ru: "Угольный" },
+  "#1a1a1a": { en: "Near black", ru: "Почти черный" },
+  "#a855f7": { en: "Purple", ru: "Пурпурный" },
+  "#6366f1": { en: "Indigo", ru: "Индиго" },
+};
 
 let appReady = false;
 function hideLoad() {
@@ -962,13 +991,7 @@ function syncControlsFromP() {
     if (document.activeElement !== el) el.value = P[key];
     if (ve) ve.textContent = fmt(P[key]);
   }
-  const pal = document.getElementById("color-palette");
-  if (pal) {
-    pal.querySelectorAll(".cs").forEach(s => {
-      const cur = rgbToHex(s.style.background || "");
-      s.classList.toggle("active", cur === P.contourColor);
-    });
-  }
+  syncColorControls();
   updateOutputFpsInfo();
   Telemetry.setTargetFps(getEffectiveFps());
 }
@@ -977,6 +1000,60 @@ function rgbToHex(rgb) {
   if (!rgb || rgb[0] !== "r") return rgb;
   const m = rgb.match(/\d+/g); if (!m) return rgb;
   return "#" + m.slice(0, 3).map(n => parseInt(n).toString(16).padStart(2, "0")).join("");
+}
+
+function getColorName(color) {
+  const names = COLOR_NAMES[color];
+  return names ? (names[currentLang] || names.en) : color;
+}
+
+function getColorSwatchLabel(color) {
+  return getColorName(color) + " (" + color + ")";
+}
+
+function setColorSwatchLabel(sw, color) {
+  const label = getColorSwatchLabel(color);
+  sw.title = label;
+  sw.setAttribute("aria-label", label);
+}
+
+function normalizeHexColor(value) {
+  const raw = String(value || "").trim();
+  const withHash = raw[0] === "#" ? raw : "#" + raw;
+  const hex = withHash.toLowerCase();
+  return /^#[0-9a-f]{6}$/.test(hex) ? hex : null;
+}
+
+function syncColorControls(force) {
+  const color = normalizeHexColor(P.contourColor) || DEFAULTS.contourColor;
+  const pal = document.getElementById("color-palette");
+  if (pal) {
+    pal.querySelectorAll(".cs").forEach(s => {
+      const cur = rgbToHex(s.style.background || "");
+      s.classList.toggle("active", cur === color);
+    });
+  }
+  const picker = document.getElementById("color-picker");
+  const hex = document.getElementById("color-hex");
+  if (picker) picker.value = color;
+  if (hex && (force || document.activeElement !== hex)) {
+    hex.value = color;
+    hex.classList.remove("invalid");
+  }
+}
+
+function applyContourColor(value, commit) {
+  const color = normalizeHexColor(value);
+  if (!color) return false;
+  if (P.contourColor === color) {
+    syncColorControls(true);
+    return true;
+  }
+  if (commit) History.commit();
+  P.contourColor = color;
+  syncColorControls(true);
+  handleParamChanged("contourColor");
+  return true;
 }
 
 // ============================
@@ -1035,20 +1112,57 @@ function buildPalette() {
     sw.style.background = c;
     sw.role = "button";
     sw.tabIndex = 0;
-    sw.setAttribute("aria-label", t("colorAria", { color: c }));
+    setColorSwatchLabel(sw, c);
     sw.addEventListener("click", () => {
       if (P.contourColor === c) return;
-      History.commit();
-      P.contourColor = c;
-      el.querySelectorAll(".cs").forEach(s => s.classList.remove("active"));
-      sw.classList.add("active");
-      handleParamChanged("contourColor");
+      applyContourColor(c, true);
     });
     sw.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === " ") { e.preventDefault(); sw.click(); }
     });
     el.appendChild(sw);
   });
+  syncColorControls();
+}
+
+function setupColorInput() {
+  const picker = document.getElementById("color-picker");
+  const hex = document.getElementById("color-hex");
+  if (!picker || !hex) return;
+
+  const applyPickerColor = () => {
+    applyContourColor(picker.value, true);
+  };
+  picker.addEventListener("input", applyPickerColor);
+  picker.addEventListener("change", applyPickerColor);
+
+  hex.addEventListener("input", () => {
+    const color = normalizeHexColor(hex.value);
+    hex.classList.toggle("invalid", !color);
+    if (color) applyContourColor(color, true);
+  });
+
+  hex.addEventListener("change", () => {
+    const color = normalizeHexColor(hex.value);
+    if (!color) {
+      hex.value = normalizeHexColor(P.contourColor) || DEFAULTS.contourColor;
+      hex.classList.remove("invalid");
+      syncColorControls(true);
+      return;
+    }
+    hex.value = color;
+    hex.classList.remove("invalid");
+    applyContourColor(color, true);
+  });
+
+  hex.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      hex.blur();
+    }
+  });
+
+  syncColorControls();
 }
 
 // ============================
@@ -1132,6 +1246,7 @@ function setupControls() {
   setupSlider("merge-iterations", "mergeIterations", "merge-iterations-val", v => v);
 
   buildPalette();
+  setupColorInput();
 
   document.getElementById("reset-btn")?.addEventListener("click", () => {
     document.querySelectorAll(".seg button:first-child, .icon-btn:first-child, .gbtn:first-child, .lbtn:first-child").forEach(b => {

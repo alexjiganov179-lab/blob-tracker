@@ -16,7 +16,7 @@ Inspired by artkit.cc/baby-track and whenistheweekend.com/vfx.html, free and off
 - **Playback controls** — pause/play, scrub the timeline, and inspect a paused frame before export
 - **Current-frame detection probe** — tune detection sliders on the paused frame before running a full re-detect
 - **Connecting lines** — nearest, all, chain, or waveform between blobs, with rate control
-- **Color & text** — 18-color palette, toggleable text labels with random / position / count content
+- **Color & text** — 18-color palette with bilingual color-name tooltips, custom `#rrggbb` hex input, native color picker, and toggleable text labels with random / position / count content
 - **Centroid dots** — optional tracking dots
 - **Grouping** — keep raw contour fragments, or merge nearby fragments into a single region
 - **Find Objects presets** — Sensitivity (Low / Normal / High / Tiny), Object Size (Small / Medium / Large), and Detector (Edge / Motion / HSV / Area) hide the technical sliders; the Detector label includes an in-app tooltip
@@ -53,7 +53,7 @@ Open `online-version/index.html` in Chrome or Edge. OpenCV.js loads from CDN.
 | **Blob Size** | Min / Max area filters |
 | **Detection** | Canny low / high, Gaussian blur, **Color Channel** (Lum / R / G / B), **GPU toggle** |
 | **Grouping** | Detail (raw contours) / Grouped (merge nearby fragments), with kernel + iterations |
-| **Color & Text** | 18-color palette, text on/off, position (Center / Top / Bottom), content (Random / Position / Count / ID), font size |
+| **Color & Text** | 18-color palette with EN/RU hover names, custom `#rrggbb` hex input, native color picker, text on/off, position (Center / Top / Bottom), content (Random / Position / Count / ID), font size |
 | **Centroid** | Show tracking dots on/off |
 | **Output** | Output FPS (Source / 30 / 60), Codec (MP4 / WebM). Output size is always the source video size. |
 
@@ -101,6 +101,10 @@ Benefits:
 - **Git-friendly** — parallel development without merge conflicts
 - **Fast IDE** — quick syntax highlighting and navigation
 - **Easy maintainability** — clear separation of concerns
+
+## Development Notes
+
+When changing `online-version/styles.css`, `online-version/app.js`, `online-version/effects.js`, or `online-version/export.js`, update the matching `?v=...` query string in `online-version/index.html`. Browser cache can otherwise keep old JS/CSS active while newer HTML is visible.
 
 ## Test Suite
 

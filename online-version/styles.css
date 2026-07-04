@@ -288,6 +288,22 @@ canvas { display: block; max-height: 94vh; max-width: 100%; border-radius: 4px; 
 }
 .cs.active::after { display: flex; }
 
+.color-input-row { display: flex; gap: 6px; margin-top: 14px; }
+.color-picker {
+  width: 28px; height: 28px; padding: 0;
+  border: 1px solid #333; background: transparent; cursor: pointer;
+}
+.color-picker::-webkit-color-swatch-wrapper { padding: 0; }
+.color-picker::-webkit-color-swatch { border: 0; }
+.color-picker::-moz-color-swatch { border: 0; }
+.color-hex {
+  flex: 1; min-width: 0; height: 28px; padding: 0 8px;
+  border: 1px solid #333; border-radius: 5px; background: #1a1a24; color: #d0d0d0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px;
+}
+.color-hex:focus { outline: none; border-color: #f3ac03; }
+.color-hex.invalid { border-color: #ef4444; }
+
 .tip {
   position: relative; display: inline-flex; align-items: center; justify-content: center;
   width: 16px; height: 16px; border-radius: 50%; background: rgba(255,255,255,.06);

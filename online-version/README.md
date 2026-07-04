@@ -16,6 +16,7 @@ in the browser and is not uploaded to a blob_tracker server.
 - Quick Find Objects controls: Sensitivity (Low / Normal / High / Tiny), Object Size (Small / Medium / Large), and Detector (Edge / Motion / HSV / Area)
 - 14 visual effects: Contour, Cross, Frame, L-Frame, X-Frame, Grid, Particle, Dash, Scope, Win2K, Backdrop, Emojis, Heatmap, Voronoi, ConvexHull
 - Visual styles grouped: the Connection card holds Line Style, Connection Rate, and Stroke Width (no separate Stroke Width card)
+- Color & Text controls include an 18-color palette with bilingual hover names, a native color picker, and custom `#rrggbb` hex input.
 - 4 detector modes (Edge, Motion, HSV, Area)
 - Output frame rate: source, 30, or 60 FPS
 - In-app confirmation before switching to 30 or 60 FPS because it starts a re-detect pass
@@ -83,6 +84,10 @@ export can still complete.
 The app has no video-processing backend. OpenCV.js and Mediabunny are loaded
 from third-party CDNs, so the first load requires internet access. The local
 video itself is not sent to those CDNs by the application.
+
+## Development notes
+
+When changing `styles.css`, `app.js`, `effects.js`, or `export.js`, update the matching `?v=...` query string in `index.html`. Browser cache can otherwise keep old JS/CSS active while newer HTML is visible.
 
 **OpenCV.js reliability**: OpenCV.js (~17MB) loads from primary CDN with automatic
 fallback to secondary CDN. Users see loading indicator during download, and if both
