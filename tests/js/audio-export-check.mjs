@@ -167,9 +167,9 @@ async function main() {
 
     // Wait for Mediabunny to initialize
     console.log('2. Waiting for Mediabunny to load…');
-    await page.waitForFunction(() => !!window.MediaCodecs?.Output, { timeout: 20000 });
+    await page.waitForFunction(() => !!window.MediaCodecs?.Output, undefined, { timeout: 20000 });
     // Wait for OpenCV too
-    await page.waitForFunction(() => typeof cv !== 'undefined' && !!cv.Mat, { timeout: 20000 });
+    await page.waitForFunction(() => typeof cv !== 'undefined' && !!cv.Mat, undefined, { timeout: 20000 });
     console.log('   Mediabunny + OpenCV loaded');
 
     // Upload the test video
@@ -186,7 +186,7 @@ async function main() {
       await page.waitForFunction(() => {
         const overlay = document.getElementById('export-overlay');
         return overlay && overlay.classList.contains('visible');
-      }, { timeout: 120000, polling: 1000 });
+      }, undefined, { timeout: 120000, polling: 1000 });
     } catch (e) {
       // Debug: dump current state
       const state = await page.evaluate(() => ({

@@ -83,7 +83,7 @@ async function testFallbackOnPrimaryBlocked(browser, port) {
   await page.goto(`http://127.0.0.1:${port}/index.html`, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
   // cv must eventually become available via a fallback CDN
-  await page.waitForFunction(() => typeof cv !== 'undefined' && !!cv.Mat, { timeout: 90000 });
+  await page.waitForFunction(() => typeof cv !== 'undefined' && !!cv.Mat, undefined, { timeout: 90000 });
 
   const status = await page.evaluate(() => window.__openCvStatus);
   const cvState = await page.evaluate(() => ({
@@ -103,7 +103,7 @@ async function testFallbackOnPrimaryBlocked(browser, port) {
   await page.waitForFunction(() => {
     const el = document.getElementById('loading-screen');
     return !el || el.style.display === 'none';
-  }, { timeout: 15000 });
+  }, undefined, { timeout: 15000 });
   assert(true, 'Loading screen hidden after successful fallback');
 
   await page.close();
@@ -191,7 +191,7 @@ async function testRetryRecovers(browser, port) {
   await page.click('#opencv-retry-btn');
 
   // cv must load from primary after unblock
-  await page.waitForFunction(() => typeof cv !== 'undefined' && !!cv.Mat, { timeout: 90000 });
+  await page.waitForFunction(() => typeof cv !== 'undefined' && !!cv.Mat, undefined, { timeout: 90000 });
 
   const status = await page.evaluate(() => window.__openCvStatus);
   const cvState = await page.evaluate(() => ({

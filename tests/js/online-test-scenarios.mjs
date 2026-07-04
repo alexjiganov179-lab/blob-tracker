@@ -78,7 +78,7 @@ async function verifyPlaybackAndCurrentFrameProbe(page) {
   assert(controlsVisible === 1, `Playback controls are visible (${controlsVisible})`);
 
   await page.click('#play-toggle');
-  await page.waitForFunction(() => video.paused === true, { timeout: 5000 });
+  await page.waitForFunction(() => video.paused === true, undefined, { timeout: 5000 });
   const pausedState = await page.evaluate(() => ({
     paused: video.paused,
     time: video.currentTime,
@@ -125,7 +125,7 @@ async function verifyPlaybackAndCurrentFrameProbe(page) {
   assert(probeState.probeCount >= 0, `Current-frame probe stores blobs (${probeState.probeCount})`);
 
   await page.click('#play-toggle');
-  await page.waitForFunction(() => video.paused === false, { timeout: 5000 });
+  await page.waitForFunction(() => video.paused === false, undefined, { timeout: 5000 });
 }
 
 function checkCommon(logs) {

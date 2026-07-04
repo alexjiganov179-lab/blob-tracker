@@ -390,9 +390,9 @@ export async function openApp(page, serverPort) {
   });
 
   // Wait for Mediabunny
-  await page.waitForFunction(() => !!window.MediaCodecs?.Output, { timeout: 30000 * TIMEOUT_MULT });
+  await page.waitForFunction(() => !!window.MediaCodecs?.Output, undefined, { timeout: 30000 * TIMEOUT_MULT });
   // Wait for OpenCV
-  await page.waitForFunction(() => typeof cv !== 'undefined' && !!cv.Mat, { timeout: 30000 * TIMEOUT_MULT });
+  await page.waitForFunction(() => typeof cv !== 'undefined' && !!cv.Mat, undefined, { timeout: 30000 * TIMEOUT_MULT });
 }
 
 /**
@@ -408,7 +408,7 @@ export async function uploadAndDetect(page, filePath) {
     const overlay = document.getElementById('export-overlay');
     const startBtn = document.getElementById('redetect-btn');
     return overlay && overlay.classList.contains('visible') && startBtn && !startBtn.disabled;
-  }, { timeout: 30000 * TIMEOUT_MULT, polling: 250 });
+  }, undefined, { timeout: 30000 * TIMEOUT_MULT, polling: 250 });
 
   await page.click('#redetect-btn');
 
@@ -417,7 +417,7 @@ export async function uploadAndDetect(page, filePath) {
     const overlay = document.getElementById('export-overlay');
     const exportBtn = document.getElementById('export-btn');
     return overlay && overlay.classList.contains('visible') && exportBtn && !exportBtn.disabled;
-  }, { timeout: 120000 * TIMEOUT_MULT, polling: 1000 });
+  }, undefined, { timeout: 120000 * TIMEOUT_MULT, polling: 1000 });
 
   await page.waitForTimeout(300);
   return (Date.now() - t0) / 1000;
@@ -447,7 +447,7 @@ export async function setOutputFps(page, fps) {
   await page.waitForFunction(() => {
     const overlay = document.getElementById('export-overlay');
     return overlay && overlay.classList.contains('visible');
-  }, { timeout: 60000, polling: 1000 });
+  }, undefined, { timeout: 60000 * TIMEOUT_MULT, polling: 1000 });
 }
 
 /**
@@ -503,7 +503,7 @@ export async function startExportAndCancel(page) {
     if (!btn) return false;
     const text = btn.textContent.trim();
     return text === '⬇ Export' || text === 'Export' || text === 'Download';
-  }, { timeout: 30000 * TIMEOUT_MULT, polling: 500 });
+  }, undefined, { timeout: 30000 * TIMEOUT_MULT, polling: 500 });
 
   // Extra settle time
   await page.waitForTimeout(500);
