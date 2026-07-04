@@ -13,12 +13,12 @@ in the browser and is not uploaded to a blob_tracker server.
 - OpenCV.js contour detection
 - Playback controls: play/pause, mute toggle, timeline scrubbing, and current-frame preview while paused. Preview audio is on by default (the source video's sound is no longer muted); the mute toggle is independent of export, which always passes the audio track through when present.
 - Current-frame detection probe for paused detection tuning before a full Re-detect
-- Quick Find Objects controls: Sensitivity (Low / Balance / High), Object Size (Small / Medium / Large), and Detector (Edge / Motion / HSV / Area). Small-object tuning is the High + Small combination.
-- 14 visual effects: Contour, Cross, Frame, L-Frame, X-Frame, Grid, Particle, Dash, Scope, Win2K, Backdrop, Emojis, Heatmap, Voronoi, ConvexHull
+- Quick Find Objects controls: Sensitivity (Low / Balance / High), Object Size (Small / Medium / Large), and Detector (Edge / Motion / HSV / Area; Russian UI labels Edge as `Контур`). Small-object tuning is the High + Small combination.
+- 15 visual effects: Contour, Cross, Frame, L-Frame, X-Frame, Grid, Particle, Dash, Scope, Win2K, Backdrop, Emojis, Heatmap, Voronoi, ConvexHull
 - Visual styles grouped: the Connection card holds Line Style, Connection Rate, and Stroke Width (no separate Stroke Width card)
 - Style controls separate Color and Text cards. Color includes an 18-color palette with bilingual hover names, a native color picker, and custom `#rrggbb` hex input. Text includes visibility, position, content, and font-size controls.
 - Centroid dot visibility lives in the Detect tab with the detection-related controls.
-- 4 detector modes (Edge, Motion, HSV, Area)
+- 4 detector modes (Edge, Motion, HSV, Area). HSV detection converts the frame to HSV color space, selects pixels near the target hue within tolerance, and builds contours from that color mask.
 - Output frame rate: source, 30, or 60 FPS
 - In-app confirmation before switching to 30 or 60 FPS because it starts a re-detect pass
 - Output dimensions: always the source video's original width, height, and aspect ratio
@@ -27,7 +27,7 @@ in the browser and is not uploaded to a blob_tracker server.
 - Automatic video-codec selection
 - Detection and export progress
 - Detection and export cancellation
-- Tooltips for Find Objects, Detector, Blob Size, Detection, and Output controls
+- Tooltips for Find Objects, Detector, Basic Effects, Connection, Blob Size, Detection, Color, and Text controls. The Export card intentionally has no tooltip.
 - **User-friendly error messages** — differentiated for video, audio, codec, CDN, and memory failures
 - **English / Russian interface** — language toggle in the panel footer and About dialog
 - **About dialog** — built-in info panel covering capabilities, privacy, limitations, and links
@@ -49,7 +49,7 @@ into a modular architecture:
 - `index.html` (~470 lines) — DOM structure, CDN loading, modals
 - `styles.css` (~698 lines) — design system extracted from inline styles
 - `app.js` — core logic, UI, detection pipeline
-- `effects.js` (~342 lines) — 14 visual effects
+- `effects.js` (~342 lines) — 15 visual effects
 - `export.js` (~480 lines) — Mediabunny export + native fallbacks (MP4/WebM/audio)
 
 ## Export behavior

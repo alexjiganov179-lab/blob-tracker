@@ -72,8 +72,8 @@ GET https://docs.opencv.org/4.x/opencv.js → 404 (если CDN недоступ
 #### H3. ARIA-атрибутов практически нет
 
 **Severity:** HIGH
-**Описание:** 7 вхождений `aria-` на ~5300 строк:
-- 5× `aria-label` на элементах `.tip` (справка)
+**Описание:** ARIA-покрытие остается частичным:
+- 8× `aria-label` на элементах `.tip` (справка)
 - 1× `aria-expanded`
 - Нет `role="alert"` для сообщений об ошибках
 - Нет `aria-live="polite"` для области прогресса
@@ -172,8 +172,8 @@ GET https://docs.opencv.org/4.x/opencv.js → 404 (если CDN недоступ
 #### H3. ARIA-атрибутов практически нет
 
 **Severity:** HIGH
-**Описание:** 7 вхождений `aria-` на ~5300 строк:
-- 5× `aria-label` на элементах `.tip` (справка)
+**Описание:** ARIA-покрытие остается частичным:
+- 8× `aria-label` на элементах `.tip` (справка)
 - 1× `aria-expanded`
 - Нет `role="alert"` для сообщений об ошибках
 - Нет `aria-live="polite"` для области прогресса
@@ -266,8 +266,8 @@ GET https://docs.opencv.org/4.x/opencv.js → 404 (если CDN недоступ
 Панель управления (340px):
 ├── Sensitivity: [Low|Normal|High|Tiny]
 ├── Object Size: [Small|Medium|Large]
-├── Detector: [Edge|Motion|HSV|Area] + tooltip
-├── Basic Effects: [Contour|Cross|Frame|L-Frame|X-Frame|Grid|Particle]
+├── Detector: [Edge/Контур|Motion|HSV|Area] + tooltip
+├── Basic Effects: [Contour|Cross|Frame|L-Frame|X-Frame|Grid|Particle] + tooltip
 │                 [Dash|Scope|Win2K|Backdrop|Emojis|Heatmap]
 │                 [Voronoi|ConvexHull]
 ├── Blob Size: slider [0]  ⟲
@@ -279,10 +279,11 @@ GET https://docs.opencv.org/4.x/opencv.js → 404 (если CDN недоступ
 │   └── Sliders: 50 ⟲ 150 ⟲ 5 ⟲
 ├── Overlay: [Detail|Grouped]
 │   └── Opacity: 1 ⟲
-├── Labels: [☑ Text] [Center|Top|Bottom]
+├── Color: palette + native picker + hex input + tooltip
+├── Labels/Text: [☑ Text] [Center|Top|Bottom] + tooltip
 │           [ID|Random|Pos|Count]
 │           Font: [8|10|12|16|20] [☑] [☑]
-└── Output: [Source|30|60|MP4|WebM]
+└── Output: [Source|30|60|MP4|WebM] (no tooltip)
             [↺ Reset|📋 Log|About|EN|RU]
 ```
 

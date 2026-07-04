@@ -144,7 +144,7 @@
       </div>
 
       <div class="card panel-section" data-panel-section="style" hidden>
-        <div class="card-label" data-i18n="basicEffects">Basic Effects</div>
+        <div class="card-label"><span data-i18n="basicEffects">Basic Effects</span><span class="tip" id="tip-effects" role="button" tabindex="0" aria-label="Help: Basic Effects" data-i18n-aria="tipEffectsAria">?</span></div>
         <div class="grid w3" id="basic-effects">
           <button type="button" class="gbtn active" data-val="Basic" data-i18n="effectBasic">Contour</button>
           <button type="button" class="gbtn" data-val="Cross" data-i18n="effectCross">Cross</button>
@@ -165,7 +165,7 @@
       </div>
 
       <div class="card panel-section" data-panel-section="style" hidden>
-        <div class="card-label" data-i18n="connection">Connection</div>
+        <div class="card-label"><span data-i18n="connection">Connection</span><span class="tip" id="tip-connection" role="button" tabindex="0" aria-label="Help: Connection" data-i18n-aria="tipConnectionAria">?</span></div>
         <div class="sub" data-i18n="lineStyle">Line Style</div>
         <div class="line-row" id="connection-style">
           <button type="button" class="lbtn active" data-value="nearest" title="Nearest neighbors" data-i18n-title="nearestTitle">
@@ -256,7 +256,7 @@
       </div>
 
       <div class="card panel-section" data-panel-section="style" hidden>
-        <div class="card-label" data-i18n="color">Color</div>
+        <div class="card-label"><span data-i18n="color">Color</span><span class="tip" id="tip-color" role="button" tabindex="0" aria-label="Help: Color" data-i18n-aria="tipColorAria">?</span></div>
         <div class="palette" id="color-palette"></div>
         <div class="color-input-row">
           <input type="color" id="color-picker" class="color-picker" value="#f3ac03" aria-label="Pick color">
@@ -265,7 +265,7 @@
       </div>
 
       <div class="card panel-section" data-panel-section="style" hidden>
-        <div class="card-label" data-i18n="text">Text</div>
+        <div class="card-label"><span data-i18n="text">Text</span><span class="tip" id="tip-text" role="button" tabindex="0" aria-label="Help: Text" data-i18n-aria="tipTextAria">?</span></div>
         <div class="checks">
           <label class="ck"><input type="checkbox" id="text-enabled" checked> <span data-i18n="textToggle">Show text</span></label>
         </div>
@@ -300,7 +300,7 @@
       </div>
 
       <div class="card panel-section" data-panel-section="export" hidden>
-        <div class="card-label"><span data-i18n="output">Output</span><span class="tip" id="tip-output" role="button" tabindex="0" aria-label="Help: Output" data-i18n-aria="tipOutputAria">?</span></div>
+        <div class="card-label" data-i18n="output">Output</div>
         <div class="sub" data-i18n="outputFps">Output FPS</div>
         <div class="seg" id="output-fps">
           <button type="button" data-val="source" class="active" data-i18n="source">Source</button>
@@ -477,6 +477,6 @@
   <!-- SCRIPTS: Application modules loaded after DOM -->
   <script src="effects.js?v=20260704-colorhex1"></script>
   <script src="export.js?v=20260704-colorhex1"></script>
-  <script src="app.js?v=20260704-color-text-split1"></script>
+  <script src="app.js?v=20260704-tips1"></script>
 </body>
 </html>
