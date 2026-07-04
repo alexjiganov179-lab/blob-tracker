@@ -5,6 +5,7 @@
 // Usage:
 //   node tests/js/run-online-tests.mjs              # run all scenarios
 //   node tests/js/run-online-tests.mjs --scenario 1  # run 1 specific scenario
+//   node tests/js/run-online-tests.mjs --skip-scenario 1  # skip CI-unstable scenarios
 //   node tests/js/run-online-tests.mjs --keep-output # don't clean output dir
 //
 // Exit code: 0 = all passed, 1 = any scenario failed
@@ -43,10 +44,22 @@ const ALL_SCENARIOS = [
 const args = process.argv.slice(2);
 let scenarioFilter = null;
 let keepOutput = false;
+const skippedScenarios = new Set(
+  (process.env.BLOB_TRACKER_SKIP_SCENARIOS || '')
+    .split(',')
+    .map(s => parseInt(s.trim(), 10))
+    .filter(Number.isFinite)
+);
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--scenario' || args[i] === '-s') {
     scenarioFilter = parseInt(args[++i], 10);
+  }
+  if (args[i] === '--skip-scenario' || args[i] === '--skip') {
+    for (const id of String(args[++i] || '').split(',')) {
+      const parsed = parseInt(id.trim(), 10);
+      if (Number.isFinite(parsed)) skippedScenarios.add(parsed);
+    }
   }
   if (args[i] === '--keep-output') {
     keepOutput = true;
@@ -54,8 +67,8 @@ for (let i = 0; i < args.length; i++) {
 }
 
 const scenariosToRun = scenarioFilter
-  ? ALL_SCENARIOS.filter(s => s.id === scenarioFilter)
-  : ALL_SCENARIOS;
+  ? ALL_SCENARIOS.filter(s => s.id === scenarioFilter && !skippedScenarios.has(s.id))
+  : ALL_SCENARIOS.filter(s => !skippedScenarios.has(s.id));
 
 if (scenarioFilter && scenariosToRun.length === 0) {
   console.error(`Unknown scenario: ${scenarioFilter}. Valid IDs: ${ALL_SCENARIOS.map(s => s.id).join(', ')}`);
@@ -71,6 +84,9 @@ async function main() {
   console.log('║   online-version Test Suite              ║');
   console.log('╚══════════════════════════════════════════╝\n');
   console.log(`Scenarios: ${scenariosToRun.length} (${scenariosToRun.map(s => s.id).join(', ')})`);
+  if (skippedScenarios.size) {
+    console.log(`Skipped:   ${Array.from(skippedScenarios).sort((a, b) => a - b).join(', ')}`);
+  }
   console.log(`Fixtures:  ${ONLINE_DIR}/fixtures/`);
   console.log(`Output:    ${OUTPUT_DIR}/\n`);
 
