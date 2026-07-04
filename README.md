@@ -9,8 +9,8 @@ Inspired by artkit.cc/baby-track and whenistheweekend.com/vfx.html, free and off
 
 **Try it now:** <https://alexjiganov179-lab.github.io/blob-tracker/>
 
-> **Primary development branch:** `online-version/` — modular, feature-complete, with audio export.
-> The root `index.html` is the legacy single-file version.
+> **Application source:** `online-version/` — the only shipped app version.
+> The old root single-file prototype has been removed.
 
 ## Features
 
@@ -92,7 +92,7 @@ gets an exported file.
 
 ## Architecture
 
-The project uses a **modular architecture** (primary: `online-version/`):
+The project uses a **modular architecture** in `online-version/`:
 
 | File | Lines | Purpose |
 |---|---|---|
@@ -114,12 +114,18 @@ When changing `online-version/styles.css`, `online-version/app.js`, `online-vers
 
 ## Test Suite
 
-8 test files, 130 assertions across 10 scenarios, all green:
+Main checks:
 
 ```bash
-node tests/js/run-online-tests.mjs --scenario all   # 7 e2e scenarios (127 assertions)
-node tests/js/test-opencv-fallback.mjs               # 3 CDN fallback / retry scenarios
+node tests/js/run-online-tests.mjs          # 7 e2e scenarios, 127 assertions locally
+node tests/js/test-opencv-fallback.mjs      # 3 CDN fallback / retry scenarios, 24 assertions
+node tests/js/test_centroid_tracker.mjs     # 5 tracker unit checks
+node tests/js/check_syntax.mjs              # inline script syntax in online-version/index.html
 ```
+
+GitHub Actions skips scenario 1 (MP4 + AAC) because Linux headless Chromium does
+not reliably complete AAC-in-MP4 downloads. The full suite is green locally in
+desktop Chrome / Edge.
 
 | # | Scenario | Result |
 |---|---|---|

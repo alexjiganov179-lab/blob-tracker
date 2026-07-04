@@ -47,14 +47,16 @@ The test suite covers 7 export scenarios (82 assertions):
 node tests/js/run-online-tests.mjs --scenario all
 ```
 
-Your PR **must keep this green**. CI runs the same command on every push.
+Your PR **must keep this green** locally. CI runs the same suite with scenario 1
+(MP4 + AAC) skipped because Linux headless Chromium does not reliably complete
+AAC-in-MP4 downloads; desktop Chrome / Edge does.
 
 ### Code conventions
 
 - **No build step, no transpiler, no framework.** Vanilla JS modules loaded
   via `<script>` and an [import map](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script/type/importmap).
-- **Primary surface is `online-version/`.** The root `index.html` is the legacy
-  single-file version and only receives critical fixes.
+- **Only app surface is `online-version/`.** The old root single-file prototype
+  has been removed.
 - **Bilingual UI strings** — new user-facing text needs both `en` and `ru` keys
   in the `TEXT` dictionary (`online-version/index.html`).
 - **Cache-busting rule** (important): when you change `online-version/styles.css`,
@@ -119,14 +121,16 @@ cd ../..
 node tests/js/run-online-tests.mjs --scenario all
 ```
 
-PR **обязан оставаться зелёным**. CI запускает ту же команду на каждый пуш.
+PR **обязан оставаться зелёным** локально. CI запускает тот же набор без
+сценария 1 (MP4 + AAC), потому что Linux headless Chromium нестабильно
+завершает AAC-in-MP4 download; desktop Chrome / Edge проходят.
 
 ### Соглашения по коду
 
 - **Без сборки, без транспилятора, без фреймворка.** Ванильные JS-модули через
   `<script>` и [import map](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script/type/importmap).
-- **Основная поверхность — `online-version/`.** Корневой `index.html` —
-  устаревшая single-file версия, получает только критические фиксы.
+- **Единственная поверхность приложения — `online-version/`.** Старый корневой
+  single-file прототип удалён.
 - **Двуязычные строки** — новый текст интерфейса требует ключи `en` и `ru`
   в словаре `TEXT` (`online-version/index.html`).
 - **Правило cache-busting** (важно): при изменении `online-version/styles.css`,

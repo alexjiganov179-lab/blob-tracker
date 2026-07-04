@@ -34,8 +34,7 @@ body:
     attributes:
       label: Which version? / Какая версия?
       options:
-        - online-version/ (primary)
-        - root index.html (legacy)
+        - online-version/
         - Not sure / Не знаю
     validations:
       required: true

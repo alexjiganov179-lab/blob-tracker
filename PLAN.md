@@ -1,6 +1,6 @@
 # blob_tracker — Work Plan
 
-Historical improvement roadmap for the original single-file Canny-based contour overlay tool. The active implementation now lives in `online-version/` as modular HTML/CSS/JS.
+Historical improvement roadmap for the original single-file Canny-based contour overlay tool. The shipped implementation now lives only in `online-version/` as modular HTML/CSS/JS; the old root `index.html` prototype was removed.
 
 > Current documentation lives in `README.md` and `online-version/README.md`. This file is retained as roadmap history and should not be read as the current product surface.
 
@@ -10,7 +10,7 @@ Status: Phases 1, 2, 3 complete. Phases 4-6 pending.
 
 ## Context
 
-Current state of the app:
+Original prototype state (archived as roadmap context, not present in the current tree):
 
 - Single-file `index.html` with all CSS + JS inline, no build step.
 - 14 "Basic Effects" (hardcoded `if/else` chain in `drawEffectLayer`).

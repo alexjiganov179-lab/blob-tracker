@@ -4,92 +4,84 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const htmlPath = join(__dirname, '..', '..', 'index.html');
-const html = readFileSync(htmlPath, 'utf8');
+const appPath = join(__dirname, '..', '..', 'online-version', 'app.js');
+const appSource = readFileSync(appPath, 'utf8');
 
 // Extract a top-level class body by brace-counting (robust to nested braces).
-// The CentroidTracker body contains no string/comment braces, so this is exact.
 function extractClass(src, name) {
   const start = src.indexOf('class ' + name);
-  if (start === -1) throw new Error('class ' + name + ' not found in index.html');
+  if (start === -1) throw new Error('class ' + name + ' not found in online-version/app.js');
   const braceStart = src.indexOf('{', start);
-  let depth = 0, i = braceStart;
+  let depth = 0;
+  let i = braceStart;
   for (; i < src.length; i++) {
     if (src[i] === '{') depth++;
-    else if (src[i] === '}') { depth--; if (depth === 0) { i++; break; } }
+    else if (src[i] === '}') {
+      depth--;
+      if (depth === 0) { i++; break; }
+    }
   }
   return src.slice(start, i);
 }
 
-const source = extractClass(html, 'CentroidTracker');
+const source = extractClass(appSource, 'CentroidTracker');
 const CentroidTracker = eval('(' + source + ')');
-const MIN_AGE = CentroidTracker.MIN_AGE;
-const MAX_MISSED = CentroidTracker.MAX_MISSED;
 
-// Synthetic detection blob (shape matches detectContours output).
 const mk = (x, y = 100, s = 20) => ({
-  x, y, area: s * s, bx: x - s / 2, by: y - s / 2, bw: s, bh: s, pts: [],
+  x,
+  y,
+  area: s * s,
+  bx: x - s / 2,
+  by: y - s / 2,
+  bw: s,
+  bh: s,
+  pts: [],
 });
 
 let passed = 0;
-function test(name, fn) { fn(); passed++; console.log('  ok -', name); }
+function test(name, fn) {
+  fn();
+  passed++;
+  console.log('  ok -', name);
+}
 
-// 1) A 1-frame ghost blob is never shown.
-test('ghost blob (1 frame) is never returned', () => {
-  const tr = new CentroidTracker(1000); // maxD = 50
-  let out = tr.update([mk(100)]);
-  assert.equal(out.length, 0, 'brand-new blob is not shown on its first frame');
-  out = tr.update([]); // ghost vanished
-  assert.equal(out.length, 0, 'ghost is never promoted to visible');
+test('first detection receives id 1', () => {
+  const tr = new CentroidTracker(50);
+  const out = tr.update([mk(100)]);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].id, 1);
 });
 
-// 2) A real object keeps its id through a short dropout.
-test('object keeps id across a dropout of <= MAX_MISSED frames', () => {
-  const tr = new CentroidTracker(1000);
-  let out;
-  for (let i = 0; i < MIN_AGE; i++) out = tr.update([mk(100)]);
-  assert.equal(out.length, 1, 'object visible once it reaches MIN_AGE');
-  const id = out[0].id;
-  out = tr.update([]);            // blind frame 1
-  assert.equal(out[0].id, id, 'track held during blind frame');
-  out = tr.update([]);            // blind frame 2
-  assert.equal(out[0].id, id);
-  out = tr.update([mk(105)]);     // reappears nearby
-  assert.equal(out[0].id, id, 'same id after reappearing');
+test('nearby detection keeps the same id', () => {
+  const tr = new CentroidTracker(50);
+  const first = tr.update([mk(100)])[0];
+  const second = tr.update([mk(130)])[0];
+  assert.equal(second.id, first.id);
 });
 
-// 3) A static object's reported center stays put (smoothing converges and holds).
-test('static object center holds steady', () => {
-  const tr = new CentroidTracker(1000);
-  let out;
-  for (let i = 0; i < 10; i++) out = tr.update([mk(200, 200, 40)]);
-  assert.ok(Math.abs(out[0].x - 200) < 1, 'x stays at 200, got ' + out[0].x);
-  assert.ok(Math.abs(out[0].y - 200) < 1, 'y stays at 200, got ' + out[0].y);
+test('far detection gets a new id', () => {
+  const tr = new CentroidTracker(20);
+  const first = tr.update([mk(100)])[0];
+  const second = tr.update([mk(160)])[0];
+  assert.notEqual(second.id, first.id);
+  assert.equal(second.id, 2);
 });
 
-// 4) A moving object's center tracks toward the new position.
-test('moving object center follows the motion', () => {
-  const tr = new CentroidTracker(1000);
-  for (let i = 0; i < MIN_AGE; i++) tr.update([mk(100)]); // establish at x=100
-  let out;
-  for (let i = 0; i < 8; i++) out = tr.update([mk(130)]); // drift to x=130
-  assert.ok(out[0].x > 125, 'center converged toward 130, got ' + out[0].x);
+test('track survives a short dropout and reuses the id', () => {
+  const tr = new CentroidTracker(50);
+  const first = tr.update([mk(100)])[0];
+  tr.update([]);
+  tr.update([]);
+  const afterDropout = tr.update([mk(105)])[0];
+  assert.equal(afterDropout.id, first.id);
 });
 
-// 5) A long dropout (> MAX_MISSED frames) drops the track; reappearance gets a NEW id.
-test('track dies after a dropout > MAX_MISSED and returns with a new id', () => {
-  const tr = new CentroidTracker(1000);
-  let out;
-  for (let i = 0; i < MIN_AGE; i++) out = tr.update([mk(100)]);
-  const firstId = out[0].id;
-  for (let i = 0; i <= MAX_MISSED; i++) out = tr.update([]);
-  assert.equal(out.length, 0, 'track is gone after > MAX_MISSED blind frames');
-  // Reappears: it is a fresh candidate, so it stays hidden until MIN_AGE.
-  out = tr.update([mk(100)]);
-  assert.equal(out.length, 0, 'reappearance starts as a new unconfirmed candidate');
-  for (let i = 1; i < MIN_AGE; i++) out = tr.update([mk(100)]);
-  assert.equal(out.length, 1, 'reappearance promoted once it reaches MIN_AGE');
-  assert.notEqual(out[0].id, firstId, 'a dropped-then-returned object gets a new id');
+test('track is removed after more than five missed frames', () => {
+  const tr = new CentroidTracker(50);
+  const first = tr.update([mk(100)])[0];
+  for (let i = 0; i < 6; i++) tr.update([]);
+  const afterLongDropout = tr.update([mk(100)])[0];
+  assert.notEqual(afterLongDropout.id, first.id);
 });
 
 console.log('\n' + passed + ' tracker tests passed.');

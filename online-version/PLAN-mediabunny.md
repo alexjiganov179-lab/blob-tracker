@@ -129,9 +129,9 @@ export work with and without audio in the current automated online suite.
   by a dedicated sync analysis.
 - Author visual QA and explicit publication approval are still required.
 
-The root `index.html` remains a legacy single-file version. Current online-version
-tests live in `tests/js/run-online-tests.mjs`; older ad-hoc checks should not be
-used as acceptance evidence for `online-version`.
+The old root `index.html` legacy single-file version has been removed. Current
+online-version tests live in `tests/js/run-online-tests.mjs`; older ad-hoc checks
+should not be used as acceptance evidence for `online-version`.
 
 ## Required work before acceptance
 
