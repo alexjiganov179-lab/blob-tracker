@@ -39,4 +39,6 @@ jobs:
 
       - name: Run export test suite
         working-directory: tests/js
+        env:
+          BLOB_TRACKER_CI: "1"
         run: node run-online-tests.mjs --scenario all

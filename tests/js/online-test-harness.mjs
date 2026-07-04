@@ -25,7 +25,7 @@ export const FIXTURES_DIR = join(__dir, 'fixtures');
 export const OUTPUT_DIR = join(__dir, '_test_output');
 
 // CI runners are slower (shared CPU, CDN re-downloads). Multiply timeouts.
-const CI = !!process.env.CI;
+const CI = !!(process.env.BLOB_TRACKER_CI || process.env.CI || process.env.GITHUB_ACTIONS);
 export const TIMEOUT_MULT = CI ? 3 : 1;
 
 // Chromium executable — fallback chain
@@ -503,7 +503,7 @@ export async function startExportAndCancel(page) {
     if (!btn) return false;
     const text = btn.textContent.trim();
     return text === '⬇ Export' || text === 'Export' || text === 'Download';
-  }, { timeout: 30000, polling: 500 });
+  }, { timeout: 30000 * TIMEOUT_MULT, polling: 500 });
 
   // Extra settle time
   await page.waitForTimeout(500);
