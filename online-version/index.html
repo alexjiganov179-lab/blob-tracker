@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Contour VFX Overlay — Blob Tracker</title>
+  <title>Blob Tracker</title>
   <link rel="stylesheet" href="styles.css?v=20260704-dropzone2" />
   <style>
     .app-dialog[hidden] { display: none !important; }
@@ -22,7 +22,7 @@
   <div id="loading-screen" style="position: fixed; inset: 0; background: #0d0d12; z-index: 1000; display: flex; align-items: center; justify-content: center;">
     <div style="text-align: center;">
       <div id="loading-spinner" class="spinner" style="width:40px;height:40px;border-width:4px;margin:0 auto 20px;"></div>
-      <h2 data-i18n="loadingTitle" style="color:#fff;font-size:18px;margin-bottom:12px;">Loading blob_tracker...</h2>
+      <h2 data-i18n="loadingTitle" style="color:#fff;font-size:18px;margin-bottom:12px;">Loading Blob Tracker...</h2>
       <p id="loading-text" data-i18n="loadingText" style="color:#a0a0a8;font-size:14px;">Initializing OpenCV.js and preparing rendering pipeline...</p>
       <div id="opencv-load-error" style="display:none; max-width:360px; margin:0 auto;">
         <p id="opencv-load-error-title" data-i18n="opencvErrorTitle" style="color:#f87171;font-size:14px;font-weight:700;margin:0 0 8px;">OpenCV.js failed to load</p>
@@ -94,7 +94,7 @@
       <div class="panel-header">
         <div class="brand-row">
           <div>
-            <div class="panel-title" data-i18n="appTitle">Contour VFX Overlay</div>
+            <div class="panel-title" data-i18n="appTitle">Blob Tracker</div>
             <div class="panel-subtitle" data-i18n="appSubtitle">Blob tracking editor for video overlays</div>
           </div>
           <div class="lang-bar" aria-label="Language">
@@ -670,6 +670,6 @@
   <!-- SCRIPTS: Application modules loaded after DOM -->
   <script src="effects.js?v=20260704-colorhex1"></script>
   <script src="export.js?v=20260704-colorhex1"></script>
-  <script src="app.js?v=20260704-opencv-fallback1"></script>
+  <script src="app.js?v=20260704-blob-tracker-name1"></script>
 </body>
 </html>

@@ -1,8 +1,8 @@
-# blob_tracker — Online Version
+# Blob Tracker — Online Version
 
-`blob_tracker online` is a desktop browser VFX tool for applying contour,
+Blob Tracker is a desktop browser VFX tool for applying contour,
 tracking, and generative effects to a local video. The source video is processed
-in the browser and is not uploaded to a blob_tracker server.
+in the browser and is not uploaded to a Blob Tracker server.
 
 ## Current capabilities
 
@@ -104,5 +104,5 @@ all-blocked error UI, retry-after-unblock).
 
 ## License
 
-blob_tracker is MIT licensed; see `LICENSE`. Mediabunny is loaded from its
+Blob Tracker is MIT licensed; see `LICENSE`. Mediabunny is loaded from its
 official package distribution under MPL-2.0.

@@ -16,8 +16,8 @@ let sourceFps = null;
 
 const I18N = {
   en: {
-    title: "Contour VFX Overlay - Blob Tracker",
-    loadingTitle: "Loading blob_tracker...",
+    title: "Blob Tracker",
+    loadingTitle: "Loading Blob Tracker...",
     loadingText: "Initializing OpenCV.js and preparing rendering pipeline...",
     opencvLoadingAttempt: "Loading OpenCV.js from CDN {attempt}/{total}...",
     opencvErrorTitle: "OpenCV.js failed to load",
@@ -28,7 +28,7 @@ const I18N = {
     dropSubtitle: "MP4, WebM, MOV - max 500 MB",
     dropHint: "or choose a file manually",
     uploadVideo: "Upload Video",
-    appTitle: "Contour VFX Overlay",
+    appTitle: "Blob Tracker",
     appSubtitle: "Blob tracking editor for video overlays",
     tabQuick: "Quick",
     tabStyle: "Style",
@@ -161,8 +161,8 @@ const I18N = {
     effectHull: "Hull",
   },
   ru: {
-    title: "Contour VFX Overlay - Blob Tracker",
-    loadingTitle: "Загружаем blob_tracker...",
+    title: "Blob Tracker",
+    loadingTitle: "Загружаем Blob Tracker...",
     loadingText: "Запускаем OpenCV.js и готовим рендеринг...",
     opencvLoadingAttempt: "Загружаем OpenCV.js с CDN {attempt}/{total}...",
     opencvErrorTitle: "Не удалось загрузить OpenCV.js",
@@ -173,7 +173,7 @@ const I18N = {
     dropSubtitle: "MP4, WebM, MOV - до 500 МБ",
     dropHint: "или выберите файл вручную",
     uploadVideo: "Загрузить видео",
-    appTitle: "Contour VFX Overlay",
+    appTitle: "Blob Tracker",
     appSubtitle: "Редактор видео-оверлеев с трекингом объектов",
     tabQuick: "Старт",
     tabStyle: "Стиль",

@@ -1,6 +1,6 @@
-# Contributing to blob-tracker
+# Contributing to Blob Tracker
 
-Thanks for your interest in the project! blob-tracker is a browser-based,
+Thanks for your interest in the project! Blob Tracker is a browser-based,
 real-time contour/VFX overlay editor for videos. It is open source and free,
 and contributions are welcome — under the maintainer's review.
 

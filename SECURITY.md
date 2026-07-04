@@ -31,7 +31,7 @@ releases.
 
 ### What is a security issue here?
 
-blob-tracker is a **fully client-side** app: all video processing happens in
+Blob Tracker is a **fully client-side** app: all video processing happens in
 your browser. Nothing is uploaded to any server. Relevant categories:
 
 - A way for a third-party script (loaded from a CDN) to read or exfiltrate a
@@ -96,7 +96,7 @@ Limitations that SRI cannot cover today:
 
 ### Что считать проблемой безопасности
 
-blob-tracker — **полностью клиентское** приложение: вся обработка видео идёт
+Blob Tracker — **полностью клиентское** приложение: вся обработка видео идёт
 в вашем браузере, на сервер ничего не уходит. Релевантные категории:
 
 - Способ для стороннего скрипта (с CDN) прочитать или украсть кадры

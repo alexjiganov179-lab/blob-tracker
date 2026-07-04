@@ -1,5 +1,5 @@
 name: 🐛 Bug report / Баг
-description: Report something that is broken in blob-tracker
+description: Report something that is broken in Blob Tracker
 title: "[Bug] "
 labels: ["bug"]
 body:
