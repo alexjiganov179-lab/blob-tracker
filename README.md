@@ -5,7 +5,6 @@
 [![Live demo](https://img.shields.io/badge/demo-live-brightgreen.svg)](https://alexjiganov179-lab.github.io/blob-tracker/)
 
 Browser-based real-time editor for Canny-based contour overlays on videos.
-Inspired by artkit.cc/baby-track and whenistheweekend.com/vfx.html, free and offline.
 
 **Try it now:** <https://alexjiganov179-lab.github.io/blob-tracker/>
 
@@ -14,31 +13,21 @@ Inspired by artkit.cc/baby-track and whenistheweekend.com/vfx.html, free and off
 
 ## Features
 
-- **Predictable detection start** — drop a video to prepare it, then start detection explicitly after choosing settings
-- **Live re-detect** — change Canny / blur / blob-size sliders and re-detect without re-uploading
 - **14 visual effects** — Contour, Cross, Frame, L-Frame, X-Frame, Grid, Particle, Dash, Scope, Win2K, Backdrop, Emojis, Heatmap, Voronoi, Convex-Hull
 - **4 detector modes** — Edge, Motion, HSV, Area
-- **Audio export** — AAC (MP4) and Opus (WebM) passthrough via Mediabunny
-- **Playback controls** — pause/play, scrub the timeline, and inspect a paused frame before export
-- **Current-frame detection probe** — tune detection sliders on the paused frame before running a full re-detect
 - **Connecting lines** — nearest, all, chain, or waveform between blobs, with rate control
 - **Color and text controls** — separate Color and Text cards: 18-color palette with bilingual color-name tooltips, custom `#rrggbb` hex input, native color picker, and toggleable text labels with random / position / count content
-- **Centroid dots** — optional tracking dots
-- **Grouping** — keep raw contour fragments, or merge nearby fragments into a single region
-- **Find Objects presets** — Sensitivity (Low / Balance / High), Object Size (Small / Medium / Large), and Detector (Edge / Motion / HSV / Area) hide the technical sliders; small-object tuning uses High + Small, and the Detector label includes an in-app tooltip
 - **GPU Acceleration** — WebGL2 pipeline for blur + Sobel edge detection (5-10x faster than CPU OpenCV)
 - **Color Channel Select** — detect on Luminance, Red, Green, or Blue channel (like TouchDesigner)
 - **Source-size export** — exports at the loaded video's original width, height, and aspect ratio
 - **Three export engines** — Mediabunny (MP4 + WebM with audio), WebCodecs H.264 (MP4 fallback), MediaRecorder WebM (legacy fallback)
-- **MP4 recovery fallback** — if Chrome reclaims an inactive WebCodecs MP4 encoder, export retries as WebM instead of failing completely
-- **Smart codec probe** — prefers H.264 High Profile (Level 4.0) for 1080p / Instagram output, Baseline 3.1 for preview
-- **Cancel detection / export** — abort long operations without reloading the page
-- **Debug logger** — copy a timestamped log of all events and parameter snapshots
 - **English / Russian interface** — language toggle in the panel footer and About dialog
 
 ## Getting Started
 
-Open `online-version/index.html` in Chrome or Edge. OpenCV.js loads from a 3-CDN fallback chain with a retry button if all CDNs fail.
+Open `online-version/index.html` locally in Chrome or Edge, or use the
+[live online version](https://alexjiganov179-lab.github.io/blob-tracker/).
+OpenCV.js loads from a 3-CDN fallback chain with a retry button if all CDNs fail.
 
 1. **Drop a video** anywhere on the page (or click Upload) to load the preview
 2. **Choose detection settings** in Find Objects / Detect before analysis starts
@@ -57,7 +46,7 @@ Open `online-version/index.html` in Chrome or Edge. OpenCV.js loads from a 3-CDN
 | **Connection** | Nearest, all, chain, or waveform lines between blobs, with density and stroke-width controls in one card |
 | **Stroke Width** | 0.5–10px |
 | **Blob Size** | Min / Max area filters |
-| **Detection** | Canny low / high, Gaussian blur, **Color Channel** (Lum / R / G / B), **GPU toggle**, centroid dots toggle |
+| **Detection** | Canny low / high, Gaussian blur, Color Channel (Lum / R / G / B), GPU toggle, centroid dots toggle |
 | **Grouping** | Detail (raw contours) / Grouped (merge nearby fragments), with kernel + iterations |
 | **Color** | 18-color palette with EN/RU hover names, custom `#rrggbb` hex input, native color picker |
 | **Text** | Text on/off, position (Center / Top / Bottom), content (Random / Position / Count / ID), font size |
