@@ -13,10 +13,11 @@ in the browser and is not uploaded to a blob_tracker server.
 - OpenCV.js contour detection
 - Playback controls: play/pause, mute toggle, timeline scrubbing, and current-frame preview while paused. Preview audio is on by default (the source video's sound is no longer muted); the mute toggle is independent of export, which always passes the audio track through when present.
 - Current-frame detection probe for paused detection tuning before a full Re-detect
-- Quick Find Objects controls: Sensitivity (Low / Normal / High / Tiny), Object Size (Small / Medium / Large), and Detector (Edge / Motion / HSV / Area)
+- Quick Find Objects controls: Sensitivity (Low / Balance / High), Object Size (Small / Medium / Large), and Detector (Edge / Motion / HSV / Area). Small-object tuning is the High + Small combination.
 - 14 visual effects: Contour, Cross, Frame, L-Frame, X-Frame, Grid, Particle, Dash, Scope, Win2K, Backdrop, Emojis, Heatmap, Voronoi, ConvexHull
 - Visual styles grouped: the Connection card holds Line Style, Connection Rate, and Stroke Width (no separate Stroke Width card)
-- Color & Text controls include an 18-color palette with bilingual hover names, a native color picker, and custom `#rrggbb` hex input.
+- Style controls separate Color and Text cards. Color includes an 18-color palette with bilingual hover names, a native color picker, and custom `#rrggbb` hex input. Text includes visibility, position, content, and font-size controls.
+- Centroid dot visibility lives in the Detect tab with the detection-related controls.
 - 4 detector modes (Edge, Motion, HSV, Area)
 - Output frame rate: source, 30, or 60 FPS
 - In-app confirmation before switching to 30 or 60 FPS because it starts a re-detect pass

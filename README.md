@@ -16,10 +16,10 @@ Inspired by artkit.cc/baby-track and whenistheweekend.com/vfx.html, free and off
 - **Playback controls** — pause/play, scrub the timeline, and inspect a paused frame before export
 - **Current-frame detection probe** — tune detection sliders on the paused frame before running a full re-detect
 - **Connecting lines** — nearest, all, chain, or waveform between blobs, with rate control
-- **Color & text** — 18-color palette with bilingual color-name tooltips, custom `#rrggbb` hex input, native color picker, and toggleable text labels with random / position / count content
+- **Color and text controls** — separate Color and Text cards: 18-color palette with bilingual color-name tooltips, custom `#rrggbb` hex input, native color picker, and toggleable text labels with random / position / count content
 - **Centroid dots** — optional tracking dots
 - **Grouping** — keep raw contour fragments, or merge nearby fragments into a single region
-- **Find Objects presets** — Sensitivity (Low / Normal / High / Tiny), Object Size (Small / Medium / Large), and Detector (Edge / Motion / HSV / Area) hide the technical sliders; the Detector label includes an in-app tooltip
+- **Find Objects presets** — Sensitivity (Low / Balance / High), Object Size (Small / Medium / Large), and Detector (Edge / Motion / HSV / Area) hide the technical sliders; small-object tuning uses High + Small, and the Detector label includes an in-app tooltip
 - **GPU Acceleration** — WebGL2 pipeline for blur + Sobel edge detection (5-10x faster than CPU OpenCV)
 - **Color Channel Select** — detect on Luminance, Red, Green, or Blue channel (like TouchDesigner)
 - **Source-size export** — exports at the loaded video's original width, height, and aspect ratio
@@ -46,15 +46,15 @@ Open `online-version/index.html` in Chrome or Edge. OpenCV.js loads from CDN.
 
 | Section | Controls |
 |---|---|
-| **Find Objects** | Sensitivity preset (Low / Normal / High / Tiny), Object Size preset (Small / Medium / Large), Detector mode (Edge / Motion / HSV / Area), Re-detect button |
+| **Find Objects** | Sensitivity preset (Low / Balance / High), Object Size preset (Small / Medium / Large), Detector mode (Edge / Motion / HSV / Area), Re-detect button |
 | **Visual Effects** | 14 effects (Contour, Cross, Frame, L-Frame, X-Frame, Grid, Particle, Dash, Scope, Win2K, Backdrop, Emojis, Heatmap, Voronoi, Convex-Hull) |
 | **Connection** | Nearest, all, chain, or waveform lines between blobs, with density and stroke-width controls in one card |
 | **Stroke Width** | 0.5–10px |
 | **Blob Size** | Min / Max area filters |
-| **Detection** | Canny low / high, Gaussian blur, **Color Channel** (Lum / R / G / B), **GPU toggle** |
+| **Detection** | Canny low / high, Gaussian blur, **Color Channel** (Lum / R / G / B), **GPU toggle**, centroid dots toggle |
 | **Grouping** | Detail (raw contours) / Grouped (merge nearby fragments), with kernel + iterations |
-| **Color & Text** | 18-color palette with EN/RU hover names, custom `#rrggbb` hex input, native color picker, text on/off, position (Center / Top / Bottom), content (Random / Position / Count / ID), font size |
-| **Centroid** | Show tracking dots on/off |
+| **Color** | 18-color palette with EN/RU hover names, custom `#rrggbb` hex input, native color picker |
+| **Text** | Text on/off, position (Center / Top / Bottom), content (Random / Position / Count / ID), font size |
 | **Output** | Output FPS (Source / 30 / 60), Codec (MP4 / WebM). Output size is always the source video size. |
 
 ## Export Format

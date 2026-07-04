@@ -20,7 +20,9 @@ const I18N = {
     loadingTitle: "Loading blob_tracker...",
     loadingText: "Initializing OpenCV.js and preparing rendering pipeline...",
     dropTitle: "Drop a video file anywhere",
+    dropTitleDrag: "Release to upload video",
     dropSubtitle: "MP4, WebM, MOV - max 500 MB",
+    dropHint: "or choose a file manually",
     uploadVideo: "Upload Video",
     appTitle: "Contour VFX Overlay",
     appSubtitle: "Blob tracking editor for video overlays",
@@ -50,8 +52,8 @@ const I18N = {
     colorChannel: "Color Channel",
     gpuAcceleration: "GPU Acceleration",
     grouping: "Grouping",
-    colorText: "Color & Text",
     text: "Text",
+    textToggle: "Show text",
     textPosition: "Text Position",
     textContentLabel: "Text Content",
     fontSize: "Font Size",
@@ -64,7 +66,6 @@ const I18N = {
     low: "Low",
     normal: "Normal",
     high: "High",
-    tiny: "Tiny",
     small: "Small",
     medium: "Medium",
     large: "Large",
@@ -135,8 +136,7 @@ const I18N = {
     tipBlobAria: "Help: Blob Size",
     tipDetectAria: "Help: Detection",
     tipOutputAria: "Help: Output",
-    tinyTitle: "For small distant objects",
-    smallTitle: "Small objects only",
+    smallTitle: "For small objects and details. Works best with high sensitivity.",
     nearestTitle: "Nearest neighbors",
     allTitle: "All connections",
     chainTitle: "Chain",
@@ -158,7 +158,9 @@ const I18N = {
     loadingTitle: "Загружаем blob_tracker...",
     loadingText: "Запускаем OpenCV.js и готовим рендеринг...",
     dropTitle: "Перетащите видео сюда",
+    dropTitleDrag: "Отпустите видео для загрузки",
     dropSubtitle: "MP4, WebM, MOV - до 500 МБ",
+    dropHint: "или выберите файл вручную",
     uploadVideo: "Загрузить видео",
     appTitle: "Contour VFX Overlay",
     appSubtitle: "Редактор видео-оверлеев с трекингом объектов",
@@ -188,8 +190,8 @@ const I18N = {
     colorChannel: "Канал цвета",
     gpuAcceleration: "Ускорение GPU",
     grouping: "Группировка",
-    colorText: "Цвет и текст",
     text: "Текст",
+    textToggle: "Показывать текст",
     textPosition: "Положение текста",
     textContentLabel: "Содержимое текста",
     fontSize: "Размер шрифта",
@@ -200,9 +202,8 @@ const I18N = {
     outputFps: "FPS экспорта",
     codec: "Кодек",
     low: "Низкая",
-    normal: "Нормальная",
+    normal: "Баланс",
     high: "Высокая",
-    tiny: "Мелкие",
     small: "Малые",
     medium: "Средние",
     large: "Крупные",
@@ -273,8 +274,7 @@ const I18N = {
     tipBlobAria: "Справка: Размер объектов",
     tipDetectAria: "Справка: Детекция",
     tipOutputAria: "Справка: Экспорт",
-    tinyTitle: "Для маленьких объектов вдали",
-    smallTitle: "Только маленькие объекты",
+    smallTitle: "Для маленьких объектов и деталей. Лучше работает с высокой чувствительностью.",
     nearestTitle: "Ближайшие соседи",
     allTitle: "Все связи",
     chainTitle: "Цепочка",
@@ -295,14 +295,14 @@ const I18N = {
 
 const TIP_TEXTS = {
   en: {
-    "tip-find": "Sensitivity presets adjust Canny thresholds and blur for different object types.\n- Low: clear, large objects\n- Normal: balanced default\n- High: faint edges\n- Tiny: small, distant blobs\n\nObject Size filters detected blob area.",
+    "tip-find": "Sensitivity presets adjust Canny thresholds and blur for different object types.\n- Low: clear, large objects\n- Balance: balanced default\n- High: faint edges and fine details\n\nObject Size limits the detected blob area.\nFor small objects, use: High + Small.",
     "tip-detector": "Choose the detection algorithm.\n- Edge: contours from object edges\n- Motion: moving objects between frames; requires full Re-detect\n- HSV: color-based detection\n- Area: filled bright/dark regions",
     "tip-blob": "Min / Max contour area in pixels.\nObjects outside this range are filtered out.\nUse Object Size presets for quick setup.",
     "tip-detect": "Canny edge detection parameters.\n- C-Low / C-High: edge thresholds\n- Blur: softens noise before detection\n- Color Channel: detect on one channel\n- GPU: WebGL2 acceleration when available",
     "tip-output": "Output FPS: Source, 30, or 60.\nExport keeps the source video's original width, height, and aspect ratio.\nCodec: MP4 or WebM.",
   },
   ru: {
-    "tip-find": "Пресеты чувствительности меняют пороги Canny и размытие.\n- Низкая: четкие крупные объекты\n- Нормальная: сбалансированный режим\n- Высокая: слабые контуры\n- Мелкие: маленькие объекты вдали\n\nРазмер объектов отсекает лишние blob-области.",
+    "tip-find": "Пресеты чувствительности меняют пороги Canny и размытие.\n- Низкая: четкие крупные объекты\n- Баланс: сбалансированный режим\n- Высокая: слабые контуры и мелкие детали\n\nРазмер объектов ограничивает площадь найденных blob-областей.\nДля мелких объектов используйте: Высокая + Малые.",
     "tip-detector": "Выбор алгоритма детекции.\n- Грани: контуры по краям объектов\n- Движение: движущиеся объекты между кадрами, нужен полный Re-detect\n- HSV: поиск по цвету\n- Площадь: заполненные светлые/темные области",
     "tip-blob": "Мин / Макс - площадь контура в пикселях.\nОбъекты вне диапазона отфильтровываются.\nДля быстрого старта используйте пресеты размера.",
     "tip-detect": "Параметры Canny-детекции.\n- C-Low / C-High: пороги контуров\n- Blur: убирает шум перед поиском\n- Канал цвета: поиск по отдельному каналу\n- GPU: ускорение через WebGL2, если доступно",
@@ -646,6 +646,7 @@ const ctx = canvas.getContext("2d");
 const tempCanvas = document.createElement("canvas");
 const tempCtx = tempCanvas.getContext("2d");
 const dropZone = document.getElementById("drop-zone");
+const dropTitle = document.querySelector(".drop-title");
 const canvasWrap = document.getElementById("canvas-wrap");
 const progressBar = document.getElementById("progress-bar");
 const progressFill = document.getElementById("progress-fill");
@@ -1202,17 +1203,11 @@ function setupControls() {
       low: { cannyLow: 80, cannyHigh: 200, blurKernel: 7 },
       normal: { cannyLow: 50, cannyHigh: 150, blurKernel: 3 },
       high: { cannyLow: 30, cannyHigh: 100, blurKernel: 3 },
-      tiny: { cannyLow: 20, cannyHigh: 80, blurKernel: 1, blobMin: 10, blobMax: 8000 },
     }[preset];
     if (!values) return;
     setSliderValue("canny-low", "cannyLow", values.cannyLow, "canny-low-val");
     setSliderValue("canny-high", "cannyHigh", values.cannyHigh, "canny-high-val");
     setSliderValue("blur-kernel", "blurKernel", values.blurKernel, "blur-kernel-val");
-    if (values.blobMin != null) {
-      setSliderValue("blob-min", "blobMin", values.blobMin, "blob-min-val");
-      setSliderValue("blob-max", "blobMax", values.blobMax, "blob-max-val", formatBlobMax);
-      document.querySelectorAll("#object-size-preset button").forEach(b => b.classList.toggle("active", b.dataset.size === "small"));
-    }
   });
   setupPresetRow("object-size-preset", "size", size => {
     const values = { small: { min: 10, max: 8000 }, medium: { min: 50, max: 50000 }, large: { min: 300, max: 200000 } };
@@ -1308,16 +1303,28 @@ function setupControls() {
 // ============================
 // FILE LOADING
 // ============================
-window.addEventListener("dragover", e => { e.preventDefault(); dropZone.classList.add("drag-over"); });
-window.addEventListener("dragleave", () => dropZone.classList.remove("drag-over"));
+function setDropActive(active) {
+  dropZone.classList.toggle("drag-over", active);
+  if (dropTitle) dropTitle.textContent = active ? t("dropTitleDrag") : t("dropTitle");
+}
+
+const uploadBtn = document.getElementById("upload-btn");
+const fileInput = document.getElementById("file-input");
+
+window.addEventListener("dragover", e => { e.preventDefault(); setDropActive(true); });
+window.addEventListener("dragleave", () => setDropActive(false));
 window.addEventListener("drop", e => {
   e.preventDefault();
-  dropZone.classList.remove("drag-over");
+  setDropActive(false);
   const file = e.dataTransfer.files[0];
   if (file && file.type.startsWith("video/")) loadFile(file);
 });
-document.getElementById("upload-btn").addEventListener("click", () => document.getElementById("file-input").click());
-document.getElementById("file-input").addEventListener("change", e => {
+dropZone.addEventListener("click", e => {
+  if (e.target.closest("#upload-btn")) return;
+  fileInput.click();
+});
+uploadBtn.addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", e => {
   const file = e.target.files[0];
   if (file && file.type.startsWith("video/")) loadFile(file);
 });
