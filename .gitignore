@@ -4,10 +4,16 @@ __pycache__/
 *.egg-info/
 .venv/
 venv/
+node_modules/
+fixtures/
+.env
+.env.*
 temp_*.mp4
 *.mov
 output.mp4
 .claude/
+.agents/
+.codex/
 .qwen/
 .gstack/
 .superpowers/
@@ -18,3 +24,7 @@ opencode.json
 tests/js/node_modules/
 tests/js/fixtures/
 tests/js/_test_output/
+
+# OS metadata
+.DS_Store
+Thumbs.db

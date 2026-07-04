@@ -1,0 +1,59 @@
+name: 🐛 Bug report / Баг
+description: Report something that is broken in blob-tracker
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug!
+        Please fill in both languages if you can — at least one is fine.
+
+        Спасибо, что нашли время сообщить о баге! Заполните хотя бы на одном языке.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened? / Что произошло?
+      description: A clear description of the problem.
+      placeholder: "I expected X, but instead Y happened."
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce / Как воспроизвести
+      description: Exact steps so we can reproduce it.
+      placeholder: |
+        1. Open online-version/index.html
+        2. Drop a video ...
+        3. Click ...
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Which version? / Какая версия?
+      options:
+        - online-version/ (primary)
+        - root index.html (legacy)
+        - Not sure / Не знаю
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser + OS / Браузер и ОС
+      placeholder: "Chrome 126 on Windows 11"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Debug log / Отладочный лог
+      description: If you opened the in-app Debug logger, paste the log here.
+      render: shell
+  - type: textarea
+    id: video-file
+    attributes:
+      label: Source video details / Параметры видео
+      placeholder: "MP4, 1920x1080, 30fps, 10s"

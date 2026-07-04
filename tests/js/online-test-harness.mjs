@@ -360,17 +360,13 @@ export function startServer(rootDir) {
 
 export async function launchBrowser() {
   const chromePath = findChrome();
-  if (!chromePath) {
-    throw new Error(
-      'Cannot find Playwright Chromium. Run: npx playwright install chromium\n' +
-      'Expected at one of:\n' +
-      CHROMIUM_PATHS.map(p => '  - ' + p).join('\n')
-    );
-  }
 
   const browser = await chromium.launch({
     headless: true,
-    executablePath: chromePath,
+    // On Windows the maintainer's installed Chromium is used; on Linux/CI
+    // (where the hardcoded paths do not exist) fall back to the Playwright
+    // bundled browser installed via `npx playwright install chromium`.
+    executablePath: chromePath || undefined,
   });
 
   return browser;

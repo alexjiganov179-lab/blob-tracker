@@ -109,12 +109,13 @@ all-blocked error UI, retry-after-unblock).
 - `tests/js/run-online-tests.mjs` — 7 end-to-end test scenarios (127 assertions)
 - `tests/js/test-opencv-fallback.mjs` — OpenCV CDN fallback + retry coverage (3 scenarios, 24 assertions)
 
-## Release rule
+## Publication status
 
-Do not create a public repository, enable GitHub Pages, or deploy this version
-until all agreed Apolotary effects are implemented, the project author has
-personally tested the release candidate, and the author has given a separate
-explicit instruction to publish it.
+This project is publicly released as open source at
+<https://github.com/alexjiganov179-lab/blob-tracker>, with a live demo at
+<https://alexjiganov179-lab.github.io/blob-tracker/>. The earlier internal
+release gate (pending Apolotary effects + author sign-off) was lifted on
+2026-07-04 by the author's explicit publication instruction.
 
 ## License
 

@@ -191,6 +191,7 @@ Goal: stop wasting CPU and clean up the rough edges.
 | 6.2 | OSC input via WebSocket bridge | Pro VJ scenario |
 | 6.3 | WebGPU `findContours` (if spike in 5.10 is viable) | Full replacement of OpenCV.js |
 | 6.4 | Multi-clip timeline | NLE category pivot |
+| 6.5 | **Self-host CDN dependencies + strict CSP** | Close the residual supply-chain risk documented in `SECURITY.md`: vendor reviewed copies of OpenCV.js / Mediabunny / mp4-muxer in `/vendor/`, pin by hash, drop the floating `docs.opencv.org/4.x` fallback. Fully removes the accepted Medium finding from the 2026-07-04 security review. |
 
 ---
 

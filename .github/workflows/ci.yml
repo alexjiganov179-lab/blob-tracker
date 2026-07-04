@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Export scenarios (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install ffmpeg / ffprobe
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: tests/js/package-lock.json
+
+      - name: Install test dependencies
+        working-directory: tests/js
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        working-directory: tests/js
+        run: npx playwright install --with-deps chromium
+
+      - name: Run export test suite
+        working-directory: tests/js
+        run: node run-online-tests.mjs --scenario all

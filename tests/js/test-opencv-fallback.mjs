@@ -76,8 +76,8 @@ async function testFallbackOnPrimaryBlocked(browser, port) {
   const consoleMsgs = [];
   page.on('console', m => consoleMsgs.push(`[${m.type()}] ${m.text()}`));
 
-  // Block only the primary OpenCV host
-  await page.route('**/*docs.opencv.org*/**', r => r.abort());
+  // Block only the primary OpenCV host (jsdelivr techstark, SRI-pinned)
+  await page.route('**/*cdn.jsdelivr.net/**', r => r.abort());
   // Allow everything else
 
   await page.goto(`http://127.0.0.1:${port}/index.html`, { waitUntil: 'domcontentloaded', timeout: 30000 });
@@ -94,8 +94,8 @@ async function testFallbackOnPrimaryBlocked(browser, port) {
   assert(cvState.hasMat === true, 'cv.Mat is available after primary blocked');
   assert(status.ready === true, '__openCvStatus.ready is true');
   assert(status.failed === false, '__openCvStatus.failed is false');
-  assert(status.url && status.url.includes('jsdelivr.net'),
-    `Loaded from jsdelivr fallback (got: ${status.url || '?'})`);
+  assert(status.url && status.url.includes('unpkg.com'),
+    `Loaded from unpkg fallback (got: ${status.url || '?'})`);
   assert(status.attempt >= 2, `Took >= 2 attempts (got: ${status.attempt})`);
 
   // Loading screen should be hidden once app is also ready
@@ -184,8 +184,8 @@ async function testRetryRecovers(browser, port) {
   await page.goto(`http://127.0.0.1:${port}/index.html`, { waitUntil: 'domcontentloaded', timeout: 30000 });
   await page.waitForSelector('#opencv-load-error', { state: 'visible', timeout: 30000 });
 
-  // Now unblock the primary CDN by clearing routes
-  await page.unroute('**/*docs.opencv.org/**');
+  // Now unblock the primary CDN (jsdelivr techstark) by clearing its route
+  await page.unroute('**/*cdn.jsdelivr.net/**');
 
   // Click retry
   await page.click('#opencv-retry-btn');
@@ -202,7 +202,7 @@ async function testRetryRecovers(browser, port) {
   assert(cvState.hasMat === true, 'cv.Mat is available after retry');
   assert(status.ready === true, '__openCvStatus.ready is true after retry');
   assert(status.failed === false, '__openCvStatus.failed is false after retry');
-  assert(status.url && status.url.includes('docs.opencv.org'),
+  assert(status.url && status.url.includes('cdn.jsdelivr.net'),
     `Retry loaded from primary (got: ${status.url || '?'})`);
 
   // Error box should be hidden again
@@ -223,15 +223,13 @@ async function main() {
   console.log('\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557\n');
 
   const chromePath = findChrome();
-  if (!chromePath) {
-    console.error('Cannot find Playwright Chromium.');
-    process.exit(1);
-  }
 
   const server = await startServer(ONLINE_DIR);
   console.log(`Server: http://127.0.0.1:${server.port}`);
 
-  const browser = await chromium.launch({ headless: true, executablePath: chromePath });
+  // Fall back to Playwright's bundled Chromium when hardcoded paths are absent
+  // (e.g. on Linux/CI). On Windows the maintainer's install is used.
+  const browser = await chromium.launch({ headless: true, executablePath: chromePath || undefined });
 
   const tests = [
     { name: 'Fallback on primary blocked', fn: () => testFallbackOnPrimaryBlocked(browser, server.port) },

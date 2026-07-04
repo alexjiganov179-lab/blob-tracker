@@ -333,10 +333,21 @@
   <!-- SCRIPTS: OpenCV.js -->
   <script>
     (function () {
+      // Pinned + SRI-protected first; docs.opencv.org/4.x kept as last-resort
+      // fallback (floating, no SRI — see SECURITY.md "Residual CDN risk").
       const OPENCV_CDNS = [
-        "https://docs.opencv.org/4.x/opencv.js",
-        "https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js",
-        "https://unpkg.com/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js",
+        {
+          url: "https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js",
+          integrity: "sha384-XsTfGA62I8LzqS3D7IcgiSOCrJuECWLcg4s1M0AnrkDCcJ8lXX+j+qdg+o6t7KZa",
+        },
+        {
+          url: "https://unpkg.com/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js",
+          integrity: "sha384-XsTfGA62I8LzqS3D7IcgiSOCrJuECWLcg4s1M0AnrkDCcJ8lXX+j+qdg+o6t7KZa",
+        },
+        {
+          url: "https://docs.opencv.org/4.x/opencv.js",
+          integrity: null,
+        },
       ];
       const LOAD_TIMEOUT_MS = 60000;
       const RUNTIME_TIMEOUT_MS = 30000;
@@ -442,7 +453,9 @@
           return;
         }
 
-        const url = OPENCV_CDNS[state.attempt];
+        const source = OPENCV_CDNS[state.attempt];
+        const url = source.url;
+        const integrity = source.integrity;
         state.attempt += 1;
         state.token += 1;
         const token = state.token;
@@ -453,6 +466,10 @@
         state.currentScript = script;
         script.async = true;
         script.src = url;
+        if (integrity) {
+          script.integrity = integrity;
+          script.crossOrigin = "anonymous";
+        }
         script.onload = function () {
           if (token !== state.token) return;
           clearTimeout(state.loadTimer);

@@ -1,7 +1,13 @@
 # Contour VFX Overlay — Blob Tracker
 
+[![CI](https://github.com/alexjiganov179-lab/blob-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/alexjiganov179-lab/blob-tracker/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![Live demo](https://img.shields.io/badge/demo-live-brightgreen.svg)](https://alexjiganov179-lab.github.io/blob-tracker/)
+
 Browser-based real-time editor for Canny-based contour overlays on videos.
 Inspired by artkit.cc/baby-track and whenistheweekend.com/vfx.html, free and offline.
+
+**Try it now:** <https://alexjiganov179-lab.github.io/blob-tracker/>
 
 > **Primary development branch:** `online-version/` — modular, feature-complete, with audio export.
 > The root `index.html` is the legacy single-file version.
@@ -129,6 +135,18 @@ node tests/js/test-opencv-fallback.mjs               # 3 CDN fallback / retry sc
 | F3 | Retry after unblock → recovers | ✅ |
 
 See `tests/js/run-online-tests.mjs` and `tests/js/test-opencv-fallback.mjs` for details.
+
+## Contributing, Security, License
+
+- **Contributing** — see [`CONTRIBUTING.md`](./CONTRIBUTING.md) (EN + RU). Ideas and
+  bug reports go in [Issues](https://github.com/alexjiganov179-lab/blob-tracker/issues);
+  code changes go through pull requests reviewed by the maintainer.
+- **Security** — found a vulnerability? Do **not** open a public issue. See
+  [`SECURITY.md`](./SECURITY.md) and use
+  [private vulnerability reporting](https://github.com/alexjiganov179-lab/blob-tracker/security/advisories/new).
+- **Code of Conduct** — [`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md).
+- **License** — MIT, see [`LICENSE`](./LICENSE). Third-party CDN dependencies
+  keep their own licenses (Mediabunny MPL-2.0; OpenCV.js Apache-2.0).
 
 ## Documentation Index
 

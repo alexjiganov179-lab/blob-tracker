@@ -1,0 +1,25 @@
+name: 💡 Feature request / Предложение
+description: Suggest a new effect, control, or improvement
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve? / Какую задачу решает?
+      description: Describe what you are trying to achieve, not just the solution.
+      placeholder: "I want to ... but currently I can't."
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Your suggested solution / Ваше предложение
+      description: A clear description of what you'd like to happen.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered / Альтернативы
+      description: What else have you considered?
