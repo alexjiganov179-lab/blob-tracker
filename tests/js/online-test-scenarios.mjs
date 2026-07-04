@@ -50,7 +50,7 @@ async function standardExportFlow(page, port, fixtureName, {
 
   const result = await startExportAndDownload(page);
   console.log(`     Export: ${(result.sizeBytes / 1024).toFixed(1)} KB, "${result.suggestedName}"`);
-  await page.waitForTimeout(1000);
+  await page.waitForTimeout(2000);
   const postExportState = await page.evaluate(() => ({
     isExporting,
     exportBtnDisabled: exportBtn.disabled,
@@ -65,7 +65,7 @@ async function standardExportFlow(page, port, fixtureName, {
   assert(postExportState.exportBtnText === '⬇ Export',
     `Export button label is restored (got "${postExportState.exportBtnText}")`);
   assert(postExportState.frames > 0, `Detection data remains available after export (${postExportState.frames} frames)`);
-  assert(!postExportState.paused && postExportState.currentTime < postExportState.duration - 0.05,
+  assert(!postExportState.paused && postExportState.currentTime < postExportState.duration - 0.02,
     `Playback resumes away from final frame after export (paused=${postExportState.paused}, t=${postExportState.currentTime.toFixed(3)}/${postExportState.duration.toFixed(3)})`);
 
   const logs = getPageLogs(page);

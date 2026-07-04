@@ -24,6 +24,10 @@ export const ONLINE_DIR = join(ROOT_DIR, 'online-version');
 export const FIXTURES_DIR = join(__dir, 'fixtures');
 export const OUTPUT_DIR = join(__dir, '_test_output');
 
+// CI runners are slower (shared CPU, CDN re-downloads). Multiply timeouts.
+const CI = !!process.env.CI;
+export const TIMEOUT_MULT = CI ? 3 : 1;
+
 // Chromium executable — fallback chain
 const CHROMIUM_PATHS = [
   join('C:', 'Users', '1234', 'AppData', 'Local', 'ms-playwright',
@@ -382,13 +386,13 @@ export async function launchBrowser() {
 export async function openApp(page, serverPort) {
   await page.goto(`http://127.0.0.1:${serverPort}/index.html`, {
     waitUntil: 'networkidle',
-    timeout: 60000,
+    timeout: 60000 * TIMEOUT_MULT,
   });
 
   // Wait for Mediabunny
-  await page.waitForFunction(() => !!window.MediaCodecs?.Output, { timeout: 30000 });
+  await page.waitForFunction(() => !!window.MediaCodecs?.Output, { timeout: 30000 * TIMEOUT_MULT });
   // Wait for OpenCV
-  await page.waitForFunction(() => typeof cv !== 'undefined' && !!cv.Mat, { timeout: 30000 });
+  await page.waitForFunction(() => typeof cv !== 'undefined' && !!cv.Mat, { timeout: 30000 * TIMEOUT_MULT });
 }
 
 /**
@@ -404,7 +408,7 @@ export async function uploadAndDetect(page, filePath) {
     const overlay = document.getElementById('export-overlay');
     const startBtn = document.getElementById('redetect-btn');
     return overlay && overlay.classList.contains('visible') && startBtn && !startBtn.disabled;
-  }, { timeout: 30000, polling: 250 });
+  }, { timeout: 30000 * TIMEOUT_MULT, polling: 250 });
 
   await page.click('#redetect-btn');
 
@@ -413,7 +417,7 @@ export async function uploadAndDetect(page, filePath) {
     const overlay = document.getElementById('export-overlay');
     const exportBtn = document.getElementById('export-btn');
     return overlay && overlay.classList.contains('visible') && exportBtn && !exportBtn.disabled;
-  }, { timeout: 120000, polling: 1000 });
+  }, { timeout: 120000 * TIMEOUT_MULT, polling: 1000 });
 
   await page.waitForTimeout(300);
   return (Date.now() - t0) / 1000;
@@ -457,7 +461,7 @@ export async function getSourceFps(page) {
  * Start export and wait for download.
  * Returns { filePath, suggestedName, sizeBytes }.
  */
-export async function startExportAndDownload(page, timeoutMs = 60000) {
+export async function startExportAndDownload(page, timeoutMs = 60000 * TIMEOUT_MULT) {
   const downloadPromise = new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error('Export download timed out')), timeoutMs);
     page.on('download', (download) => {
