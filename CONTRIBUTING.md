@@ -55,8 +55,7 @@ AAC-in-MP4 downloads; desktop Chrome / Edge does.
 
 - **No build step, no transpiler, no framework.** Vanilla JS modules loaded
   via `<script>` and an [import map](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script/type/importmap).
-- **Only app surface is `online-version/`.** The old root single-file prototype
-  has been removed.
+- **Only app surface is `online-version/`.**
 - **Bilingual UI strings** — new user-facing text needs both `en` and `ru` keys
   in the `TEXT` dictionary (`online-version/index.html`).
 - **Cache-busting rule** (important): when you change `online-version/styles.css`,
@@ -129,8 +128,7 @@ PR **обязан оставаться зелёным** локально. CI з�
 
 - **Без сборки, без транспилятора, без фреймворка.** Ванильные JS-модули через
   `<script>` и [import map](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script/type/importmap).
-- **Единственная поверхность приложения — `online-version/`.** Старый корневой
-  single-file прототип удалён.
+- **Единственная поверхность приложения — `online-version/`.**
 - **Двуязычные строки** — новый текст интерфейса требует ключи `en` и `ru`
   в словаре `TEXT` (`online-version/index.html`).
 - **Правило cache-busting** (важно): при изменении `online-version/styles.css`,

@@ -8,8 +8,7 @@ Browser-based real-time editor for Canny-based contour overlays on videos.
 
 **Try it now:** <https://alexjiganov179-lab.github.io/blob-tracker/>
 
-> **Application source:** `online-version/` — the only shipped app version.
-> The old root single-file prototype has been removed.
+> **Application source:** `online-version/`.
 
 ## Features
 
@@ -77,7 +76,7 @@ gets an exported file.
 - **Contour tracking, not object tracking** — IDs can flicker between frames for fast-moving or briefly occluded objects
 - **Source-size export is RAM-heavy** — export allocates an offscreen canvas at the source video's original dimensions. Use smaller source media on low-RAM devices.
 - **Preview resolution is downscaled** — detection runs on a frame sized to fit `MAX_PREVIEW_DIM`. Full-res export scales the preview coordinates to the target size with letterbox / pillarbox.
-- **No multi-clip timeline, no keyframes, no webcam input** — see `PLAN.md` for the roadmap (Phases 4-6).
+- **No multi-clip timeline, no keyframes, no webcam input**.
 
 ## Architecture
 
@@ -142,14 +141,3 @@ See `tests/js/run-online-tests.mjs` and `tests/js/test-opencv-fallback.mjs` for 
 - **Code of Conduct** — [`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md).
 - **License** — MIT, see [`LICENSE`](./LICENSE). Third-party CDN dependencies
   keep their own licenses (Mediabunny MPL-2.0; OpenCV.js Apache-2.0).
-
-## Documentation Index
-
-| File | Contents |
-|---|---|
-| `online-version/SPEC.md` | Product specification (русский) |
-| `online-version/IMPLEMENTATION-BRIEF.md` | Technical handoff for next agent |
-| `online-version/PLAN-mediabunny.md` | Mediabunny integration status |
-| `online-version/APOLOTARY-INVENTORY.md` | Historical Apolotary source inventory and current product-surface notes |
-| `PLAN.md` | Development roadmap (Phases 1-6) |
-| `gstack-design-review.md` | Design audit |

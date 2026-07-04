@@ -1,7 +1,5 @@
 # blob_tracker — Online Version
 
-> Pre-release development version. It is not approved for public deployment.
-
 `blob_tracker online` is a desktop browser VFX tool for applying contour,
 tracking, and generative effects to a local video. The source video is processed
 in the browser and is not uploaded to a blob_tracker server.
@@ -39,12 +37,11 @@ with and without audio. Source-size export, playback controls, current-frame
 probe, and post-export playback recovery are covered by the current online test
 scenarios. The native WebCodecs MP4 fallback also handles Chrome's
 `Codec reclaimed due to inactivity` failure by retrying through the WebM
-fallback. See `PLAN-mediabunny.md` for the broader Mediabunny audit history.
+fallback.
 
-## Modular refactoring (24 June 2026)
+## Modular architecture
 
-The online version has been refactored from a single `index.html` (~3131 lines)
-into a modular architecture:
+The app uses a modular HTML/CSS/JS architecture:
 
 - `index.html` (~660 lines) — DOM structure, CDN loading, OpenCV loader, modals
 - `styles.css` (~698 lines) — design system extracted from inline styles
@@ -100,22 +97,10 @@ re-runs the full chain. State is exposed via `window.__openCvStatus` and the
 `tests/js/test-opencv-fallback.mjs` (3 scenarios: primary-blocked fallback,
 all-blocked error UI, retry-after-unblock).
 
-## Documentation
+## Tests
 
-- `SPEC.md` — product scope, roadmap, and release rules
-- `PLAN-mediabunny.md` — current Mediabunny audit and remaining work
-- `IMPLEMENTATION-BRIEF.md` — handoff for the next implementation agent
-- `APOLOTARY-INVENTORY.md` — historical Apolotary inventory plus notes on the current product surface
-- `tests/js/run-online-tests.mjs` — 7 end-to-end test scenarios (127 assertions)
+- `tests/js/run-online-tests.mjs` — 7 end-to-end test scenarios (127 assertions locally)
 - `tests/js/test-opencv-fallback.mjs` — OpenCV CDN fallback + retry coverage (3 scenarios, 24 assertions)
-
-## Publication status
-
-This project is publicly released as open source at
-<https://github.com/alexjiganov179-lab/blob-tracker>, with a live demo at
-<https://alexjiganov179-lab.github.io/blob-tracker/>. The earlier internal
-release gate (pending Apolotary effects + author sign-off) was lifted on
-2026-07-04 by the author's explicit publication instruction.
 
 ## License
 
