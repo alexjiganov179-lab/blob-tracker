@@ -19,6 +19,10 @@ const I18N = {
     title: "Contour VFX Overlay - Blob Tracker",
     loadingTitle: "Loading blob_tracker...",
     loadingText: "Initializing OpenCV.js and preparing rendering pipeline...",
+    opencvLoadingAttempt: "Loading OpenCV.js from CDN {attempt}/{total}...",
+    opencvErrorTitle: "OpenCV.js failed to load",
+    opencvErrorBody: "All OpenCV CDNs are unavailable. Check your internet connection and try again.",
+    retryOpenCv: "Retry",
     dropTitle: "Drop a video file anywhere",
     dropTitleDrag: "Release to upload video",
     dropSubtitle: "MP4, WebM, MOV - max 500 MB",
@@ -160,6 +164,10 @@ const I18N = {
     title: "Contour VFX Overlay - Blob Tracker",
     loadingTitle: "Загружаем blob_tracker...",
     loadingText: "Запускаем OpenCV.js и готовим рендеринг...",
+    opencvLoadingAttempt: "Загружаем OpenCV.js с CDN {attempt}/{total}...",
+    opencvErrorTitle: "Не удалось загрузить OpenCV.js",
+    opencvErrorBody: "Все CDN OpenCV недоступны. Проверьте подключение к интернету и попробуйте снова.",
+    retryOpenCv: "Повторить",
     dropTitle: "Перетащите видео сюда",
     dropTitleDrag: "Отпустите видео для загрузки",
     dropSubtitle: "MP4, WebM, MOV - до 500 МБ",
@@ -350,8 +358,16 @@ function applyLanguage() {
   const colorHex = document.getElementById("color-hex");
   if (colorPicker) colorPicker.setAttribute("aria-label", t("colorPickerAria"));
   if (colorHex) colorHex.setAttribute("aria-label", t("colorHexAria"));
+  syncOpenCvLoadingText();
   updateOutputFpsInfo();
   updateDetectionActions();
+}
+
+function syncOpenCvLoadingText() {
+  const status = window.__openCvStatus;
+  if (!status || cvReady || status.failed || status.attempt < 1) return;
+  const el = document.getElementById("loading-text");
+  if (el) el.textContent = t("opencvLoadingAttempt", { attempt: status.attempt, total: status.total });
 }
 
 function updateDetectionActions() {
@@ -471,8 +487,16 @@ function hideLoad() {
   const el = document.getElementById("loading-screen");
   if (el) { el.style.display = "none"; }
 }
-function onCvReady() { cvReady = true; hideLoad(); console.log("OpenCV loaded"); }
-function onCvError() { log("opencv", "OpenCV.js failed to load"); console.error("OpenCV failed"); }
+function onCvReady() {
+  cvReady = true;
+  hideLoad();
+  log("opencv", "OpenCV.js loaded", { url: window.__openCvStatus && window.__openCvStatus.url });
+  console.log("OpenCV loaded");
+}
+function onCvError(error) {
+  log("opencv", "OpenCV.js failed to load", { error: error || "all CDNs failed" });
+  console.error("OpenCV failed", error || "all CDNs failed");
+}
 
 // ============================
 // WEBGL GPU PIPELINE
@@ -2313,6 +2337,8 @@ function drawPostFx(ctx, w, h) {
 // INIT
 // ============================
 function initApp() {
+  if (window.__openCvReady) onCvReady();
+  if (window.__openCvError) onCvError(window.__openCvStatus && window.__openCvStatus.error);
   setupLanguageControls();
   setupPanelTabs();
   setupControls();

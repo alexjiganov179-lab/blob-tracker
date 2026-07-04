@@ -32,7 +32,7 @@ Inspired by artkit.cc/baby-track and whenistheweekend.com/vfx.html, free and off
 
 ## Getting Started
 
-Open `online-version/index.html` in Chrome or Edge. OpenCV.js loads from CDN.
+Open `online-version/index.html` in Chrome or Edge. OpenCV.js loads from a 3-CDN fallback chain with a retry button if all CDNs fail.
 
 1. **Drop a video** anywhere on the page (or click Upload) to load the preview
 2. **Choose detection settings** in Find Objects / Detect before analysis starts
@@ -75,7 +75,7 @@ gets an exported file.
 ### Requirements
 
 - **Chrome or Edge** recommended for the full experience (Mediabunny + audio). Firefox / Safari fall back to WebM via MediaRecorder.
-- **Internet on first load** for OpenCV.js and Mediabunny. Once cached, the app runs offline.
+- **Internet on first load** for OpenCV.js and Mediabunny. OpenCV.js has a 3-CDN fallback chain (`docs.opencv.org` → `cdn.jsdelivr.net` → `unpkg.com`) with a user-facing retry if all fail. Once cached, the app runs offline.
 
 ## Known Limitations
 
@@ -90,9 +90,9 @@ The project uses a **modular architecture** (primary: `online-version/`):
 
 | File | Lines | Purpose |
 |---|---|---|
-| `index.html` | ~470 | Clean HTML structure (DOM, modals, CDN importmap) |
+| `index.html` | ~660 | Clean HTML structure (DOM, modals, CDN importmap, OpenCV loader) |
 | `styles.css` | ~698 | All CSS styles (design system, layout, animations) |
-| `app.js` | ~2202 | Core UI logic, state management, initialization, detection pipeline |
+| `app.js` | ~2362 | Core UI logic, state management, initialization, detection pipeline |
 | `effects.js` | ~342 | 14 visual effects |
 | `export.js` | ~480 | Export pipeline (Mediabunny MP4/WebM, native fallbacks, audio passthrough) |
 
@@ -108,10 +108,11 @@ When changing `online-version/styles.css`, `online-version/app.js`, `online-vers
 
 ## Test Suite
 
-7 end-to-end scenarios, 82 assertions, all green:
+8 test files, 130 assertions across 10 scenarios, all green:
 
 ```bash
-node tests/js/run-online-tests.mjs --scenario all
+node tests/js/run-online-tests.mjs --scenario all   # 7 e2e scenarios (127 assertions)
+node tests/js/test-opencv-fallback.mjs               # 3 CDN fallback / retry scenarios
 ```
 
 | # | Scenario | Result |
@@ -123,8 +124,11 @@ node tests/js/run-online-tests.mjs --scenario all
 | 5 | Vertical source-size → MP4 | ✅ |
 | 6 | 60 FPS → Source FPS | ✅ |
 | 7 | Cancel export (long video) | ✅ |
+| F1 | OpenCV primary blocked → fallback | ✅ |
+| F2 | All OpenCV CDNs blocked → error UI | ✅ |
+| F3 | Retry after unblock → recovers | ✅ |
 
-See `tests/js/run-online-tests.mjs` for details.
+See `tests/js/run-online-tests.mjs` and `tests/js/test-opencv-fallback.mjs` for details.
 
 ## Documentation Index
 

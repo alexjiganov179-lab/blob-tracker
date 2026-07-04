@@ -21,9 +21,14 @@
   <!-- LOADING SCREEN -->
   <div id="loading-screen" style="position: fixed; inset: 0; background: #0d0d12; z-index: 1000; display: flex; align-items: center; justify-content: center;">
     <div style="text-align: center;">
-      <div class="spinner" style="width:40px;height:40px;border-width:4px;margin:0 auto 20px;"></div>
+      <div id="loading-spinner" class="spinner" style="width:40px;height:40px;border-width:4px;margin:0 auto 20px;"></div>
       <h2 data-i18n="loadingTitle" style="color:#fff;font-size:18px;margin-bottom:12px;">Loading blob_tracker...</h2>
-      <p data-i18n="loadingText" style="color:#a0a0a8;font-size:14px;">Initializing OpenCV.js and preparing rendering pipeline...</p>
+      <p id="loading-text" data-i18n="loadingText" style="color:#a0a0a8;font-size:14px;">Initializing OpenCV.js and preparing rendering pipeline...</p>
+      <div id="opencv-load-error" style="display:none; max-width:360px; margin:0 auto;">
+        <p id="opencv-load-error-title" data-i18n="opencvErrorTitle" style="color:#f87171;font-size:14px;font-weight:700;margin:0 0 8px;">OpenCV.js failed to load</p>
+        <p id="opencv-load-error-body" data-i18n="opencvErrorBody" style="color:#a0a0a8;font-size:13px;line-height:1.5;margin:0 0 16px;">Check your internet connection and try again.</p>
+        <button type="button" id="opencv-retry-btn" data-i18n="retryOpenCv" style="appearance:none;border:0;border-radius:999px;background:#f3ac03;color:#16130a;font-weight:700;padding:10px 22px;cursor:pointer;">Retry</button>
+      </div>
     </div>
   </div>
 
@@ -326,7 +331,178 @@
   </div>
 
   <!-- SCRIPTS: OpenCV.js -->
-  <script async src="https://docs.opencv.org/4.x/opencv.js" onload="onCvReady()" onerror="onCvError()"></script>
+  <script>
+    (function () {
+      const OPENCV_CDNS = [
+        "https://docs.opencv.org/4.x/opencv.js",
+        "https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js",
+        "https://unpkg.com/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js",
+      ];
+      const LOAD_TIMEOUT_MS = 60000;
+      const RUNTIME_TIMEOUT_MS = 30000;
+      const savedLang = localStorage.getItem("blobTrackerLang");
+      const initialLang = savedLang || ((navigator.language || "").toLowerCase().startsWith("ru") ? "ru" : "en");
+      const TEXT = {
+        en: {
+          loading: "Loading OpenCV.js from CDN {attempt}/{total}...",
+          retrying: "Retrying OpenCV.js download...",
+          title: "OpenCV.js failed to load",
+          body: "All OpenCV CDNs are unavailable. Check your internet connection and try again.",
+        },
+        ru: {
+          loading: "Загружаем OpenCV.js с CDN {attempt}/{total}...",
+          retrying: "Повторяем загрузку OpenCV.js...",
+          title: "Не удалось загрузить OpenCV.js",
+          body: "Все CDN OpenCV недоступны. Проверьте подключение к интернету и попробуйте снова.",
+        },
+      };
+
+      const state = {
+        attempt: 0,
+        total: OPENCV_CDNS.length,
+        ready: false,
+        failed: false,
+        currentScript: null,
+        loadTimer: null,
+        runtimeTimer: null,
+        token: 0,
+        url: "",
+        error: "",
+      };
+      window.__openCvStatus = state;
+
+      function text(key, vars) {
+        let value = (TEXT[initialLang] || TEXT.en)[key] || TEXT.en[key] || key;
+        Object.entries(vars || {}).forEach(([name, replacement]) => {
+          value = value.replaceAll("{" + name + "}", String(replacement));
+        });
+        return value;
+      }
+
+      function setLoadingText(message) {
+        const el = document.getElementById("loading-text");
+        if (el) el.textContent = message;
+      }
+
+      function clearTimers() {
+        clearTimeout(state.loadTimer);
+        clearTimeout(state.runtimeTimer);
+        state.loadTimer = null;
+        state.runtimeTimer = null;
+      }
+
+      function showError() {
+        state.failed = true;
+        window.__openCvReady = false;
+        window.__openCvError = true;
+        const spinner = document.getElementById("loading-spinner");
+        const loadingText = document.getElementById("loading-text");
+        const errorBox = document.getElementById("opencv-load-error");
+        const errorTitle = document.getElementById("opencv-load-error-title");
+        const errorBody = document.getElementById("opencv-load-error-body");
+        if (spinner) spinner.style.display = "none";
+        if (loadingText) loadingText.style.display = "none";
+        if (errorTitle) errorTitle.textContent = text("title");
+        if (errorBody) errorBody.textContent = text("body");
+        if (errorBox) errorBox.style.display = "block";
+        if (typeof window.onCvError === "function") window.onCvError(state.error);
+      }
+
+      function hideError() {
+        const spinner = document.getElementById("loading-spinner");
+        const loadingText = document.getElementById("loading-text");
+        const errorBox = document.getElementById("opencv-load-error");
+        if (spinner) spinner.style.display = "";
+        if (loadingText) loadingText.style.display = "";
+        if (errorBox) errorBox.style.display = "none";
+      }
+
+      function markReady(url, token) {
+        if (token !== state.token) return;
+        if (state.ready) return;
+        clearTimers();
+        state.ready = true;
+        state.failed = false;
+        state.url = url;
+        window.__openCvReady = true;
+        window.__openCvError = false;
+        if (typeof window.onCvReady === "function") window.onCvReady();
+      }
+
+      function loadNext(reason) {
+        clearTimers();
+        if (state.ready) return;
+        if (reason) console.warn("OpenCV CDN failed:", state.url || "unknown", reason);
+        if (state.currentScript && state.currentScript.parentNode) {
+          state.currentScript.parentNode.removeChild(state.currentScript);
+        }
+        if (state.attempt >= OPENCV_CDNS.length) {
+          state.error = reason || "OpenCV.js failed to load";
+          showError();
+          return;
+        }
+
+        const url = OPENCV_CDNS[state.attempt];
+        state.attempt += 1;
+        state.token += 1;
+        const token = state.token;
+        state.url = url;
+        setLoadingText(text("loading", { attempt: state.attempt, total: state.total }));
+
+        const script = document.createElement("script");
+        state.currentScript = script;
+        script.async = true;
+        script.src = url;
+        script.onload = function () {
+          if (token !== state.token) return;
+          clearTimeout(state.loadTimer);
+          const cvInstance = window.cv;
+          if (cvInstance && cvInstance.Mat) {
+            markReady(url, token);
+            return;
+          }
+          if (cvInstance) {
+            const previousInit = cvInstance.onRuntimeInitialized;
+            cvInstance.onRuntimeInitialized = function () {
+              if (typeof previousInit === "function") previousInit.call(cvInstance);
+              markReady(url, token);
+            };
+          }
+          state.runtimeTimer = setTimeout(function () {
+            if (token !== state.token) return;
+            loadNext("OpenCV runtime initialization timed out");
+          }, RUNTIME_TIMEOUT_MS);
+        };
+        script.onerror = function () {
+          if (token !== state.token) return;
+          loadNext("Network error");
+        };
+        state.loadTimer = setTimeout(function () {
+          if (token !== state.token) return;
+          loadNext("Download timed out");
+        }, LOAD_TIMEOUT_MS);
+        document.head.appendChild(script);
+      }
+
+      window.retryOpenCvLoad = function () {
+        clearTimers();
+        state.attempt = 0;
+        state.ready = false;
+        state.failed = false;
+        state.error = "";
+        state.token += 1;
+        window.__openCvReady = false;
+        window.__openCvError = false;
+        hideError();
+        setLoadingText(text("retrying"));
+        loadNext();
+      };
+
+      const retryBtn = document.getElementById("opencv-retry-btn");
+      if (retryBtn) retryBtn.addEventListener("click", window.retryOpenCvLoad);
+      loadNext();
+    }());
+  </script>
 
   <!-- SCRIPTS: mp4-muxer fallback (if Mediabunny is not available) -->
   <script>
@@ -477,6 +653,6 @@
   <!-- SCRIPTS: Application modules loaded after DOM -->
   <script src="effects.js?v=20260704-colorhex1"></script>
   <script src="export.js?v=20260704-colorhex1"></script>
-  <script src="app.js?v=20260704-tips1"></script>
+  <script src="app.js?v=20260704-opencv-fallback1"></script>
 </body>
 </html>

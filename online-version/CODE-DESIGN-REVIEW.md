@@ -53,6 +53,7 @@ GET https://docs.opencv.org/4.x/opencv.js → 404 (если CDN недоступ
 2. Показать индикатор загрузки (spinner/progress)
 3. Добавить fallback URL (зеркало CDN или локальную копию)
 **Статус:** ✅ ВСЕ КРИТИЧЕСКИЕ ПРОБЛЕМЫ ИСПРАВЛЕНЫ
+**Реализовано:** загрузчик в `index.html` перебирает 3 CDN (`docs.opencv.org` → `cdn.jsdelivr.net` → `unpkg.com`) с таймаутами загрузки (60 с) и инициализации runtime (30 с), показывает номер попытки (`CDN 1/3`) и при полном сбое — error-UI с кнопкой Retry. Покрытие: `tests/js/test-opencv-fallback.mjs` (3 сценария).
 
 ### 🟡 Высокий приоритет — 4
 

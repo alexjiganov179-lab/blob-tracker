@@ -191,7 +191,7 @@
 | Все 53 `<button>` без `type` — технически корректно (default type="submit" в форме, но формы нет) | 🟢 Low |
 | Иконки `.lbtn svg` — внутри кнопок как `<img>`, без alt-текста | 🟡 Medium |
 | `presets.json` fetch падает на file:// — требуется HTTP сервер | 🟡 Medium |
-| OpenCV CDN без fallback — если CDN недоступен, приложение не стартует | 🟢 Low |
+| ~~OpenCV CDN без fallback — если CDN недоступен, приложение не стартует~~ ✅ решено: 3-CDN fallback-цепочка + Retry | 🟢 Low |
 
 ---
 

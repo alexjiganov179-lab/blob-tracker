@@ -46,7 +46,7 @@ fallback. See `PLAN-mediabunny.md` for the broader Mediabunny audit history.
 The online version has been refactored from a single `index.html` (~3131 lines)
 into a modular architecture:
 
-- `index.html` (~470 lines) — DOM structure, CDN loading, modals
+- `index.html` (~660 lines) — DOM structure, CDN loading, OpenCV loader, modals
 - `styles.css` (~698 lines) — design system extracted from inline styles
 - `app.js` — core logic, UI, detection pipeline
 - `effects.js` (~342 lines) — 15 visual effects
@@ -90,9 +90,15 @@ video itself is not sent to those CDNs by the application.
 
 When changing `styles.css`, `app.js`, `effects.js`, or `export.js`, update the matching `?v=...` query string in `index.html`. Browser cache can otherwise keep old JS/CSS active while newer HTML is visible.
 
-**OpenCV.js reliability**: OpenCV.js (~17MB) loads from primary CDN with automatic
-fallback to secondary CDN. Users see loading indicator during download, and if both
-CDNs fail, clear error messages with retry option are shown.
+**OpenCV.js reliability**: OpenCV.js loads from a 3-CDN fallback chain
+(`docs.opencv.org` → `cdn.jsdelivr.net` → `unpkg.com`) with per-CDN download and
+runtime-initialization timeouts. The loading screen shows the current attempt
+(`CDN 1/3`), and if all CDNs fail, a user-facing error with a **Retry** button
+replaces the spinner so the user is never stuck on an endless loader. Retry
+re-runs the full chain. State is exposed via `window.__openCvStatus` and the
+`onCvReady` / `onCvError` callbacks in `app.js`. Covered by
+`tests/js/test-opencv-fallback.mjs` (3 scenarios: primary-blocked fallback,
+all-blocked error UI, retry-after-unblock).
 
 ## Documentation
 
@@ -100,7 +106,8 @@ CDNs fail, clear error messages with retry option are shown.
 - `PLAN-mediabunny.md` — current Mediabunny audit and remaining work
 - `IMPLEMENTATION-BRIEF.md` — handoff for the next implementation agent
 - `APOLOTARY-INVENTORY.md` — historical Apolotary inventory plus notes on the current product surface
-- `tests/js/run-online-tests.mjs` — 7 end-to-end test scenarios (82 assertions)
+- `tests/js/run-online-tests.mjs` — 7 end-to-end test scenarios (127 assertions)
+- `tests/js/test-opencv-fallback.mjs` — OpenCV CDN fallback + retry coverage (3 scenarios, 24 assertions)
 
 ## Release rule
 
