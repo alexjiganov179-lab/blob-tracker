@@ -12,8 +12,6 @@
 
 **Try it now:** <https://alexjiganov179-lab.github.io/blob-tracker/>
 
-> **Application source:** `online-version/`.
-
 ## Features
 
 - **14 visual effects** — Contour, Cross, Frame, L-Frame, X-Frame, Grid, Particle, Dash, Scope, Win2K, Backdrop, Emojis, Heatmap, Voronoi, Convex-Hull
