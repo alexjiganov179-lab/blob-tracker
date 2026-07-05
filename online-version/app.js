@@ -29,7 +29,7 @@ const I18N = {
     dropHint: "or choose a file manually",
     uploadVideo: "Upload Video",
     appTitle: "Blob Tracker",
-    appSubtitle: "Blob tracking editor for video overlays",
+    appSubtitle: "Transform your footage with blob-tracking effects",
     tabQuick: "Quick",
     tabStyle: "Style",
     tabDetect: "Detect",
@@ -174,7 +174,7 @@ const I18N = {
     dropHint: "или выберите файл вручную",
     uploadVideo: "Загрузить видео",
     appTitle: "Blob Tracker",
-    appSubtitle: "Редактор видео-оверлеев с трекингом объектов",
+    appSubtitle: "Преобразуйте своё видео с помощью blob-трекинг-эффектов",
     tabQuick: "Старт",
     tabStyle: "Стиль",
     tabDetect: "Детект",
@@ -331,7 +331,7 @@ const TIP_TEXTS = {
 };
 
 const savedLang = localStorage.getItem("blobTrackerLang");
-let currentLang = savedLang || ((navigator.language || "").toLowerCase().startsWith("ru") ? "ru" : "en");
+let currentLang = savedLang || "en";
 if (!I18N[currentLang]) currentLang = "en";
 
 function t(key, vars = {}) {

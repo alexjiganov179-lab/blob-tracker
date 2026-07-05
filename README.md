@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Live demo](https://img.shields.io/badge/demo-live-brightgreen.svg)](https://alexjiganov179-lab.github.io/blob-tracker/)
 
-Browser-based real-time editor for Canny-based contour overlays on videos.
+Transform your footage with blob-tracking effects.
 
 **Try it now:** <https://alexjiganov179-lab.github.io/blob-tracker/>
 

@@ -95,7 +95,7 @@
         <div class="brand-row">
           <div>
             <div class="panel-title" data-i18n="appTitle">Blob Tracker</div>
-            <div class="panel-subtitle" data-i18n="appSubtitle">Blob tracking editor for video overlays</div>
+            <div class="panel-subtitle" data-i18n="appSubtitle">Transform your footage with blob-tracking effects</div>
           </div>
           <div class="lang-bar" aria-label="Language">
             <button type="button" data-lang="en" class="active">EN</button>
@@ -352,7 +352,7 @@
       const LOAD_TIMEOUT_MS = 60000;
       const RUNTIME_TIMEOUT_MS = 30000;
       const savedLang = localStorage.getItem("blobTrackerLang");
-      const initialLang = savedLang || ((navigator.language || "").toLowerCase().startsWith("ru") ? "ru" : "en");
+      const initialLang = savedLang || "en";
       const TEXT = {
         en: {
           loading: "Loading OpenCV.js from CDN {attempt}/{total}...",
@@ -670,6 +670,6 @@
   <!-- SCRIPTS: Application modules loaded after DOM -->
   <script src="effects.js?v=20260704-colorhex1"></script>
   <script src="export.js?v=20260704-colorhex1"></script>
-  <script src="app.js?v=20260704-blob-tracker-name1"></script>
+  <script src="app.js?v=20260704-blob-tracker-copy1"></script>
 </body>
 </html>

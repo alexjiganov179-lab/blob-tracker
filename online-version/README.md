@@ -1,7 +1,6 @@
 # Blob Tracker — Online Version
 
-Blob Tracker is a desktop browser VFX tool for applying contour,
-tracking, and generative effects to a local video. The source video is processed
+Transform your footage with blob-tracking effects. The source video is processed
 in the browser and is not uploaded to a Blob Tracker server.
 
 ## Current capabilities
