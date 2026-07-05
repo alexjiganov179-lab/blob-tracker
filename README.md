@@ -4,7 +4,11 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Live demo](https://img.shields.io/badge/demo-live-brightgreen.svg)](https://alexjiganov179-lab.github.io/blob-tracker/)
 
-Transform your footage with blob-tracking effects.
+> I run [SHUM](https://www.instagram.com/studio.shum), a multimedia studio. One day I wanted to make a series of Instagram Reels under the theme *"Everything looks better with blob tracking effect on it"*. I looked for a quick tool — nothing fit. Yes, TouchDesigner can do this, but learning it for a handful of Reels felt like overkill. So I built my own. This is my first open-source project, and it's free for anyone to use.
+>
+> ---
+>
+> Однажды захотелось сделать серию Instagram Reels на тему «Everything looks better with blob tracking effect on it» для аккаунта [SHUM](https://www.instagram.com/studio.shum). Порылся — готового инструмента под рукой нет. TouchDesigner умеет, но изучать его ради пары рилсов принципиально не хотелось. Поэтому написал свой. Это мой первый open-source проект, и он бесплатен для всех.
 
 **Try it now:** <https://alexjiganov179-lab.github.io/blob-tracker/>
 
@@ -129,6 +133,13 @@ desktop Chrome / Edge.
 | F3 | Retry after unblock → recovers | ✅ |
 
 See `tests/js/run-online-tests.mjs` and `tests/js/test-opencv-fallback.mjs` for details.
+
+## Acknowledgments
+
+- **[Apolotary/blob-tracker](https://github.com/Apolotary/blob-tracker)** — original Python project whose detector/visualizer/post-FX architecture inspired this port
+- **[Vanilagy/mediabunny](https://github.com/Vanilagy/mediabunny)** — export engine powering MP4 and WebM output with audio passthrough
+- **[Vanilagy/mp4-muxer](https://github.com/Vanilagy/mp4-muxer)** — H.264 packaging for the WebCodecs MP4 fallback
+- **[@techstark/opencv-js](https://github.com/techstark/opencv-js)** — OpenCV.js distribution used for contour detection
 
 ## Contributing, Security, License
 

@@ -3,7 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Blob Tracker</title>
+  <meta name="description" content="Blob detection and visual effects for video — everything looks better with blob tracking effect on it" />
+  <meta property="og:title" content="Blob Tracker — Everything looks better with blob tracking effect on it" />
+  <meta property="og:description" content="Blob detection and visual effects for video. Built for SHUM, free for everyone." />
+  <meta property="og:url" content="https://alexjiganov179-lab.github.io/blob-tracker/" />
+  <meta property="og:type" content="website" />
+  <title>Blob Tracker — Everything looks better with blob tracking effect on it</title>
   <link rel="stylesheet" href="styles.css?v=20260705-ghbtn2" />
   <style>
     .app-dialog[hidden] { display: none !important; }
@@ -24,6 +29,7 @@
       <div id="loading-spinner" class="spinner" style="width:40px;height:40px;border-width:4px;margin:0 auto 20px;"></div>
       <h2 data-i18n="loadingTitle" style="color:#fff;font-size:18px;margin-bottom:12px;">Loading Blob Tracker...</h2>
       <p id="loading-text" data-i18n="loadingText" style="color:#a0a0a8;font-size:14px;">Initializing OpenCV.js and preparing rendering pipeline...</p>
+      <p data-i18n="loadingTagline" style="color:#666;font-size:11px;margin-top:20px;font-style:italic;">Everything looks better with blob tracking effect on it</p>
       <div id="opencv-load-error" style="display:none; max-width:360px; margin:0 auto;">
         <p id="opencv-load-error-title" data-i18n="opencvErrorTitle" style="color:#f87171;font-size:14px;font-weight:700;margin:0 0 8px;">OpenCV.js failed to load</p>
         <p id="opencv-load-error-body" data-i18n="opencvErrorBody" style="color:#a0a0a8;font-size:13px;line-height:1.5;margin:0 0 16px;">Check your internet connection and try again.</p>
@@ -95,7 +101,7 @@
         <div class="brand-row">
           <div>
             <div class="panel-title" data-i18n="appTitle">Blob Tracker</div>
-            <div class="panel-subtitle" data-i18n="appSubtitle">Transform your footage with blob-tracking effects</div>
+            <div class="panel-subtitle" data-i18n="appSubtitle">Everything looks better with blob tracking effect on it</div>
           </div>
           <div class="lang-bar" aria-label="Language">
             <button type="button" data-lang="en" class="active">EN</button>
@@ -677,6 +683,6 @@
   <!-- SCRIPTS: Application modules loaded after DOM -->
   <script src="effects.js?v=20260704-colorhex1"></script>
   <script src="export.js?v=20260704-colorhex1"></script>
-  <script src="app.js?v=20260705-ghbtn2"></script>
+  <script src="app.js?v=20260705-tagline1"></script>
 </body>
 </html>

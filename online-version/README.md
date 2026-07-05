@@ -1,6 +1,6 @@
 # Blob Tracker — Online Version
 
-Transform your footage with blob-tracking effects. The source video is processed
+Everything looks better with blob tracking effect on it. The source video is processed
 in the browser and is not uploaded to a Blob Tracker server.
 
 ## Current capabilities
