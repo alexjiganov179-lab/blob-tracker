@@ -330,6 +330,19 @@ canvas { display: block; max-height: 94vh; max-width: 100%; border-radius: 4px; 
 }
 .pfooter button:hover { border-color: #f3ac03; color: #ccc; }
 
+.gh-row {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+}
+.gh-row iframe {
+  border: 0;
+  transform: scale(0.75);
+  transform-origin: center;
+}
+
 :focus-visible {
   outline: 2px solid #f3ac03;
   outline-offset: 2px;
