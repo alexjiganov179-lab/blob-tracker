@@ -20,6 +20,7 @@ in the browser and is not uploaded to a Blob Tracker server.
 - In-app confirmation before switching to 30 or 60 FPS because it starts a re-detect pass
 - Output dimensions: always the source video's original width, height, and aspect ratio
 - MP4 and WebM export through Mediabunny 1.49.0 with audio passthrough
+- **Mobile-aware audio handling** — the export pipeline pre-checks `audioTrack.canDecode()` before registering the audio track. Mobile browsers (iOS Safari, Android Chrome) reject most audio codecs via WebCodecs `AudioDecoder`, so the app exports video-only instead of crashing, and shows mobile users an in-app notice in the Output card explaining the limitation.
 - WebCodecs MP4 fallback can recover from browser codec reclaim by retrying as WebM
 - Automatic video-codec selection
 - Detection and export progress
@@ -71,7 +72,14 @@ The exported video always uses the loaded source video's original pixel
 dimensions and aspect ratio. The online interface intentionally does not expose
 separate output-size presets.
 
-Exported files include synchronized audio when the source has an audio track.
+Exported files include synchronized audio when the source has an audio track
+and the browser's WebCodecs `AudioDecoder` can decode it. Before registering
+the audio track, the pipeline calls `audioTrack.canDecode()`; on mobile
+browsers (iOS Safari, Android Chrome) this typically returns `false` for most
+codecs, so the export proceeds video-only instead of crashing. Mobile users
+see a notice in the Output card explaining this. Any audio failure mid-export
+is logged and the video-only result is still delivered.
+
 If the legacy WebCodecs MP4 path fails because the browser reclaimed an inactive
 encoder during a slow export, the app logs the error and retries as WebM so the
 export can still complete.

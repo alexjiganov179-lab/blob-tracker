@@ -305,7 +305,13 @@ async function runMediabunnyExport() {
         formats: MediaCodecs.ALL_FORMATS,
       });
       const audioTrack = await input.getPrimaryAudioTrack();
-      if (audioTrack) {
+      // iOS Safari's AudioDecoder rejects many codecs (Opus in mp4, mp3 in mp4, some AAC profiles, etc.).
+      // Check decodability up-front BEFORE registering the track on the output:
+      // once addAudioTrack() is called, finalize() will expect samples and fail otherwise.
+      const decodable = audioTrack && typeof audioTrack.canDecode === "function"
+        ? await audioTrack.canDecode()
+        : !!audioTrack;
+      if (audioTrack && decodable) {
         audioSource = new MediaCodecs.AudioSampleSource({
           codec: isMp4 ? "aac" : "opus",
           bitrate: 128_000,
@@ -324,9 +330,13 @@ async function runMediabunnyExport() {
               chunk.close();
             }
           } finally {
-            audioSource.close();
+            try { audioSource.close(); } catch (e) {}
           }
         })();
+      } else if (audioTrack) {
+        log("export", "Audio track not decodable in this browser, exporting video only", {
+          hint: "Common on iOS Safari due to limited WebCodecs AudioDecoder support",
+        });
       }
     } catch (e) {
       console.warn("Audio passthrough unavailable, exporting video only:", e.message);
@@ -357,7 +367,17 @@ async function runMediabunnyExport() {
   }
 
   videoSource.close();
-  await audioPromise;
+  // Audio pipeline must be non-fatal: if it fails mid-export, log and continue video-only
+  // rather than crashing the whole export. This is essential on iOS Safari where AudioDecoder
+  // can reject codecs lazily, mid-stream.
+  try {
+    await audioPromise;
+  } catch (e) {
+    log("export", "Audio processing failed, continuing with video-only export", { error: e.message });
+    if (audioSource) {
+      try { audioSource.close(); } catch (err) {}
+    }
+  }
   await output.finalize();
   const buf = output.target.buffer;
   return { cancelled: false, blob: new Blob([buf], { type: isMp4 ? "video/mp4" : "video/webm" }), ext: isMp4 ? "mp4" : "webm" };

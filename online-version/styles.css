@@ -265,6 +265,12 @@ canvas { display: block; max-height: 94vh; max-width: 100%; border-radius: 4px; 
   font-size: 10px; color: #444; margin-bottom: 5px; margin-top: 7px;
   text-transform: uppercase; letter-spacing: .04em;
 }
+.mobile-notice {
+  margin-top: 8px; padding: 6px 8px; border-radius: 5px;
+  border: 1px solid rgba(243, 172, 3, .45); background: rgba(243, 172, 3, .10);
+  font-size: 10px; line-height: 1.4; color: #6b4f00;
+  text-transform: none; letter-spacing: 0;
+}
 .opts { display: flex; gap: 3px; flex-wrap: wrap; }
 .obtn {
   padding: 4px 10px; border: 1px solid #1e1e28; border-radius: 5px;

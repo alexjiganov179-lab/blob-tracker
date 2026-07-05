@@ -59,12 +59,14 @@ OpenCV.js loads from a 3-CDN fallback chain with a retry button if all CDNs fail
 
 | Format | Engine | Audio | Best for |
 |---|---|---|---|
-| **MP4** | Mediabunny (AVC/H.264 + AAC) | ✅ AAC passthrough | Social sharing, Instagram Reels / Stories |
-| **WebM** | Mediabunny (VP9 + Opus) | ✅ Opus passthrough | Firefox / Safari, open formats |
+| **MP4** | Mediabunny (AVC/H.264 + AAC) | ✅ AAC passthrough (desktop) / ❌ video-only on mobile | Social sharing, Instagram Reels / Stories |
+| **WebM** | Mediabunny (VP9 + Opus) | ✅ Opus passthrough (desktop) / ❌ video-only on mobile | Firefox / Safari, open formats |
 | **MP4 (fallback)** | WebCodecs H.264 → `mp4-muxer` | ❌ video only | Legacy Chrome without Mediabunny |
 | **WebM (fallback)** | `MediaRecorder` on `canvas.captureStream(0)` | ❌ video only | Legacy Firefox / Safari |
 
 MP4 files use `fastStart: "in-memory"` so the `moov` box is at the front and the file is web-streamable without a post-process.
+
+The export pipeline checks `audioTrack.canDecode()` before registering the audio track, so an undecodable audio codec (common on mobile) produces a clean video-only file instead of crashing the export. Any audio error mid-export is logged and the video-only result is still delivered.
 
 If the browser reclaims the WebCodecs MP4 encoder during a slow 60 FPS export,
 the app logs the failure and retries through the WebM fallback so the user still
@@ -72,12 +74,14 @@ gets an exported file.
 
 ### Requirements
 
-- **Chrome or Edge** recommended for the full experience (Mediabunny + audio). Firefox / Safari fall back to WebM via MediaRecorder.
+- **Desktop Chrome or Edge** recommended for the full experience (Mediabunny + audio). Desktop Firefox / Safari fall back to WebM via MediaRecorder.
+- **Mobile browsers (iOS Safari, Android Chrome)** can detect, preview, and export, but the exported file will likely have **no audio**: mobile WebCodecs `AudioDecoder` cannot decode most audio codecs (Opus/MP3 in MP4, some AAC profiles). The app shows an in-app notice to mobile users in the Output card and silently exports video-only. For audio, export on a desktop browser.
 - **Internet on first load** for OpenCV.js and Mediabunny. OpenCV.js has a 3-CDN fallback chain (`docs.opencv.org` → `cdn.jsdelivr.net` → `unpkg.com`) with a user-facing retry if all fail. Once cached, the app runs offline.
 
 ## Known Limitations
 
 - **Contour tracking, not object tracking** — IDs can flicker between frames for fast-moving or briefly occluded objects
+- **Mobile export is video-only** — iOS Safari and Android Chrome reject most audio codecs in WebCodecs `AudioDecoder`, so the export pipeline pre-checks `audioTrack.canDecode()` and exports video-only when audio is not decodable. A visible notice in the Output card warns mobile users before export.
 - **Source-size export is RAM-heavy** — export allocates an offscreen canvas at the source video's original dimensions. Use smaller source media on low-RAM devices.
 - **Preview resolution is downscaled** — detection runs on a frame sized to fit `MAX_PREVIEW_DIM`. Full-res export scales the preview coordinates to the target size with letterbox / pillarbox.
 - **No multi-clip timeline, no keyframes, no webcam input**.

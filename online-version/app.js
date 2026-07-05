@@ -68,6 +68,7 @@ const I18N = {
     output: "Output",
     outputFps: "Output FPS",
     codec: "Codec",
+    mobileAudioNotice: "Heads up: on mobile browsers (especially iOS Safari) the exported video will likely have no sound. Mobile WebCodecs can't decode most audio codecs. For audio, export on a desktop browser.",
     low: "Low",
     normal: "Normal",
     high: "High",
@@ -214,6 +215,7 @@ const I18N = {
     output: "Экспорт",
     outputFps: "FPS экспорта",
     codec: "Кодек",
+    mobileAudioNotice: "Внимание: в мобильных браузерах (особенно iOS Safari) экспортируемое видео, скорее всего, будет без звука — мобильный WebCodecs не умеет декодировать большинство аудиокодеков. Чтобы получить видео со звуком, экспортируйте в десктоп-браузере.",
     low: "Низкая",
     normal: "Баланс",
     high: "Высокая",
@@ -2347,6 +2349,7 @@ function initApp() {
   setupPlaybackControls();
   applyLanguage();
   initGPU();
+  revealMobileAudioNotice();
   Telemetry.el = document.getElementById("telemetry");
   Telemetry.setTargetFps(PROCESSING_FPS_DEFAULT);
 
@@ -2359,6 +2362,16 @@ function initApp() {
   appReady = true;
   hideLoad();
   log("init", "App initialized");
+}
+
+function revealMobileAudioNotice() {
+  const ua = navigator.userAgent || "";
+  const isIOS = /iPhone|iPad|iPod/i.test(ua) ||
+    (ua.indexOf("Mac") !== -1 && "ontouchend" in document && !window.MSStream);
+  const isAndroid = /Android/i.test(ua);
+  const isMobile = isIOS || isAndroid;
+  const el = document.getElementById("mobile-audio-notice");
+  if (el) el.hidden = !isMobile;
 }
 
 document.addEventListener("DOMContentLoaded", initApp);
