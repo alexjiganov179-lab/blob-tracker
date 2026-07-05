@@ -81,15 +81,12 @@ const I18N = {
     area: "Area",
     none: "None",
     full: "Full",
-    detail: "Detail",
-    grouped: "Grouped",
     red: "Red",
     greenShort: "Grn",
     blueShort: "Blu",
     min: "Min",
     max: "Max",
     merge: "Merge",
-    passes: "Passes",
     center: "Center",
     top: "Top",
     bottom: "Bottom",
@@ -145,6 +142,16 @@ const I18N = {
     tipConnectionAria: "Help: Connection",
     tipColorAria: "Help: Color",
     tipTextAria: "Help: Text",
+    tipBlobMinAria: "Help: Minimum blob size",
+    tipBlobMaxAria: "Help: Maximum blob size",
+    tipColorChannelAria: "Help: Color Channel",
+    tipGpuAria: "Help: GPU Acceleration",
+    tipCannyLowAria: "Help: C-Low",
+    tipCannyHighAria: "Help: C-High",
+    tipBlurAria: "Help: Blur",
+    tipMergeAria: "Help: Merge",
+    tipCentroidAria: "Help: Centroid",
+    tipShowDotsAria: "Help: Show dots",
     smallTitle: "For small objects and details. Works best with high sensitivity.",
     nearestTitle: "Nearest neighbors",
     allTitle: "All connections",
@@ -228,15 +235,12 @@ const I18N = {
     area: "Площадь",
     none: "Нет",
     full: "Полная",
-    detail: "Детально",
-    grouped: "Группами",
     red: "Красн",
     greenShort: "Зел",
     blueShort: "Син",
     min: "Мин",
     max: "Макс",
     merge: "Слияние",
-    passes: "Проходы",
     center: "Центр",
     top: "Сверху",
     bottom: "Снизу",
@@ -292,6 +296,16 @@ const I18N = {
     tipConnectionAria: "Справка: Связи",
     tipColorAria: "Справка: Цвет",
     tipTextAria: "Справка: Текст",
+    tipBlobMinAria: "Справка: минимальный размер blob-объекта",
+    tipBlobMaxAria: "Справка: максимальный размер blob-объекта",
+    tipColorChannelAria: "Справка: канал цвета",
+    tipGpuAria: "Справка: ускорение GPU",
+    tipCannyLowAria: "Справка: C-Low",
+    tipCannyHighAria: "Справка: C-High",
+    tipBlurAria: "Справка: Blur",
+    tipMergeAria: "Справка: Слияние",
+    tipCentroidAria: "Справка: Центроид",
+    tipShowDotsAria: "Справка: показывать точки",
     smallTitle: "Для маленьких объектов и деталей. Лучше работает с высокой чувствительностью.",
     nearestTitle: "Ближайшие соседи",
     allTitle: "Все связи",
@@ -315,8 +329,18 @@ const TIP_TEXTS = {
   en: {
     "tip-find": "Sensitivity presets adjust Canny thresholds and blur for different object types.\n- Low: clear, large objects\n- Balance: balanced default\n- High: faint edges and fine details\n\nObject Size limits the detected blob area.\nFor small objects, use: High + Small.",
     "tip-detector": "Choose the detection algorithm that finds objects on each frame.\n- Edge: classic Canny edge detection — highlights brightness gradients. Good for objects with crisp outlines.\n- Motion: compares neighboring frames and catches only what moves. Requires a full Re-detect.\n- HSV: color-based detection. The frame is converted from RGB into HSV space (hue–saturation–value), then every pixel whose hue is within tolerance of a target color is selected. Contours are then built from this color mask. Great for monochrome objects (a green ball, a red car) that edge or brightness detection miss.\n- Area: fills connected bright or dark regions — works where the object is clearly lighter or darker than the background.",
-    "tip-blob": "Min / Max contour area in pixels.\nObjects outside this range are filtered out.\nUse Object Size presets for quick setup.",
-    "tip-detect": "Canny edge detection parameters.\n- C-Low / C-High: edge thresholds\n- Blur: softens noise before detection\n- Color Channel: detect on one channel\n- GPU: WebGL2 acceleration when available",
+    "tip-blob": "Keeps only objects within a size range.\n\nIf you see tiny noise dots, raise Min.\nIf one huge area covers the frame, lower Max.",
+    "tip-detect": "Fine-tune how objects are found.\n\nStart with Blur, then adjust C-Low / C-High. Use Merge only when one real object breaks into many pieces.",
+    "tip-blob-min": "Smallest object to keep.\n\nRaise it to remove tiny specks and texture noise.\nLower it to keep small details.",
+    "tip-blob-max": "Largest object to keep.\n\nLower it if the background or a huge shadow is detected as one object.\nRaise it for large subjects.",
+    "tip-color-channel": "Which image channel the Edge detector reads.\n\nLum is the safest default. Try Red, Green, or Blue when the object stands out mainly by color.",
+    "tip-gpu": "Uses WebGL2 for faster preview/detection when available.\n\nLeave it on. Turn it off only if detection looks wrong or your browser/GPU glitches.",
+    "tip-canny-low": "Lower edge threshold.\n\nLower = more weak edges and more noise.\nHigher = cleaner result, but faint edges disappear.",
+    "tip-canny-high": "Strong edge threshold.\n\nLower = finds more outlines.\nHigher = keeps only sharp, confident edges.",
+    "tip-blur": "Smooths the frame before edge detection.\n\nMore blur removes noise and flicker, but can erase thin details.",
+    "tip-merge": "Joins nearby detected pieces into one blob.\n\n1 = no merge. Raise it when one object is split into many fragments.",
+    "tip-centroid": "Shows the center point of each detected object.\n\nUseful for checking whether tracking is stable and whether one object is detected as one blob.",
+    "tip-show-dots": "Draws a dot at each blob center.\n\nTurn it on while tuning detection. Turn it off for a cleaner final look.",
     "tip-effects": "Visual style drawn on top of each detected object.\n- Contour / Hull / Voronoi: outline along the edge\n- Frame / L-Frame / X-Frame / Grid: rectangular markers and grids\n- Cross / Scope: point and crosshair markers\n- Particle / Emojis: decorative elements\n- Dash: dashed outline\n- Heatmap / Backdrop: region fills",
     "tip-connection": "Lines connecting detected objects to each other.\n- Line Style: shape of connections (nearest, all-to-all, chain, wave)\n- Connection Rate: share of objects taking part in connections\n- Stroke Width: line thickness in pixels",
     "tip-color": "Color used to draw the effects (contours, frames, lines, text).\nPick a swatch from the palette or enter a custom hex code.",
@@ -325,8 +349,18 @@ const TIP_TEXTS = {
   ru: {
     "tip-find": "Пресеты чувствительности меняют пороги Canny и размытие.\n- Низкая: четкие крупные объекты\n- Баланс: сбалансированный режим\n- Высокая: слабые контуры и мелкие детали\n\nРазмер объектов ограничивает площадь найденных blob-областей.\nДля мелких объектов используйте: Высокая + Малые.",
     "tip-detector": "Выбор алгоритма поиска объектов на каждом кадре.\n- Контур: классическая детекция границ через Canny — выделяет перепады яркости. Подходит для объектов с чёткой окантовкой.\n- Движение: сравнивает соседние кадры и ловит только то, что перемещается. Требует полный Re-detect.\n- HSV: детекция по цвету. Кадр переводится из RGB в цветовое пространство HSV (тон–насыщенность–яркость), затем выделяются все пиксели, чей оттенок попадает в допуск вокруг целевого цвета. По этой цветовой маске строятся контуры. Удобно для монохромных объектов (зелёный мяч, красная машина), которые плохо ловятся по краям или яркости.\n- Площадь: заливка связанных светлых или тёмных областей — работает там, где объект заметно ярче или темнее фона.",
-    "tip-blob": "Мин / Макс - площадь контура в пикселях.\nОбъекты вне диапазона отфильтровываются.\nДля быстрого старта используйте пресеты размера.",
-    "tip-detect": "Параметры Canny-детекции.\n- C-Low / C-High: пороги контуров\n- Blur: убирает шум перед поиском\n- Канал цвета: поиск по отдельному каналу\n- GPU: ускорение через WebGL2, если доступно",
+    "tip-blob": "Оставляет только объекты подходящего размера.\n\nЕсли видны мелкие шумовые точки — поднимите Min.\nЕсли весь фон стал одним объектом — опустите Max.",
+    "tip-detect": "Точная настройка поиска объектов.\n\nНачните с Blur, потом меняйте C-Low / C-High. Merge нужен только когда один объект разваливается на много частей.",
+    "tip-blob-min": "Минимальный размер объекта.\n\nПоднимайте, чтобы убрать мелкие точки и шум.\nОпускайте, чтобы сохранить маленькие детали.",
+    "tip-blob-max": "Максимальный размер объекта.\n\nОпускайте, если фон или большая тень ловится как один объект.\nПоднимайте для крупных объектов.",
+    "tip-color-channel": "Канал, по которому Edge-детектор ищет контуры.\n\nLum — самый безопасный вариант. Red, Green или Blue помогают, когда объект выделяется именно цветом.",
+    "tip-gpu": "Использует WebGL2 для более быстрой детекции и превью.\n\nЛучше оставить включенным. Выключайте только если результат выглядит неправильно или браузер/видеокарта глючит.",
+    "tip-canny-low": "Нижний порог контуров.\n\nНиже = больше слабых краёв и больше шума.\nВыше = чище, но слабые края пропадают.",
+    "tip-canny-high": "Верхний порог контуров.\n\nНиже = находит больше обводок.\nВыше = оставляет только чёткие, уверенные края.",
+    "tip-blur": "Размывает кадр перед поиском контуров.\n\nБольше Blur убирает шум и мерцание, но может стереть тонкие детали.",
+    "tip-merge": "Склеивает близкие части в один blob.\n\n1 = без склейки. Поднимайте, если один объект распадается на много фрагментов.",
+    "tip-centroid": "Показывает центральную точку каждого найденного объекта.\n\nПолезно, чтобы проверить стабильность трекинга и понять, считается ли объект одним blob-объектом.",
+    "tip-show-dots": "Рисует точку в центре каждого blob-объекта.\n\nВключайте при настройке детекции. Выключайте для более чистого финального вида.",
     "tip-effects": "Визуальный стиль отрисовки поверх каждого найденного объекта.\n- Контур / Оболочка / Voronoi: обводка по границе\n- Рамка / L-Frame / X-Frame / Сетка: прямоугольные маркеры и сетки\n- Крест / Прицел: точечные маркеры и перекрестия\n- Частицы / Эмодзи: декоративные элементы\n- Пунктир: штриховая обводка\n- Теплокарта / Фон: заливка областей",
     "tip-connection": "Линии, соединяющие найденные объекты между собой.\n- Тип линий: форма соединений (соседи, все ко всем, цепочка, волна)\n- Плотность связей: доля объектов, участвующих в соединениях\n- Толщина линии: ширина штриха в пикселях",
     "tip-color": "Цвет, которым рисуются эффекты (контуры, рамки, линии, текст).\nВыберите готовый свотч из палитры или укажите произвольный hex-код.",
@@ -445,9 +479,7 @@ let P = {
   textContent: "random",
   fontSize: 12,
   centroidEnabled: false,
-  groupingMode: "contours",
   mergeKernel: 1,
-  mergeIterations: 1,
   colorChannel: 0,
   useGPU: true,
   outputFps: "source",
@@ -577,17 +609,15 @@ function uploadMaskToTexture(gl, tex, w, h, data) {
   gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
 }
 
-function gpuDilate(w, h, radius, iterations) {
+function gpuDilate(w, h, radius) {
   if (!GPU.ready || !GPU.programDilate) return false;
-  if (radius < 1 || iterations < 1) return true;
+  if (radius < 1) return true;
   const gl = GPU.gl;
   const r = Math.min(16, Math.max(1, radius | 0));
-  for (let i = 0; i < iterations; i++) {
-    renderToTexture(gl, GPU.programDilate, GPU.textureB, GPU.framebuffer, w, h,
-      { u_resolution: [w, h], u_radius: r });
-    renderToTexture(gl, GPU.programDilate, GPU.textureA, GPU.framebuffer2, w, h,
-      { u_resolution: [w, h], u_radius: r });
-  }
+  renderToTexture(gl, GPU.programDilate, GPU.textureB, GPU.framebuffer, w, h,
+    { u_resolution: [w, h], u_radius: r });
+  renderToTexture(gl, GPU.programDilate, GPU.textureA, GPU.framebuffer2, w, h,
+    { u_resolution: [w, h], u_radius: r });
   return true;
 }
 
@@ -987,7 +1017,6 @@ function syncControlsFromP() {
     ["text-position", "textPosition", "val", String],
     ["text-content", "textContent", "val", String],
     ["font-size", "fontSize", "val", parseInt],
-    ["grouping-mode", "groupingMode", "val", String],
     ["connection-style", "connectionStyle", "value", String],
     ["basic-effects", "selectedEffect", "val", String],
     ["sensitivity-preset", "_sensitivity", "preset", String],
@@ -1023,7 +1052,6 @@ function syncControlsFromP() {
     ["canny-high", "cannyHigh", "canny-high-val", v => v],
     ["blur-kernel", "blurKernel", "blur-kernel-val", v => v],
     ["merge-kernel", "mergeKernel", "merge-kernel-val", v => v],
-    ["merge-iterations", "mergeIterations", "merge-iterations-val", v => v],
   ];
   for (const [id, key, valId, fmt] of smap) {
     const el = document.getElementById(id);
@@ -1260,7 +1288,6 @@ function setupControls() {
   setupSeg("text-position", "textPosition", String);
   setupSeg("text-content", "textContent", String);
   setupSeg("font-size", "fontSize", parseInt);
-  setupSeg("grouping-mode", "groupingMode", String);
   setupIconRow("connection-style", "connectionStyle");
   setupGrid("basic-effects", "selectedEffect");
   setupSeg("detector-mode", "detector", String);
@@ -1278,7 +1305,6 @@ function setupControls() {
   setupSlider("canny-high", "cannyHigh", "canny-high-val", v => v);
   setupSlider("blur-kernel", "blurKernel", "blur-kernel-val", v => v);
   setupSlider("merge-kernel", "mergeKernel", "merge-kernel-val", v => v);
-  setupSlider("merge-iterations", "mergeIterations", "merge-iterations-val", v => v);
 
   buildPalette();
   setupColorInput();
@@ -1300,7 +1326,6 @@ function setupControls() {
     document.getElementById("canny-high").value = 150;
     document.getElementById("blur-kernel").value = 5;
     document.getElementById("merge-kernel").value = 1;
-    document.getElementById("merge-iterations").value = 1;
     document.getElementById("stroke-width-val").textContent = "2px";
     document.getElementById("blob-min-val").textContent = "300";
     document.getElementById("blob-max-val").textContent = "200k";
@@ -1308,8 +1333,6 @@ function setupControls() {
     document.getElementById("canny-high-val").textContent = "150";
     document.getElementById("blur-kernel-val").textContent = "5";
     document.getElementById("merge-kernel-val").textContent = "1";
-    document.getElementById("merge-iterations-val").textContent = "1";
-    document.querySelectorAll("#grouping-mode button").forEach(b => b.classList.toggle("active", b.dataset.val === "contours"));
     document.querySelectorAll("#color-channel button").forEach(b => b.classList.toggle("active", b.dataset.val === "0"));
     document.querySelectorAll("#output-fps button").forEach(b => b.classList.toggle("active", b.dataset.val === "source"));
     document.querySelectorAll("#output-codec button").forEach(b => b.classList.toggle("active", b.dataset.val === "h264"));
@@ -1529,7 +1552,7 @@ const DETECTION_PARAM_KEYS = new Set([
   "detector", "colorChannel", "useGPU",
   "cannyLow", "cannyHigh", "blurKernel",
   "blobMin", "blobMax",
-  "groupingMode", "mergeKernel", "mergeIterations",
+  "mergeKernel",
 ]);
 
 function formatTime(seconds) {
@@ -1834,16 +1857,14 @@ function detectEdge(frameMat) {
         let mask = closed;
         let mergeKernel = null;
         let gpuMask = null;
-        if (P.groupingMode === "regions" && P.mergeKernel > 1) {
+        if (P.mergeKernel > 1) {
           const mk = Math.max(1, Math.round(P.mergeKernel));
           const odd = mk % 2 === 0 ? mk + 1 : mk;
-          P.mergeKernel = odd;
-          const iters = Math.max(1, Math.round(P.mergeIterations));
           const radius = Math.min(16, (odd - 1) >> 1);
           if (radius >= 1 && GPU.programDilate) {
             gpuEnsureSize(w, h);
             uploadMaskToTexture(GPU.gl, GPU.textureB, w, h, closed.data);
-            const ok = gpuDilate(w, h, radius, iters);
+            const ok = gpuDilate(w, h, radius);
             if (ok) {
               const dilated = readMaskFromTexture(w, h);
               gpuMask = new cv.Mat(h, w, cv.CV_8UC1);
@@ -1852,12 +1873,12 @@ function detectEdge(frameMat) {
             } else {
               mergeKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(odd, odd));
               mask = new cv.Mat();
-              cv.dilate(closed, mask, mergeKernel, new cv.Point(-1, -1), iters);
+              cv.dilate(closed, mask, mergeKernel, new cv.Point(-1, -1), 1);
             }
           } else {
             mergeKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(odd, odd));
             mask = new cv.Mat();
-            cv.dilate(closed, mask, mergeKernel, new cv.Point(-1, -1), iters);
+            cv.dilate(closed, mask, mergeKernel, new cv.Point(-1, -1), 1);
           }
         }
         mat.delete();
@@ -1898,14 +1919,12 @@ function detectEdge(frameMat) {
 
   let mask = closed;
   let mergeKernel = null;
-  if (P.groupingMode === "regions" && P.mergeKernel > 1) {
+  if (P.mergeKernel > 1) {
     const mk = Math.max(1, Math.round(P.mergeKernel));
     const odd = mk % 2 === 0 ? mk + 1 : mk;
-    P.mergeKernel = odd;
-    const iters = Math.max(1, Math.round(P.mergeIterations));
     mergeKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(odd, odd));
     mask = new cv.Mat();
-    cv.dilate(closed, mask, mergeKernel, new cv.Point(-1, -1), iters);
+    cv.dilate(closed, mask, mergeKernel, new cv.Point(-1, -1), 1);
   }
   const result = contoursFromMask(mask);
   if (mask !== closed) mask.delete();

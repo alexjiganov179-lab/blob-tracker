@@ -11,10 +11,11 @@ in the browser and is not uploaded to a Blob Tracker server.
 - Playback controls: play/pause, mute toggle, timeline scrubbing, and current-frame preview while paused. Preview audio is on by default (the source video's sound is no longer muted); the mute toggle is independent of export, which always passes the audio track through when present.
 - Current-frame detection probe for paused detection tuning before a full Re-detect
 - Quick Find Objects controls: Sensitivity (Low / Balance / High), Object Size (Small / Medium / Large), and Detector (Edge / Motion / HSV / Area; Russian UI labels Edge as `Контур`). Small-object tuning is the High + Small combination.
+- Detect tab tuning: Blob Size Min/Max, Color Channel, GPU Acceleration, Canny Low/High, Blur, Merge, and Centroid dots. Merge `1` preserves detail contours; higher values merge nearby fragments into larger blobs.
 - 15 visual effects: Contour, Cross, Frame, L-Frame, X-Frame, Grid, Particle, Dash, Scope, Win2K, Backdrop, Emojis, Heatmap, Voronoi, ConvexHull
 - Visual styles grouped: the Connection card holds Line Style, Connection Rate, and Stroke Width (no separate Stroke Width card)
 - Style controls separate Color and Text cards. Color includes an 18-color palette with bilingual hover names, a native color picker, and custom `#rrggbb` hex input. Text includes visibility, position, content, and font-size controls.
-- Centroid dot visibility lives in the Detect tab with the detection-related controls.
+- Centroid dot visibility lives in the Detect tab with the detection-related controls and has its own tooltip.
 - 4 detector modes (Edge, Motion, HSV, Area). HSV detection converts the frame to HSV color space, selects pixels near the target hue within tolerance, and builds contours from that color mask.
 - Output frame rate: source, 30, or 60 FPS
 - In-app confirmation before switching to 30 or 60 FPS because it starts a re-detect pass
@@ -25,7 +26,7 @@ in the browser and is not uploaded to a Blob Tracker server.
 - Automatic video-codec selection
 - Detection and export progress
 - Detection and export cancellation
-- Tooltips for Find Objects, Detector, Basic Effects, Connection, Blob Size, Detection, Color, and Text controls. The Export card intentionally has no tooltip.
+- Tooltips for Find Objects, Detector, Basic Effects, Connection, Blob Size, individual Detect controls, Centroid, Color, and Text. The Export card intentionally has no tooltip.
 - **User-friendly error messages** — differentiated for video, audio, codec, CDN, and memory failures
 - **English / Russian interface** — language toggle in the panel footer and About dialog
 - **About dialog** — built-in info panel covering capabilities, privacy, limitations, and links
@@ -43,8 +44,8 @@ fallback.
 
 The app uses a modular HTML/CSS/JS architecture:
 
-- `index.html` (~660 lines) — DOM structure, CDN loading, OpenCV loader, modals
-- `styles.css` (~698 lines) — design system extracted from inline styles
+- `index.html` (~680 lines) — DOM structure, CDN loading, OpenCV loader, modals
+- `styles.css` (~760 lines) — design system extracted from inline styles
 - `app.js` — core logic, UI, detection pipeline
 - `effects.js` (~342 lines) — 15 visual effects
 - `export.js` (~480 lines) — Mediabunny export + native fallbacks (MP4/WebM/audio)

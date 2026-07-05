@@ -49,8 +49,8 @@ OpenCV.js loads from a 3-CDN fallback chain with a retry button if all CDNs fail
 | **Connection** | Nearest, all, chain, or waveform lines between blobs, with density and stroke-width controls in one card |
 | **Stroke Width** | 0.5–10px |
 | **Blob Size** | Min / Max area filters |
-| **Detection** | Canny low / high, Gaussian blur, Color Channel (Lum / R / G / B), GPU toggle, centroid dots toggle |
-| **Grouping** | Detail (raw contours) / Grouped (merge nearby fragments), with kernel + iterations |
+| **Detection** | Canny low / high, Gaussian blur, Color Channel (Lum / R / G / B), GPU toggle, centroid dots toggle, with inline tooltips for each Detect control |
+| **Grouping** | Merge slider: `1` keeps raw/detail contours, higher values merge nearby fragments into larger blobs |
 | **Color** | 18-color palette with EN/RU hover names, custom `#rrggbb` hex input, native color picker |
 | **Text** | Text on/off, position (Center / Top / Bottom), content (Random / Position / Count / ID), font size |
 | **Output** | Output FPS (Source / 30 / 60), Codec (MP4 / WebM). Output size is always the source video size. |
@@ -92,9 +92,9 @@ The project uses a **modular architecture** in `online-version/`:
 
 | File | Lines | Purpose |
 |---|---|---|
-| `index.html` | ~660 | Clean HTML structure (DOM, modals, CDN importmap, OpenCV loader) |
-| `styles.css` | ~698 | All CSS styles (design system, layout, animations) |
-| `app.js` | ~2362 | Core UI logic, state management, initialization, detection pipeline |
+| `index.html` | ~680 | Clean HTML structure (DOM, modals, CDN importmap, OpenCV loader) |
+| `styles.css` | ~760 | All CSS styles (design system, layout, animations) |
+| `app.js` | ~2360 | Core UI logic, state management, initialization, detection pipeline |
 | `effects.js` | ~342 | 14 visual effects |
 | `export.js` | ~480 | Export pipeline (Mediabunny MP4/WebM, native fallbacks, audio passthrough) |
 

@@ -9,7 +9,7 @@
   <meta property="og:url" content="https://alexjiganov179-lab.github.io/blob-tracker/" />
   <meta property="og:type" content="website" />
   <title>Blob Tracker — Everything looks better with blob tracking effect on it</title>
-  <link rel="stylesheet" href="styles.css?v=20260705-mobnotice1" />
+  <link rel="stylesheet" href="styles.css?v=20260706-detecttips1" />
   <style>
     .app-dialog[hidden] { display: none !important; }
     .app-dialog { position: fixed; inset: 0; z-index: 900; }
@@ -210,12 +210,12 @@
       <div class="card panel-section" data-panel-section="detect" hidden>
         <div class="card-label"><span data-i18n="blobSize">Blob Size</span><span class="tip" id="tip-blob" role="button" tabindex="0" aria-label="Help: Blob Size" data-i18n-aria="tipBlobAria">?</span></div>
         <div class="srow" style="margin-bottom:4px">
-          <span style="font-size:10px;color:#444;min-width:24px" data-i18n="min">Min</span>
+          <span class="ctrl-label ctrl-label-sm"><span data-i18n="min">Min</span><span class="tip tip-inline" id="tip-blob-min" role="button" tabindex="0" aria-label="Help: Minimum size" data-i18n-aria="tipBlobMinAria">?</span></span>
           <input type="range" id="blob-min" min="5" max="5000" step="5" value="300"/>
           <span class="sv" id="blob-min-val">300</span>
         </div>
         <div class="srow">
-          <span style="font-size:10px;color:#444;min-width:24px" data-i18n="max">Max</span>
+          <span class="ctrl-label ctrl-label-sm"><span data-i18n="max">Max</span><span class="tip tip-inline" id="tip-blob-max" role="button" tabindex="0" aria-label="Help: Maximum size" data-i18n-aria="tipBlobMaxAria">?</span></span>
           <input type="range" id="blob-max" min="5000" max="500000" step="5000" value="200000"/>
           <span class="sv" id="blob-max-val">200k</span>
         </div>
@@ -223,7 +223,7 @@
 
       <div class="card panel-section" data-panel-section="detect" hidden>
         <div class="card-label"><span data-i18n="detection">Detection</span><span class="tip" id="tip-detect" role="button" tabindex="0" aria-label="Help: Detection" data-i18n-aria="tipDetectAria">?</span></div>
-        <div class="sub" data-i18n="colorChannel">Color Channel</div>
+        <div class="sub sub-with-tip"><span data-i18n="colorChannel">Color Channel</span><span class="tip tip-inline" id="tip-color-channel" role="button" tabindex="0" aria-label="Help: Color Channel" data-i18n-aria="tipColorChannelAria">?</span></div>
         <div class="seg" id="color-channel">
           <button type="button" data-val="0" class="active">Lum</button>
           <button type="button" data-val="1" data-i18n="red">Red</button>
@@ -231,38 +231,29 @@
           <button type="button" data-val="3" data-i18n="blueShort">Blu</button>
         </div>
         <div class="pro-row" style="margin-top:6px">
-          <span class="pro-label" data-i18n="gpuAcceleration">GPU Acceleration</span>
+          <span class="pro-label pro-label-with-tip"><span data-i18n="gpuAcceleration">GPU Acceleration</span><span class="tip tip-inline" id="tip-gpu" role="button" tabindex="0" aria-label="Help: GPU Acceleration" data-i18n-aria="tipGpuAria">?</span></span>
           <label class="sw"><input type="checkbox" id="gpu-toggle" checked><span class="sl"></span></label>
         </div>
         <div class="srow" style="margin-bottom:4px">
-          <span style="font-size:10px;color:#444;min-width:28px">C-Low</span>
+          <span class="ctrl-label"><span>C-Low</span><span class="tip tip-inline" id="tip-canny-low" role="button" tabindex="0" aria-label="Help: C-Low" data-i18n-aria="tipCannyLowAria">?</span></span>
           <input type="range" id="canny-low" min="0" max="255" step="5" value="50"/>
           <span class="sv" id="canny-low-val">50</span>
         </div>
         <div class="srow" style="margin-bottom:4px">
-          <span style="font-size:10px;color:#444;min-width:28px">C-High</span>
+          <span class="ctrl-label"><span>C-High</span><span class="tip tip-inline" id="tip-canny-high" role="button" tabindex="0" aria-label="Help: C-High" data-i18n-aria="tipCannyHighAria">?</span></span>
           <input type="range" id="canny-high" min="0" max="255" step="5" value="150"/>
           <span class="sv" id="canny-high-val">150</span>
         </div>
         <div class="srow">
-          <span style="font-size:10px;color:#444;min-width:28px">Blur</span>
+          <span class="ctrl-label"><span>Blur</span><span class="tip tip-inline" id="tip-blur" role="button" tabindex="0" aria-label="Help: Blur" data-i18n-aria="tipBlurAria">?</span></span>
           <input type="range" id="blur-kernel" min="1" max="31" step="2" value="5"/>
           <span class="sv" id="blur-kernel-val">5</span>
         </div>
         <div class="sub" data-i18n="grouping">Grouping</div>
-        <div class="seg" id="grouping-mode">
-          <button type="button" data-val="contours" class="active" data-i18n="detail">Detail</button>
-          <button type="button" data-val="regions" data-i18n="grouped">Grouped</button>
-        </div>
         <div class="srow" style="margin-top:6px;margin-bottom:4px">
-          <span style="font-size:10px;color:#444;min-width:28px" data-i18n="merge">Merge</span>
+          <span class="ctrl-label"><span data-i18n="merge">Merge</span><span class="tip tip-inline" id="tip-merge" role="button" tabindex="0" aria-label="Help: Merge" data-i18n-aria="tipMergeAria">?</span></span>
           <input type="range" id="merge-kernel" min="1" max="61" step="2" value="1"/>
           <span class="sv" id="merge-kernel-val">1</span>
-        </div>
-        <div class="srow">
-          <span style="font-size:10px;color:#444;min-width:28px" data-i18n="passes">Passes</span>
-          <input type="range" id="merge-iterations" min="1" max="5" step="1" value="1"/>
-          <span class="sv" id="merge-iterations-val">1</span>
         </div>
       </div>
 
@@ -303,9 +294,9 @@
       </div>
 
       <div class="card panel-section" data-panel-section="detect" hidden>
-        <div class="card-label" data-i18n="centroid">Centroid</div>
+        <div class="card-label"><span data-i18n="centroid">Centroid</span><span class="tip" id="tip-centroid" role="button" tabindex="0" aria-label="Help: Centroid" data-i18n-aria="tipCentroidAria">?</span></div>
         <div class="pro-row">
-          <span class="pro-label" data-i18n="showDots">Show dots</span>
+          <span class="pro-label pro-label-with-tip"><span data-i18n="showDots">Show dots</span><span class="tip tip-inline" id="tip-show-dots" role="button" tabindex="0" aria-label="Help: Show dots" data-i18n-aria="tipShowDotsAria">?</span></span>
           <label class="sw"><input type="checkbox" id="centroid-enabled"><span class="sl"></span></label>
         </div>
       </div>
@@ -684,6 +675,6 @@
   <!-- SCRIPTS: Application modules loaded after DOM -->
   <script src="effects.js?v=20260704-colorhex1"></script>
   <script src="export.js?v=20260705-iosaudio1"></script>
-  <script src="app.js?v=20260705-mobnotice1"></script>
+  <script src="app.js?v=20260706-detecttips2"></script>
 </body>
 </html>

@@ -317,6 +317,21 @@ canvas { display: block; max-height: 94vh; max-width: 100%; border-radius: 4px; 
   flex-shrink: 0; transition: background .15s, color .15s;
 }
 .tip:hover { background: rgba(249,115,22,.15); color: #f3ac03; }
+.ctrl-label, .pro-label-with-tip, .sub-with-tip {
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.ctrl-label {
+  min-width: 48px; color: #444; font-size: 10px;
+}
+.ctrl-label-sm { min-width: 42px; }
+.sub-with-tip { justify-content: flex-start; }
+.pro-label-with-tip { color: #666; }
+.tip.tip-inline {
+  width: 14px; height: 14px; margin-left: 0;
+  font-size: 9px; opacity: .78;
+}
+.tip.tip-inline:hover,
+.tip.tip-inline:focus-visible { opacity: 1; }
 #tip-popup {
   position: fixed; top: 0; right: auto; bottom: auto; left: 0; transform: none;
   background: #1a1a24; color: #ccc; font-size: 11px; line-height: 1.6;
