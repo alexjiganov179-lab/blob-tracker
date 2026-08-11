@@ -1,3 +1,5 @@
+![Blob Tracker cover: a seaside video frame with blob detection boxes over a person](./assets/readme-cover.jpg)
+
 # Blob Tracker
 
 [![CI](https://github.com/alexjiganov179-lab/blob-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/alexjiganov179-lab/blob-tracker/actions/workflows/ci.yml)
