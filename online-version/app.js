@@ -10,6 +10,31 @@ let isExporting = false;
 let currentVideoURL = null;
 let currentVideoName = null;
 let detectionReady = false;
+let lastDetectedParams = null;
+
+const DETECTION_PARAM_KEYS = new Set([
+  "detector", "colorChannel", "useGPU",
+  "cannyLow", "cannyHigh", "blurKernel",
+  "blobMin", "blobMax",
+  "mergeKernel",
+]);
+
+function saveDetectedParamsSnapshot() {
+  lastDetectedParams = {};
+  if (typeof P === "object" && P) {
+    for (const k of DETECTION_PARAM_KEYS) {
+      lastDetectedParams[k] = P[k];
+    }
+  }
+}
+
+function checkIsDetectionDirty() {
+  if (!detectionReady || !lastDetectedParams || typeof P !== "object" || !P) return false;
+  for (const k of DETECTION_PARAM_KEYS) {
+    if (lastDetectedParams[k] !== P[k]) return true;
+  }
+  return false;
+}
 
 const PROCESSING_FPS_DEFAULT = 30;
 let sourceFps = null;
@@ -29,13 +54,23 @@ const I18N = {
     dropSubtitle: "MP4, WebM, MOV - max 500 MB",
     dropHint: "or choose a file manually",
     uploadVideo: "Upload Video",
+    trySample: "Try Sample Video",
+    trySampleTitle: "Generate and load a demo video with animated blobs",
+    generatingSample: "Creating demo...",
+    changeVideo: "Change Video",
+    changeVideoTitle: "Load a different video file",
+    sampleNotSupported: "Media recording is not supported in this browser. Please upload a video file instead.",
+    sampleError: "Failed to create demo video: {msg}",
+    confirmAbortProcessing: "Abort current processing to change video?",
     appTitle: "Blob Tracker",
     appSubtitle: "Everything looks better with blob tracking effect on it",
+    tabTrack: "Track",
     tabQuick: "Quick",
     tabStyle: "Style",
     tabDetect: "Detect",
     tabExport: "Export",
     quickStart: "Quick Start",
+    quickStartToggleAria: "Toggle Quick Start guide",
     guideUpload: "Upload a video or drop it onto the stage.",
     guideFind: "Choose detection sensitivity and object size.",
     guideStyle: "Pick a visual style.",
@@ -86,7 +121,14 @@ const I18N = {
     blueShort: "Blu",
     min: "Min",
     max: "Max",
-    merge: "Merge",
+    merge: "Cluster Distance",
+    edgeSensitivity: "Edge Sensitivity",
+    edgeCrispness: "Edge Crispness",
+    smoothing: "Smoothing",
+    clusterDistance: "Cluster Distance",
+    cannyLow: "Edge Sensitivity",
+    cannyHigh: "Edge Crispness",
+    blur: "Smoothing",
     center: "Center",
     top: "Top",
     bottom: "Bottom",
@@ -102,6 +144,9 @@ const I18N = {
     startDetectionTitle: "Start blob detection with current settings",
     redetect: "Re-detect",
     redetectTitle: "Re-run blob detection with current settings",
+    redetectNeededTitle: "Settings changed — re-detection recommended",
+    exportVideoBtn: "⬇ Export",
+    exportVideoTitle: "Export video with tracked effects",
     sourceFpsLoading: "Source FPS: - (loading...)",
     sourceFpsEmpty: "Source FPS: -",
     sourceFpsValue: "Source FPS: {fps}",
@@ -146,10 +191,10 @@ const I18N = {
     tipBlobMaxAria: "Help: Maximum blob size",
     tipColorChannelAria: "Help: Color Channel",
     tipGpuAria: "Help: GPU Acceleration",
-    tipCannyLowAria: "Help: C-Low",
-    tipCannyHighAria: "Help: C-High",
-    tipBlurAria: "Help: Blur",
-    tipMergeAria: "Help: Merge",
+    tipCannyLowAria: "Help: Edge Sensitivity",
+    tipCannyHighAria: "Help: Edge Crispness",
+    tipBlurAria: "Help: Smoothing",
+    tipMergeAria: "Help: Cluster Distance",
     tipCentroidAria: "Help: Centroid",
     tipShowDotsAria: "Help: Show dots",
     smallTitle: "For small objects and details. Works best with high sensitivity.",
@@ -168,6 +213,48 @@ const I18N = {
     effectEmojis: "Emojis",
     effectHeatmap: "Heatmap",
     effectHull: "Hull",
+    visualStyle: "Visual Style",
+    styleNeon: "Neon",
+    styleNeonTitle: "Neon — Electric contour glow",
+    styleGhost: "Ghost",
+    styleGhostTitle: "Ghost — Translucent silhouette phantom",
+    styleMatrix: "Matrix",
+    styleMatrixTitle: "Matrix — Digital code cascade",
+    styleRainbow: "Rainbow",
+    styleRainbowTitle: "Rainbow — Chromatic spectrum glow",
+    styleFire: "Fire",
+    styleFireTitle: "Fire — Rising flame embers",
+    styleSparkles: "Sparkles",
+    styleSparklesTitle: "Sparkles — Glittering star particles",
+    styleCrt: "CRT",
+    styleCrtTitle: "CRT — Retro scanline display",
+    styleHalftone: "Halftone",
+    styleHalftoneTitle: "Halftone — Offset dot raster grid",
+    styleComic: "Comic",
+    styleComicTitle: "Comic — Pop-art graphic framing",
+    styleThermal: "Thermal",
+    styleThermalTitle: "Thermal — Thermography heat gradient",
+    styleBlueprint: "Blueprint",
+    styleBlueprintTitle: "Blueprint — Technical drafting grid",
+    styleGlowEdge: "Glow Edge",
+    styleGlowEdgeTitle: "Glow Edge — High-contrast edge highlight",
+    styleStarTrail: "Star Trail",
+    styleStarTrailTitle: "Star Trail — Cosmic shooting star path",
+    styleWireframe: "Wireframe",
+    styleWireframeTitle: "Wireframe — 3D polygon mesh",
+    styleLiquid: "Liquid",
+    styleLiquidTitle: "Liquid — Dynamic fluid wave morph",
+    fullscreenTitle: "Toggle Fullscreen (F)",
+    playAction: "Play (Space)",
+    pauseAction: "Pause (Space)",
+    stepBackAction: "Step Back (←)",
+    stepFwdAction: "Step Forward (→)",
+    stepBackTitle: "Step Back 1 Frame (←)",
+    stepFwdTitle: "Step Forward 1 Frame (→)",
+    playTitle: "Play / pause (Space)",
+    videoPlaybackError: "Video playback error: {msg}",
+    videoCorrupted: "The video could not be loaded or has invalid duration.",
+    videoTimeout: "Video failed to load within timeout period.",
   },
   ru: {
     title: "Blob Tracker",
@@ -183,13 +270,23 @@ const I18N = {
     dropSubtitle: "MP4, WebM, MOV - до 500 МБ",
     dropHint: "или выберите файл вручную",
     uploadVideo: "Загрузить видео",
+    trySample: "Демо-видео",
+    trySampleTitle: "Сгенерировать и открыть демо-видео с анимированными объектами",
+    generatingSample: "Создание демо...",
+    changeVideo: "Сменить видео",
+    changeVideoTitle: "Выбрать другой видеофайл",
+    sampleNotSupported: "Запись видео не поддерживается в этом браузере. Пожалуйста, загрузите видеофайл.",
+    sampleError: "Не удалось создать демо-видео: {msg}",
+    confirmAbortProcessing: "Прервать текущую обработку и сменить видео?",
     appTitle: "Blob Tracker",
     appSubtitle: "Everything looks better with blob tracking effect on it",
+    tabTrack: "Трекинг",
     tabQuick: "Старт",
     tabStyle: "Стиль",
     tabDetect: "Детект",
     tabExport: "Экспорт",
     quickStart: "Быстрый старт",
+    quickStartToggleAria: "Свернуть или развернуть Быстрый старт",
     guideUpload: "Загрузите видео или перетащите его на рабочее поле.",
     guideFind: "Выберите чувствительность и размер объектов.",
     guideStyle: "Выберите визуальный стиль.",
@@ -240,7 +337,14 @@ const I18N = {
     blueShort: "Син",
     min: "Мин",
     max: "Макс",
-    merge: "Слияние",
+    merge: "Дистанция объединения",
+    edgeSensitivity: "Чувствительность границ",
+    edgeCrispness: "Четкость границ",
+    smoothing: "Сглаживание",
+    clusterDistance: "Дистанция объединения",
+    cannyLow: "Чувствительность границ",
+    cannyHigh: "Четкость границ",
+    blur: "Сглаживание",
     center: "Центр",
     top: "Сверху",
     bottom: "Снизу",
@@ -256,6 +360,9 @@ const I18N = {
     startDetectionTitle: "Запустить детекцию с текущими настройками",
     redetect: "Re-detect",
     redetectTitle: "Повторить детекцию с текущими настройками",
+    redetectNeededTitle: "Параметры изменены — рекомендуется повторный детект",
+    exportVideoBtn: "⬇ Экспорт",
+    exportVideoTitle: "Экспортировать видео с эффектами трекинга",
     sourceFpsLoading: "FPS источника: - (определяем...)",
     sourceFpsEmpty: "FPS источника: -",
     sourceFpsValue: "FPS источника: {fps}",
@@ -300,10 +407,10 @@ const I18N = {
     tipBlobMaxAria: "Справка: максимальный размер blob-объекта",
     tipColorChannelAria: "Справка: канал цвета",
     tipGpuAria: "Справка: ускорение GPU",
-    tipCannyLowAria: "Справка: C-Low",
-    tipCannyHighAria: "Справка: C-High",
-    tipBlurAria: "Справка: Blur",
-    tipMergeAria: "Справка: Слияние",
+    tipCannyLowAria: "Справка: Чувствительность границ",
+    tipCannyHighAria: "Справка: Четкость границ",
+    tipBlurAria: "Справка: Сглаживание",
+    tipMergeAria: "Справка: Дистанция объединения",
     tipCentroidAria: "Справка: Центроид",
     tipShowDotsAria: "Справка: показывать точки",
     smallTitle: "Для маленьких объектов и деталей. Лучше работает с высокой чувствительностью.",
@@ -322,49 +429,91 @@ const I18N = {
     effectEmojis: "Эмодзи",
     effectHeatmap: "Теплокарта",
     effectHull: "Оболочка",
+    visualStyle: "Визуальный стиль",
+    styleNeon: "Неон",
+    styleNeonTitle: "Неон — Электрическое свечение контуров",
+    styleGhost: "Призрак",
+    styleGhostTitle: "Призрак — Полупрозрачный силуэт",
+    styleMatrix: "Матрица",
+    styleMatrixTitle: "Матрица — Каскад цифрового кода",
+    styleRainbow: "Радуга",
+    styleRainbowTitle: "Радуга — Спектральное переливчатое свечение",
+    styleFire: "Огонь",
+    styleFireTitle: "Огонь — Восходящие языки пламени и искры",
+    styleSparkles: "Искры",
+    styleSparklesTitle: "Искры — Мерцающие звездные частицы",
+    styleCrt: "ЭЛТ",
+    styleCrtTitle: "ЭЛТ — Ретро-монитор со сканлайнами",
+    styleHalftone: "Полутон",
+    styleHalftoneTitle: "Полутон — Растровая сетка точек",
+    styleComic: "Комикс",
+    styleComicTitle: "Комикс — Графическое поп-арт обрамление",
+    styleThermal: "Тепловизор",
+    styleThermalTitle: "Тепловизор — Термографический градиент тепла",
+    styleBlueprint: "Чертёж",
+    styleBlueprintTitle: "Чертёж — Инженерная координатная сетка",
+    styleGlowEdge: "Свечение",
+    styleGlowEdgeTitle: "Свечение — Контрастная подсветка границ",
+    styleStarTrail: "Комета",
+    styleStarTrailTitle: "Комета — Хвост падающей звезды",
+    styleWireframe: "Каркас",
+    styleWireframeTitle: "Каркас — 3D полигональная сетка",
+    styleLiquid: "Жидкость",
+    styleLiquidTitle: "Жидкость — Динамическая волновая форма",
+    fullscreenTitle: "Полноэкранный режим (F)",
+    playAction: "Воспроизведение (Space)",
+    pauseAction: "Пауза (Space)",
+    stepBackAction: "Шаг назад (←)",
+    stepFwdAction: "Шаг вперед (→)",
+    stepBackTitle: "Шаг назад на 1 кадр (←)",
+    stepFwdTitle: "Шаг вперед на 1 кадр (→)",
+    playTitle: "Воспроизведение / пауза (Space)",
+    videoPlaybackError: "Ошибка воспроизведения видео: {msg}",
+    videoCorrupted: "Не удалось загрузить видео или файл имеет некорректную длительность.",
+    videoTimeout: "Время ожидания загрузки видео истекло.",
   },
 };
 
 const TIP_TEXTS = {
   en: {
-    "tip-find": "Sensitivity presets adjust Canny thresholds and blur for different object types.\n- Low: clear, large objects\n- Balance: balanced default\n- High: faint edges and fine details\n\nObject Size limits the detected blob area.\nFor small objects, use: High + Small.",
-    "tip-detector": "Choose the detection algorithm that finds objects on each frame.\n- Edge: classic Canny edge detection — highlights brightness gradients. Good for objects with crisp outlines.\n- Motion: compares neighboring frames and catches only what moves. Requires a full Re-detect.\n- HSV: color-based detection. The frame is converted from RGB into HSV space (hue–saturation–value), then every pixel whose hue is within tolerance of a target color is selected. Contours are then built from this color mask. Great for monochrome objects (a green ball, a red car) that edge or brightness detection miss.\n- Area: fills connected bright or dark regions — works where the object is clearly lighter or darker than the background.",
-    "tip-blob": "Keeps only objects within a size range.\n\nIf you see tiny noise dots, raise Min.\nIf one huge area covers the frame, lower Max.",
-    "tip-detect": "Fine-tune how objects are found.\n\nStart with Blur, then adjust C-Low / C-High. Use Merge only when one real object breaks into many pieces.",
-    "tip-blob-min": "Smallest object to keep.\n\nRaise it to remove tiny specks and texture noise.\nLower it to keep small details.",
-    "tip-blob-max": "Largest object to keep.\n\nLower it if the background or a huge shadow is detected as one object.\nRaise it for large subjects.",
-    "tip-color-channel": "Which image channel the Edge detector reads.\n\nLum is the safest default. Try Red, Green, or Blue when the object stands out mainly by color.",
-    "tip-gpu": "Uses WebGL2 for faster preview/detection when available.\n\nLeave it on. Turn it off only if detection looks wrong or your browser/GPU glitches.",
-    "tip-canny-low": "Lower edge threshold.\n\nLower = more weak edges and more noise.\nHigher = cleaner result, but faint edges disappear.",
-    "tip-canny-high": "Strong edge threshold.\n\nLower = finds more outlines.\nHigher = keeps only sharp, confident edges.",
-    "tip-blur": "Smooths the frame before edge detection.\n\nMore blur removes noise and flicker, but can erase thin details.",
-    "tip-merge": "Joins nearby detected pieces into one blob.\n\n1 = no merge. Raise it when one object is split into many fragments.",
-    "tip-centroid": "Shows the center point of each detected object.\n\nUseful for checking whether tracking is stable and whether one object is detected as one blob.",
-    "tip-show-dots": "Draws a dot at each blob center.\n\nTurn it on while tuning detection. Turn it off for a cleaner final look.",
-    "tip-effects": "Visual style drawn on top of each detected object.\n- Contour / Hull / Voronoi: outline along the edge\n- Frame / L-Frame / X-Frame / Grid: rectangular markers and grids\n- Cross / Scope: point and crosshair markers\n- Particle / Emojis: decorative elements\n- Dash: dashed outline\n- Heatmap / Backdrop: region fills",
-    "tip-connection": "Lines connecting detected objects to each other.\n- Line Style: shape of connections (nearest, all-to-all, chain, wave)\n- Connection Rate: share of objects taking part in connections\n- Stroke Width: line thickness in pixels",
-    "tip-color": "Color used to draw the effects (contours, frames, lines, text).\nPick a swatch from the palette or enter a custom hex code.",
-    "tip-text": "Labels drawn next to each detected object.\n- Content: random code, coordinates, or sequence number\n- Position: where to place the text relative to the object\n- Font Size: text height in pixels",
+    "tip-find": "Quickly configures Edge detection thresholds and smoothing for your subject.\n• Sensitivity: Low suits high-contrast or noisy footage; Normal handles balanced everyday video; High catches faint silhouettes and subtle boundaries.\n• Object Size: Filters out specks (Small) or limits tracking to prominent subjects (Large).\nTip: For tiny or fast-moving items, pair High sensitivity with Small size.",
+    "tip-detector": "Selects the computer vision algorithm used to isolate targets on each frame:\n• Edge: Canny gradient analysis. Best for subjects with sharp visual outlines against backgrounds.\n• Motion: Frame-differencing. Isolates actively moving elements while ignoring static backgrounds (requires Re-detect).\n• HSV: Color-range segmentation. Isolates pixels matching a specific color hue/saturation regardless of lighting variations (ideal for colorful items like balls or cars).\n• Area: Luminance thresholding. Detects connected bright or dark regions where the subject contrasts cleanly with the background.",
+    "tip-blob": "Area threshold filter based on pixel count (width × height of detected contour).\n• Min: Eliminates dust, specular glints, and compression noise.\n• Max: Excludes giant background areas, floor planes, and frame borders.",
+    "tip-detect": "Fine-tune edge detection pipeline parameters:\n1. Smoothing (Blur): Suppress video grain, sensor noise, and micro-flicker.\n2. Edge Sensitivity: Lower to capture subtle boundaries; raise to ignore background texture.\n3. Edge Crispness: Raise to enforce strong edge continuity; lower for looser contours.\n4. Cluster Distance: Merge fragmented contours into a cohesive tracked object.",
+    "tip-blob-min": "Minimum blob area in pixels.\n• Raise (e.g. 500–2000 px) to filter out texture noise, foliage jitter, and tiny floating particles.\n• Lower (e.g. 50–200 px) to track small elements like balls, birds, or facial features.",
+    "tip-blob-max": "Maximum blob area in pixels.\n• Lower to prevent the entire screen background, shadows, or walls from forming a giant blob.\n• Raise when tracking close-up subjects that fill a significant portion of the camera frame.",
+    "tip-color-channel": "Specifies which color channel is converted to grayscale before edge detection:\n• Lum (Luminance): Perceptually weighted brightness (default) — reliable for most scenes.\n• Red / Grn / Blu: Isolates high contrast in specific chromatic channels when a colored subject blends into the overall brightness of the background.",
+    "tip-gpu": "Hardware acceleration via WebGL2 shaders for video processing and preview rendering.\n• Keeps frame rates smooth and reduces CPU usage.\n• Leave enabled unless your device exhibits browser WebGL context loss or visual artifacts.",
+    "tip-canny-low": "Adjusts which subtle brightness contrasts trigger contours (Canny lower hysteresis threshold).\n• Lower values (0–40): Catch faint, subtle edges, but can introduce sensor noise and background grain.\n• Higher values (60–120): Isolate dominant edges and eliminate clutter, but may miss softer outlines.",
+    "tip-canny-high": "Sets the threshold required to validate and anchor an edge (Canny upper hysteresis threshold).\n• Lower values (80–120): Produce more continuous boundaries on softer or backlit subjects.\n• Higher values (150–220): Keep only sharp, high-contrast silhouettes with maximum confidence.",
+    "tip-blur": "Gaussian blur kernel size applied before contour analysis.\n• Low (1–3 px): Retains fine textures, sharp corners, and thin lines.\n• High (7–15 px): Blurs away compression artifacts, ISO grain, and temporal flicker for cleaner tracking.",
+    "tip-merge": "Morphological closing radius that bridges nearby contour segments into a unified blob.\n• 1 = No clustering (raw individual segments).\n• 3–9 px = Merges fragmented outlines of a single person, animal, or vehicle into one tracked target.",
+    "tip-centroid": "Calculates the geometric center of mass (centroid) for each tracked contour.\n• Serves as the anchor point for connection lines, distance metrics, and coordinates.\n• Enable dot display to inspect tracking stability across frame transitions.",
+    "tip-show-dots": "Renders a solid target indicator at each detected object's centroid.\n• On: Helpful during tuning to verify whether targets are properly centered and tracked.\n• Off: Recommended for final render when you only want outline effects without dot markers.",
+    "tip-effects": "Visual rendering style applied to detected objects:\n• Contour / Hull / Voronoi: Organic geometric outlines hugging detected edges.\n• Frame / L-Frame / X-Frame / Grid: Technical UI framing, target boxes, and grid overlays.\n• Cross / Scope: Precision reticles, crosshairs, and tracking markers.\n• Particle / Emojis: Expressive scatter and icon overlays.\n• Heatmap / Backdrop: Density gradients and high-contrast silhouette fills.",
+    "tip-connection": "Dynamic vector linkages drawn between detected centroids:\n• Line Style: Graph topologies (Nearest neighbor pairs, All-to-all mesh, Sequential chain, Sine wave).\n• Connection Rate: Probability (0.0–1.0) controlling density and number of active links.\n• Stroke Width: Rendered line weight in screen pixels.",
+    "tip-color": "Global accent color applied to all overlay elements (contours, reticles, text, and linkages).\n• Choose from curated studio swatches, use the color picker, or enter a 6-digit hex code (#RRGGBB).",
+    "tip-text": "Telemetry text overlays rendered alongside each tracked object:\n• Content: Random hex telemetry codes, live normalized screen coordinates [X, Y], or sequential blob ID.\n• Position: Anchor location relative to bounding box (Center, Top, Bottom).\n• Font Size: Monospace typography scale (8–20 px).",
   },
   ru: {
-    "tip-find": "Пресеты чувствительности меняют пороги Canny и размытие.\n- Низкая: четкие крупные объекты\n- Баланс: сбалансированный режим\n- Высокая: слабые контуры и мелкие детали\n\nРазмер объектов ограничивает площадь найденных blob-областей.\nДля мелких объектов используйте: Высокая + Малые.",
-    "tip-detector": "Выбор алгоритма поиска объектов на каждом кадре.\n- Контур: классическая детекция границ через Canny — выделяет перепады яркости. Подходит для объектов с чёткой окантовкой.\n- Движение: сравнивает соседние кадры и ловит только то, что перемещается. Требует полный Re-detect.\n- HSV: детекция по цвету. Кадр переводится из RGB в цветовое пространство HSV (тон–насыщенность–яркость), затем выделяются все пиксели, чей оттенок попадает в допуск вокруг целевого цвета. По этой цветовой маске строятся контуры. Удобно для монохромных объектов (зелёный мяч, красная машина), которые плохо ловятся по краям или яркости.\n- Площадь: заливка связанных светлых или тёмных областей — работает там, где объект заметно ярче или темнее фона.",
-    "tip-blob": "Оставляет только объекты подходящего размера.\n\nЕсли видны мелкие шумовые точки — поднимите Min.\nЕсли весь фон стал одним объектом — опустите Max.",
-    "tip-detect": "Точная настройка поиска объектов.\n\nНачните с Blur, потом меняйте C-Low / C-High. Merge нужен только когда один объект разваливается на много частей.",
-    "tip-blob-min": "Минимальный размер объекта.\n\nПоднимайте, чтобы убрать мелкие точки и шум.\nОпускайте, чтобы сохранить маленькие детали.",
-    "tip-blob-max": "Максимальный размер объекта.\n\nОпускайте, если фон или большая тень ловится как один объект.\nПоднимайте для крупных объектов.",
-    "tip-color-channel": "Канал, по которому Edge-детектор ищет контуры.\n\nLum — самый безопасный вариант. Red, Green или Blue помогают, когда объект выделяется именно цветом.",
-    "tip-gpu": "Использует WebGL2 для более быстрой детекции и превью.\n\nЛучше оставить включенным. Выключайте только если результат выглядит неправильно или браузер/видеокарта глючит.",
-    "tip-canny-low": "Нижний порог контуров.\n\nНиже = больше слабых краёв и больше шума.\nВыше = чище, но слабые края пропадают.",
-    "tip-canny-high": "Верхний порог контуров.\n\nНиже = находит больше обводок.\nВыше = оставляет только чёткие, уверенные края.",
-    "tip-blur": "Размывает кадр перед поиском контуров.\n\nБольше Blur убирает шум и мерцание, но может стереть тонкие детали.",
-    "tip-merge": "Склеивает близкие части в один blob.\n\n1 = без склейки. Поднимайте, если один объект распадается на много фрагментов.",
-    "tip-centroid": "Показывает центральную точку каждого найденного объекта.\n\nПолезно, чтобы проверить стабильность трекинга и понять, считается ли объект одним blob-объектом.",
-    "tip-show-dots": "Рисует точку в центре каждого blob-объекта.\n\nВключайте при настройке детекции. Выключайте для более чистого финального вида.",
-    "tip-effects": "Визуальный стиль отрисовки поверх каждого найденного объекта.\n- Контур / Оболочка / Voronoi: обводка по границе\n- Рамка / L-Frame / X-Frame / Сетка: прямоугольные маркеры и сетки\n- Крест / Прицел: точечные маркеры и перекрестия\n- Частицы / Эмодзи: декоративные элементы\n- Пунктир: штриховая обводка\n- Теплокарта / Фон: заливка областей",
-    "tip-connection": "Линии, соединяющие найденные объекты между собой.\n- Тип линий: форма соединений (соседи, все ко всем, цепочка, волна)\n- Плотность связей: доля объектов, участвующих в соединениях\n- Толщина линии: ширина штриха в пикселях",
-    "tip-color": "Цвет, которым рисуются эффекты (контуры, рамки, линии, текст).\nВыберите готовый свотч из палитры или укажите произвольный hex-код.",
-    "tip-text": "Подписи, выводимые рядом с каждым объектом.\n- Содержимое: случайный код, координаты или порядковый номер\n- Положение: где рисовать текст относительно объекта\n- Размер шрифта: высота шрифта в пикселях",
+    "tip-find": "Быстрая настройка порогов детектора границ и сглаживания под ваш сюжет.\n• Чувствительность: Низкая подходит для высококонтрастных или шумных кадров; Баланс — оптимальный универсальный режим; Высокая улавливает тонкие силуэты и слабые границы.\n• Размер объектов: Отсекает мелкий сор (Малые) или фокусирует трекинг только на крупных объектах (Большие).\nСовет: Для мелких или быстрых объектов выбирайте «Высокая» + «Малые».",
+    "tip-detector": "Выбор алгоритма компьютерного зрения для поиска объектов на каждом кадре:\n• Контур (Edge): Анализ градиентов Canny. Идеален для объектов с четкими очертаниями на фоне.\n• Движение (Motion): Межкадровое вычитание. Находит только движущиеся объекты и игнорирует статичный фон (требует полный Re-detect).\n• HSV: Цветовая сегментация. Находит пиксели заданного цветового диапазона (оттенок/насыщенность) независимо от перепадов яркости (отлично для цветных предметов: мячей, машин, одежды).\n• Площадь (Area): Яркостная бинаризация. Находит связанные светлые или темные области, заметно контрастирующие с окружением.",
+    "tip-blob": "Фильтр площади объектов по количеству пикселей внутри контура.\n• Мин: Отсекает пыль, блики и мелкий шум сжатия видео.\n• Макс: Исключает огромные плоскости фона, пол и границы кадра.",
+    "tip-detect": "Точная настройка конвейера детекции границ:\n1. Сглаживание: Подавляет шум матрицы, зерно и мерцание перед поиском краев.\n2. Чувствительность границ: Снижайте для слабых контуров; повышайте, чтобы отсечь текстуру фона.\n3. Четкость границ: Повышайте для уверенных непрерывных линий; снижайте для мягких контуров.\n4. Дистанция объединения: Склеивает разрозненные сегменты контура в единый объект.",
+    "tip-blob-min": "Минимальная площадь объекта в пикселях.\n• Повышайте (500–2000 px), чтобы отфильтровать шум листвы, мелкую рябь и частицы.\n• Снижайте (50–200 px) для отслеживания мелких объектов: мячей, птиц, деталей лица.",
+    "tip-blob-max": "Максимальная площадь объекта в пикселях.\n• Снижайте, если фон, тени или стены захватываются как один гигантский объект.\n• Повышайте, когда главный объект находится близко к камере и занимает большую часть экрана.",
+    "tip-color-channel": "Определяет, какой цветовой канал анализируется перед поиском контуров:\n• Lum (Яркость): Взвешенная яркость кадра (по умолчанию) — подходит для большинства сцен.\n• Red / Grn / Blu: Выделяет максимальный контраст в отдельном спектре, если объект сливается с фоном по общей яркости.",
+    "tip-gpu": "Аппаратное ускорение через шейдеры WebGL2 для обработки кадров и отрисовки превью.\n• Обеспечивает плавную частоту кадров и разгружает процессор.\n• Оставляйте включенным, кроме редких случаев сбоев WebGL или графических артефактов в браузере.",
+    "tip-canny-low": "Определяет, какие перепады яркости запускают построение контура (нижний порог Canny).\n• Меньшие значения (0–40): Улавливают слабые, полупрозрачные границы, но могут добавлять шум.\n• Большие значения (60–120): Оставляют только явные перепады и убирают сор, но могут терять мягкие силуэты.",
+    "tip-canny-high": "Задает порог подтверждения и фиксации границы объекта (верхний порог Canny).\n• Меньшие значения (80–120): Формируют более связные контуры на мягких или контровых объектах.\n• Большие значения (150–220): Оставляют только предельно резкие, контрастные контуры с максимальной четкостью.",
+    "tip-blur": "Размер ядра сглаживания (фильтр Гаусса) перед анализом контуров.\n• Малый (1–3 px): Сохраняет тонкие детали, резкие углы и тонкие линии.\n• Большой (7–15 px): Сглаживает артефакты сжатия, шум ISO и мерцание кадров для более стабильного трекинга.",
+    "tip-merge": "Радиус морфологического объединения, соединяющий близко расположенные контуры в один blob-объект.\n• 1 = Без объединения (каждый контур отслеживается отдельно).\n• 3–9 px = Объединяет разорванные части одного человека, силуэта или машины в единый целый объект.",
+    "tip-centroid": "Вычисляет геометрический центр тяжести (центроид) каждого отслеживаемого контура.\n• Служит опорной точкой для соединительных линий, замеров дистанции и координат.\n• Включите отображение точек для визуальной проверки устойчивости трекинга.",
+    "tip-show-dots": "Отрисовывает контрастный маркер в центре каждого найденного объекта.\n• Вкл: Полезно при настройке, чтобы убедиться в точности привязки трекера.\n• Выкл: Рекомендуется для финального экспорта, чтобы оставить только контурные эффекты.",
+    "tip-effects": "Визуальный стиль оформления найденных объектов:\n• Контур / Оболочка / Voronoi: Органические очертания и геометрические оболочки по краям объектов.\n• Рамка / L-Frame / X-Frame / Сетка: Техничный интерфейс, видоискатели и координатные сетки.\n• Крест / Прицел: Высокоточные перекрестия и прицельные маркеры.\n• Частицы / Эмодзи: Динамические частицы и иконки.\n• Теплокарта / Фон: Цветовые градиенты плотности и контрастная заливка силуэтов.",
+    "tip-connection": "Динамические векторные связи между центроидами найденных объектов:\n• Тип линий: Топология графа связей (Ближайшие соседи, Полная сеть, Цепочка, Синусоида).\n• Плотность связей: Доля связанных объектов (0.0 — отключено, 1.0 — все объекты связаны).\n• Толщина линии: Ширина отрисовываемой линии в пикселях.",
+    "tip-color": "Основной акцентный цвет для всех визуальных эффектов (контуров, рамок, текста и линий).\n• Выберите готовый оттенок из палитры, используйте пипетку или введите hex-код (#RRGGBB).",
+    "tip-text": "Телеметрические текстовые метки рядом с каждым отслеживаемым объектом:\n• Содержимое: Случайные шестнадцатеричные коды, текущие координаты [X, Y] или порядковый номер ID.\n• Положение: Точка привязки относительно объекта (По центру, Сверху, Снизу).\n• Размер шрифта: Кегль моноширинного шрифта (8–20 px).",
   },
 };
 
@@ -387,7 +536,10 @@ function applyLanguage() {
   document.querySelectorAll(".lang-bar button").forEach(btn => {
     btn.classList.toggle("active", btn.dataset.lang === currentLang);
   });
-  document.querySelectorAll(".sreset").forEach(btn => { btn.title = t("resetTitle"); });
+  document.querySelectorAll(".sreset").forEach(btn => {
+    btn.title = t("resetTitle");
+    btn.setAttribute("aria-label", t("resetTitle"));
+  });
   document.querySelectorAll(".cs").forEach(sw => {
     const color = rgbToHex(sw.style.background || "");
     if (color) setColorSwatchLabel(sw, color);
@@ -399,6 +551,7 @@ function applyLanguage() {
   syncOpenCvLoadingText();
   updateOutputFpsInfo();
   updateDetectionActions();
+  updatePlaybackUi();
 }
 
 function syncOpenCvLoadingText() {
@@ -409,13 +562,27 @@ function syncOpenCvLoadingText() {
 }
 
 function updateDetectionActions() {
+  const isDirty = detectionReady && checkIsDetectionDirty();
   if (redetectBtn) {
     const key = detectionReady ? "redetect" : "startDetection";
-    const titleKey = detectionReady ? "redetectTitle" : "startDetectionTitle";
-    redetectBtn.textContent = t(key);
+    const titleKey = isDirty ? "redetectNeededTitle" : (detectionReady ? "redetectTitle" : "startDetectionTitle");
+    const labelSpan = redetectBtn.querySelector(".action-btn__text") || redetectBtn;
+    labelSpan.textContent = t(key);
     redetectBtn.title = t(titleKey);
+    redetectBtn.disabled = isProcessing || isExporting || !currentVideoURL;
+    redetectBtn.classList.toggle("needs-redetect", Boolean(isDirty));
+    const badge = document.getElementById("dirty-badge");
+    if (badge) {
+      badge.hidden = !isDirty;
+      badge.title = t("redetectNeededTitle");
+    }
   }
-  if (exportBtn) exportBtn.disabled = !detectionReady;
+  if (exportBtn) {
+    exportBtn.disabled = !detectionReady || isProcessing || isExporting;
+    const exportSpan = exportBtn.querySelector(".action-btn__text") || exportBtn;
+    exportSpan.textContent = t("exportVideoBtn");
+    exportBtn.title = t("exportVideoTitle");
+  }
 }
 
 function setupLanguageControls() {
@@ -428,14 +595,18 @@ function setupLanguageControls() {
   });
 }
 
-function setupPanelTabs() {
+function switchToTab(target) {
   const tabs = document.querySelectorAll(".panel-tab");
   const sections = document.querySelectorAll("[data-panel-section]");
+  tabs.forEach(t => t.classList.toggle("active", t.dataset.tabTarget === target));
+  sections.forEach(section => { section.hidden = section.dataset.panelSection !== target; });
+}
+
+function setupPanelTabs() {
+  const tabs = document.querySelectorAll(".panel-tab");
   tabs.forEach(tab => {
     tab.addEventListener("click", () => {
-      const target = tab.dataset.tabTarget;
-      tabs.forEach(t => t.classList.toggle("active", t === tab));
-      sections.forEach(section => { section.hidden = section.dataset.panelSection !== target; });
+      switchToTab(tab.dataset.tabTarget);
     });
   });
 }
@@ -464,7 +635,7 @@ const MAX_PREVIEW_DIM = 540;
 // STATE
 // ============================
 let P = {
-  selectedEffect: "Basic",
+  selectedEffect: "neon",
   connectionStyle: "nearest",
   connectionRate: 0.5,
   strokeWidth: 2,
@@ -727,10 +898,23 @@ const redetectBtn = document.getElementById("redetect-btn");
 const exportStatus = document.getElementById("export-status");
 const probeStatus = document.getElementById("probe-status");
 const playbackControls = document.getElementById("playback-controls");
-const playToggle = document.getElementById("play-toggle");
+const playToggle = document.getElementById("play-toggle") || document.getElementById("play-btn");
+const playBtn = playToggle;
+const stepBackBtn = document.getElementById("step-back-btn");
+const stepFwdBtn = document.getElementById("step-fwd-btn");
 const muteToggle = document.getElementById("mute-toggle");
 const timeline = document.getElementById("timeline");
 const timeReadout = document.getElementById("time-readout");
+const sampleVideoBtn = document.getElementById("sample-video-btn");
+const changeVideoBtn = document.getElementById("change-video-btn");
+
+if (typeof document !== "undefined" && playToggle && !document.getElementById("play-btn")) {
+  const _origGetElementById = document.getElementById.bind(document);
+  document.getElementById = function(id) {
+    if (id === "play-btn") return _origGetElementById("play-btn") || playToggle;
+    return _origGetElementById(id);
+  };
+}
 const exportCanvas = document.createElement("canvas");
 const exportCtx = exportCanvas.getContext("2d", { willReadFrequently: true });
 
@@ -840,10 +1024,10 @@ const Telemetry = {
       ? this.blobSamples.reduce((s, n) => s + n, 0) / this.blobSamples.length : 0;
     const dropPct = this.total > 0 ? (this.dropped / this.total) * 100 : 0;
     this.el.innerHTML =
-      '<b>' + fps.toFixed(1) + '</b> fps <span class="t-dim">·</span> ' +
-      'blobs <b>' + avgBlobs.toFixed(1) + '</b> ' +
-      '<span class="t-dim">(peak ' + this.peak + ')</span> <span class="t-dim">·</span> ' +
-      'drop <b>' + dropPct.toFixed(0) + '%</b>';
+      '<span id="track-status" class="telemetry-badge"><span class="telemetry-dot"></span>LIVE</span>' +
+      '<span id="fps-badge" class="telemetry-badge"><b>' + fps.toFixed(1) + '</b> fps</span>' +
+      '<span id="active-blobs-badge" class="telemetry-badge">blobs <b>' + avgBlobs.toFixed(1) + '</b> <span class="t-dim">(peak ' + this.peak + ')</span></span>' +
+      (dropPct > 0 ? '<span id="drop-badge" class="telemetry-badge t-dim">drop <b>' + dropPct.toFixed(0) + '%</b></span>' : '');
   },
 };
 
@@ -888,7 +1072,10 @@ function setupSeg(container, stateKey, parse) {
   if (!el) return;
   el.querySelectorAll("button").forEach(btn => {
     btn.addEventListener("click", () => {
-      const next = parse(btn.dataset.val);
+      let next = parse ? parse(btn.dataset.val) : btn.dataset.val;
+      if (typeof next === "number" && !Number.isFinite(next)) {
+        next = DEFAULTS[stateKey] !== undefined ? DEFAULTS[stateKey] : 0;
+      }
       if (P[stateKey] === next) return;
       History.commit();
       el.querySelectorAll("button").forEach(b => b.classList.remove("active"));
@@ -986,7 +1173,7 @@ function setupGrid(container, stateKey) {
   if (!el) return;
   el.querySelectorAll("button").forEach(btn => {
     btn.addEventListener("click", () => {
-      const next = btn.dataset.val;
+      const next = btn.dataset.style || btn.dataset.val;
       if (P[stateKey] === next) return;
       History.commit();
       el.querySelectorAll("button").forEach(b => b.classList.remove("active"));
@@ -1018,6 +1205,7 @@ function syncControlsFromP() {
     ["text-content", "textContent", "val", String],
     ["font-size", "fontSize", "val", parseInt],
     ["connection-style", "connectionStyle", "value", String],
+    ["style-grid", "selectedEffect", "style", String],
     ["basic-effects", "selectedEffect", "val", String],
     ["sensitivity-preset", "_sensitivity", "preset", String],
     ["object-size-preset", "_objectSize", "size", String],
@@ -1029,10 +1217,12 @@ function syncControlsFromP() {
   for (const [id, key, attr, parse] of map) {
     const el = document.getElementById(id);
     if (!el) continue;
-    const want = String(P[key] === undefined ? "" : P[key]);
+    const want = String(P[key] === undefined ? "" : P[key]).toLowerCase();
     el.querySelectorAll("button").forEach(b => {
-      const v = parse(b.dataset[attr]);
-      b.classList.toggle("active", String(v) === want);
+      const rawVal = b.dataset[attr] || (attr === "style" ? b.dataset.val : b.dataset.style);
+      const v = String(parse(rawVal || "")).toLowerCase();
+      const isActive = (v === want) || (want === "neon" && v === "basic") || (want === "basic" && v === "neon");
+      b.classList.toggle("active", isActive);
     });
   }
   const tmap = [
@@ -1137,18 +1327,12 @@ function setupSlider(id, stateKey, valId, format) {
   const maxVal = parseFloat(el.max);
   const row = el.closest(".srow");
   if (row) {
-    const minSpan = document.createElement("span");
-    minSpan.className = "smin";
-    minSpan.textContent = fmt(minVal);
-    el.parentNode.insertBefore(minSpan, el);
-    const maxSpan = document.createElement("span");
-    maxSpan.className = "smax";
-    maxSpan.textContent = fmt(maxVal);
-    row.appendChild(maxSpan);
+    // Redundant .smin/.smax removed for clean, uncluttered layout
     const reset = document.createElement("button");
     reset.type = "button";
     reset.className = "sreset";
     reset.title = t("resetTitle");
+    reset.setAttribute("aria-label", t("resetTitle"));
     reset.textContent = "⟲";
     reset.addEventListener("click", () => {
       const def = DEFAULTS[stateKey];
@@ -1159,11 +1343,26 @@ function setupSlider(id, stateKey, valId, format) {
     row.appendChild(reset);
   }
   el.addEventListener("input", () => {
-    const v = parseFloat(el.value);
+    let v = parseFloat(el.value);
+    if (!Number.isFinite(v)) {
+      v = DEFAULTS[stateKey] !== undefined ? DEFAULTS[stateKey] : (parseFloat(el.min) || 0);
+      el.value = v;
+    }
     if (P[stateKey] === v) return;
     History.commit();
     P[stateKey] = v;
     if (ve) ve.textContent = fmt(v);
+
+    if (stateKey === "blobMin" && Number.isFinite(P.blobMax) && v > P.blobMax) {
+      setSliderValue("blob-max", "blobMax", v, "blob-max-val", formatBlobMax);
+    } else if (stateKey === "blobMax" && Number.isFinite(P.blobMin) && v < P.blobMin) {
+      setSliderValue("blob-min", "blobMin", v, "blob-min-val");
+    } else if (stateKey === "cannyLow" && Number.isFinite(P.cannyHigh) && v > P.cannyHigh) {
+      setSliderValue("canny-high", "cannyHigh", v, "canny-high-val");
+    } else if (stateKey === "cannyHigh" && Number.isFinite(P.cannyLow) && v < P.cannyLow) {
+      setSliderValue("canny-low", "cannyLow", v, "canny-low-val");
+    }
+
     handleParamChanged(stateKey);
   });
 }
@@ -1243,9 +1442,13 @@ function setSliderValue(id, stateKey, value, valId, format) {
   const el = document.getElementById(id);
   const ve = document.getElementById(valId);
   if (!el) return;
-  el.value = value;
-  P[stateKey] = value;
-  if (ve) ve.textContent = format ? format(value) : value;
+  let numVal = typeof value === "number" ? value : parseFloat(value);
+  if (!Number.isFinite(numVal)) {
+    numVal = DEFAULTS[stateKey] !== undefined ? DEFAULTS[stateKey] : (parseFloat(el.min) || 0);
+  }
+  el.value = numVal;
+  P[stateKey] = numVal;
+  if (ve) ve.textContent = format ? format(numVal) : numVal;
 }
 
 function setupPresetRow(container, dataKey, onSelect) {
@@ -1289,6 +1492,7 @@ function setupControls() {
   setupSeg("text-content", "textContent", String);
   setupSeg("font-size", "fontSize", parseInt);
   setupIconRow("connection-style", "connectionStyle");
+  setupGrid("style-grid", "selectedEffect");
   setupGrid("basic-effects", "selectedEffect");
   setupSeg("detector-mode", "detector", String);
   setupToggle("text-enabled", "textEnabled");
@@ -1310,7 +1514,7 @@ function setupControls() {
   setupColorInput();
 
   document.getElementById("reset-btn")?.addEventListener("click", () => {
-    document.querySelectorAll(".seg button:first-child, .icon-btn:first-child, .gbtn:first-child, .lbtn:first-child").forEach(b => {
+    document.querySelectorAll(".seg button:first-child, .icon-btn:first-child, .gbtn:first-child, .lbtn:first-child, .style-btn:first-child").forEach(b => {
       b.parentElement.querySelectorAll("button").forEach(bb => bb.classList.remove("active"));
       b.classList.add("active");
     });
@@ -1353,9 +1557,11 @@ function setupControls() {
     }).catch(() => {
       const blob = new Blob([text], { type: "text/plain" });
       const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
+      const url = URL.createObjectURL(blob);
+      a.href = url;
       a.download = "blob-tracker-debug-log.txt";
       a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
       log("debug", "Log downloaded as file");
     });
   });
@@ -1364,33 +1570,273 @@ function setupControls() {
 }
 
 // ============================
-// FILE LOADING
+// FILE LOADING & DEMO GENERATION
 // ============================
+let dragCounter = 0;
 function setDropActive(active) {
-  dropZone.classList.toggle("drag-over", active);
+  if (dropZone) {
+    dropZone.classList.toggle("drag-over", active);
+    dropZone.classList.toggle("drag-active", active);
+  }
   if (dropTitle) dropTitle.textContent = active ? t("dropTitleDrag") : t("dropTitle");
 }
 
 const uploadBtn = document.getElementById("upload-btn");
 const fileInput = document.getElementById("file-input");
 
-window.addEventListener("dragover", e => { e.preventDefault(); setDropActive(true); });
-window.addEventListener("dragleave", () => setDropActive(false));
+window.addEventListener("dragenter", e => {
+  e.preventDefault();
+  dragCounter++;
+  setDropActive(true);
+});
+window.addEventListener("dragover", e => {
+  e.preventDefault();
+  setDropActive(true);
+});
+window.addEventListener("dragleave", () => {
+  dragCounter = Math.max(0, dragCounter - 1);
+  if (dragCounter === 0) setDropActive(false);
+});
 window.addEventListener("drop", e => {
   e.preventDefault();
+  dragCounter = 0;
   setDropActive(false);
-  const file = e.dataTransfer.files[0];
+  const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
   if (file && file.type.startsWith("video/")) loadFile(file);
 });
-dropZone.addEventListener("click", e => {
-  if (e.target.closest("#upload-btn")) return;
-  fileInput.click();
-});
-uploadBtn.addEventListener("click", () => fileInput.click());
-fileInput.addEventListener("change", e => {
-  const file = e.target.files[0];
-  if (file && file.type.startsWith("video/")) loadFile(file);
-});
+
+if (dropZone) {
+  dropZone.addEventListener("click", e => {
+    if (e.target.closest("button")) return;
+    fileInput.click();
+  });
+  dropZone.addEventListener("keydown", e => {
+    if (e.target === dropZone && (e.key === "Enter" || e.key === " ")) {
+      e.preventDefault();
+      fileInput.click();
+    }
+  });
+}
+
+if (uploadBtn) {
+  uploadBtn.addEventListener("click", () => fileInput.click());
+}
+
+if (fileInput) {
+  fileInput.addEventListener("change", e => {
+    const file = e.target.files && e.target.files[0];
+    if (file && file.type.startsWith("video/")) loadFile(file);
+  });
+}
+
+if (changeVideoBtn) {
+  changeVideoBtn.addEventListener("click", () => {
+    if (isProcessing) {
+      if (!confirm(t("confirmAbortProcessing"))) return;
+      cancelRequested = true;
+    }
+    if (activeFpsDetectorCancel) {
+      try { activeFpsDetectorCancel(); } catch (e) {}
+      activeFpsDetectorCancel = null;
+    }
+    if (video && !video.paused) {
+      video.pause();
+    }
+    if (fileInput) {
+      fileInput.value = "";
+      fileInput.click();
+    }
+  });
+}
+
+let cachedSampleBlob = null;
+let isGeneratingSample = false;
+
+function getSupportedVideoMimeType() {
+  if (typeof MediaRecorder === "undefined" || typeof MediaRecorder.isTypeSupported !== "function") {
+    return "";
+  }
+  const candidateTypes = [
+    "video/webm;codecs=vp9",
+    "video/webm;codecs=vp8",
+    "video/webm",
+    "video/mp4;codecs=avc1",
+    "video/mp4"
+  ];
+  for (const t of candidateTypes) {
+    if (MediaRecorder.isTypeSupported(t)) return t;
+  }
+  return "";
+}
+
+async function generateSampleVideo() {
+  if (cachedSampleBlob) return cachedSampleBlob;
+
+  if (typeof HTMLCanvasElement === "undefined" || !HTMLCanvasElement.prototype.captureStream) {
+    throw new Error(t("sampleNotSupported"));
+  }
+  const mimeType = getSupportedVideoMimeType();
+  if (!mimeType) {
+    throw new Error(t("sampleNotSupported"));
+  }
+
+  const width = 640;
+  const height = 360;
+  const fps = 30;
+  const totalFrames = 75; // 2.5 seconds at 30fps
+
+  const offscreen = document.createElement("canvas");
+  offscreen.width = width;
+  offscreen.height = height;
+  const sCtx = offscreen.getContext("2d", { alpha: false });
+  if (!sCtx) throw new Error("Could not initialize 2D context for demo video.");
+
+  // 3 distinct organic bouncing blobs with different harmonic shapes, speeds, and sizes
+  const demoBlobs = [
+    {
+      x: 170, y: 150,
+      vx: 3.2, vy: 2.2,
+      baseR: 44,
+      freq: 3,
+      amp: 8,
+      speed: 4.2,
+      fill: "#ffffff"
+    },
+    {
+      x: 470, y: 220,
+      vx: -2.8, vy: 2.3,
+      baseR: 34,
+      freq: 4,
+      amp: 6,
+      speed: -3.6,
+      fill: "#f8fafc"
+    },
+    {
+      x: 320, y: 90,
+      vx: 2.4, vy: -3.0,
+      baseR: 24,
+      freq: 5,
+      amp: 5,
+      speed: 4.8,
+      fill: "#f1f5f9"
+    }
+  ];
+
+  const stream = offscreen.captureStream(fps);
+  const recorder = new MediaRecorder(stream, {
+    mimeType,
+    videoBitsPerSecond: 2500000
+  });
+
+  const chunks = [];
+  recorder.ondataavailable = e => {
+    if (e.data && e.data.size > 0) chunks.push(e.data);
+  };
+
+  const recordingPromise = new Promise((resolve, reject) => {
+    recorder.onstop = () => {
+      try {
+        const blob = new Blob(chunks, { type: mimeType });
+        cachedSampleBlob = blob;
+        resolve(blob);
+      } catch (err) {
+        reject(err);
+      }
+    };
+    recorder.onerror = err => reject(err);
+  });
+
+  recorder.start();
+
+  const dt = 1 / fps;
+  const frameDelay = Math.round(1000 / fps);
+
+  for (let f = 0; f < totalFrames; f++) {
+    const t = f * dt;
+
+    // Background: deep dark slate
+    sCtx.fillStyle = "#0c0f14";
+    sCtx.fillRect(0, 0, width, height);
+
+    // Subtle dark ground plane to add physical presence
+    sCtx.fillStyle = "#080a0e";
+    sCtx.fillRect(0, height - 32, width, 32);
+
+    // Render each organic blob
+    for (const b of demoBlobs) {
+      b.x += b.vx;
+      b.y += b.vy;
+
+      const pad = b.baseR + 14;
+      if (b.x < pad) { b.x = pad; b.vx = Math.abs(b.vx); }
+      if (b.x > width - pad) { b.x = width - pad; b.vx = -Math.abs(b.vx); }
+      if (b.y < pad) { b.y = pad; b.vy = Math.abs(b.vy); }
+      if (b.y > height - pad - 32) { b.y = height - pad - 32; b.vy = -Math.abs(b.vy); }
+
+      sCtx.beginPath();
+      const numPoints = 36;
+      for (let i = 0; i < numPoints; i++) {
+        const theta = (i / numPoints) * Math.PI * 2;
+        const deform = Math.sin(theta * b.freq + t * b.speed) * b.amp +
+                       Math.cos(theta * 2 - t * 2.4) * (b.amp * 0.5);
+        const r = Math.max(8, b.baseR + deform);
+        const px = b.x + Math.cos(theta) * r;
+        const py = b.y + Math.sin(theta) * r;
+        if (i === 0) sCtx.moveTo(px, py);
+        else sCtx.lineTo(px, py);
+      }
+      sCtx.closePath();
+
+      sCtx.fillStyle = b.fill;
+      sCtx.fill();
+      sCtx.lineWidth = 2;
+      sCtx.strokeStyle = "#ffffff";
+      sCtx.stroke();
+    }
+
+    await new Promise(r => setTimeout(r, frameDelay));
+  }
+
+  recorder.stop();
+  return await recordingPromise;
+}
+
+async function loadSampleVideo() {
+  if (isGeneratingSample) return;
+  isGeneratingSample = true;
+
+  const btn = sampleVideoBtn || document.getElementById("sample-video-btn");
+  const origHtml = btn ? btn.innerHTML : "";
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span class="spinner" style="width:12px;height:12px;border-width:2px;display:inline-block;margin-right:6px;vertical-align:-1px;"></span><span>${t("generatingSample")}</span>`;
+  }
+
+  try {
+    const blob = await generateSampleVideo();
+    const ext = (blob.type && blob.type.includes("mp4")) ? "mp4" : "webm";
+    const mimeBase = ext === "mp4" ? "video/mp4" : "video/webm";
+    const sampleFile = new File([blob], `sample_blobs.${ext}`, {
+      type: mimeBase
+    });
+    loadFile(sampleFile);
+  } catch (err) {
+    const msg = (err && err.message) || String(err);
+    log("video", "Failed to load sample video", { error: msg });
+    alert(t("sampleError", { msg }));
+  } finally {
+    isGeneratingSample = false;
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = origHtml;
+    }
+  }
+}
+
+if (sampleVideoBtn) {
+  sampleVideoBtn.addEventListener("click", loadSampleVideo);
+}
 
 function loadFile(file) {
   // File validation
@@ -1401,7 +1847,8 @@ function loadFile(file) {
   if (!file.type.startsWith("video/") && file.type) {
     if (!confirm(t("unrecognizedFile"))) return;
   }
-  if (file.type === "video/mp4" || file.type === "video/webm" || file.type === "video/quicktime" || !file.type) {
+  const mimeBase = (file.type || "").split(";")[0].trim().toLowerCase();
+  if (mimeBase === "video/mp4" || mimeBase === "video/webm" || mimeBase === "video/quicktime" || !mimeBase) {
     currentVideoName = file.name;
     currentVideoFile = file;
     prepareVideo(URL.createObjectURL(file));
@@ -1426,23 +1873,60 @@ function trackedFilename(ext) {
 function loadVideoMetadata(videoEl, url, timeoutMs = 30000) {
   return new Promise((resolve, reject) => {
     let settled = false;
-    const cleanup = () => { clearTimeout(timer); videoEl.onloadedmetadata = null; videoEl.onerror = null; };
+    const cleanup = () => {
+      clearTimeout(timer);
+      videoEl.onloadedmetadata = null;
+      videoEl.onerror = null;
+    };
     const timer = setTimeout(() => {
-      if (settled) return; settled = true; cleanup();
-      reject(new Error("Video failed to load within " + Math.round(timeoutMs / 1000) + " s."));
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(new Error(t("videoTimeout") || ("Video failed to load within " + Math.round(timeoutMs / 1000) + " s.")));
     }, timeoutMs);
-    videoEl.onloadedmetadata = () => { if (settled) return; settled = true; cleanup(); resolve(); };
-    videoEl.onerror = () => { if (settled) return; settled = true; cleanup(); reject(new Error("Failed to load video: format not supported or file unavailable.")); };
+
+    videoEl.onloadedmetadata = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      if (!Number.isFinite(videoEl.duration) || videoEl.duration <= 0) {
+        reject(new Error(t("videoCorrupted") || "Video has invalid or zero duration."));
+        return;
+      }
+      resolve();
+    };
+
+    videoEl.onerror = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(new Error(t("videoCorrupted") || "Failed to load video: format not supported or file unavailable."));
+    };
+
     videoEl.src = url;
   });
 }
 
 function seekVideo(videoEl, time, maxTries = 500) {
   return new Promise((resolve) => {
+    const dur = (Number.isFinite(videoEl.duration) && videoEl.duration > 0) ? videoEl.duration : 0;
+    const safeTime = Math.max(0, Math.min(Number.isFinite(time) ? time : 0, Math.max(0, dur - 0.001)));
     let tries = 0;
-    const check = () => { if (!videoEl.seeking) return resolve(); if (tries++ > maxTries) return resolve(); setTimeout(check, 10); };
+    const check = () => {
+      if (!videoEl.seeking || ++tries > maxTries) {
+        videoEl.onseeked = null;
+        resolve();
+        return;
+      }
+      setTimeout(check, 10);
+    };
     videoEl.onseeked = check;
-    videoEl.currentTime = time;
+    try {
+      videoEl.currentTime = safeTime;
+    } catch (e) {
+      resolve();
+      return;
+    }
     check();
   });
 }
@@ -1450,6 +1934,10 @@ function seekVideo(videoEl, time, maxTries = 500) {
 function recoverFromFatal(msg) {
   isProcessing = false;
   detectionReady = false;
+  if (activeFpsDetectorCancel) {
+    try { activeFpsDetectorCancel(); } catch (e) {}
+    activeFpsDetectorCancel = null;
+  }
   updateDetectionActions();
   if (progressBar) progressBar.classList.remove("visible");
   if (progressLabel) progressLabel.textContent = t("errorPrefix") + msg;
@@ -1472,34 +1960,97 @@ window.addEventListener("error", (ev) => {
 // ============================
 // DETECT SOURCE FPS
 // ============================
+let activeFpsDetectorCancel = null;
+
 function detectSourceFps(videoEl) {
+  if (activeFpsDetectorCancel) {
+    try { activeFpsDetectorCancel(); } catch (e) {}
+    activeFpsDetectorCancel = null;
+  }
+
   return new Promise((resolve) => {
-    if (typeof videoEl.requestVideoFrameCallback !== "function") { resolve(30); return; }
+    if (!videoEl || typeof videoEl.requestVideoFrameCallback !== "function") {
+      resolve(30);
+      return;
+    }
+
     const times = [];
     let handle = null;
     let resolved = false;
-    const finish = (fps) => {
-      if (resolved) return; resolved = true;
-      if (handle != null) try { videoEl.cancelVideoFrameCallback(handle); } catch (e) {}
-      try { videoEl.pause(); } catch (e) {}
-      const safe = (isFinite(fps) && fps > 0 && fps < 240) ? fps : 30;
-      resolve(Math.round(safe * 100) / 100);
-    };
-    const handler = (now, metadata) => {
-      times.push(metadata.mediaTime);
-      if (times.length >= 12) {
-        const dt = times[times.length - 1] - times[0];
-        if (dt > 0) finish((times.length - 1) / dt); else finish(30);
-      } else {
-        handle = videoEl.requestVideoFrameCallback(handler);
+    let safetyTimer = null;
+
+    const cleanup = () => {
+      if (safetyTimer) {
+        clearTimeout(safetyTimer);
+        safetyTimer = null;
+      }
+      if (handle != null && typeof videoEl.cancelVideoFrameCallback === "function") {
+        try { videoEl.cancelVideoFrameCallback(handle); } catch (e) {}
+        handle = null;
+      }
+      if (activeFpsDetectorCancel === cancelFn) {
+        activeFpsDetectorCancel = null;
       }
     };
-    handle = videoEl.requestVideoFrameCallback(handler);
-    const wasPaused = videoEl.paused;
-    videoEl.muted = true;
-    videoEl.play().then(() => {}).catch(() => finish(30));
-    setTimeout(() => { if (times.length < 2) finish(30); }, 5000);
-    videoEl.addEventListener("seeked", () => { if (wasPaused) videoEl.pause(); }, { once: true });
+
+    const finish = (fps) => {
+      if (resolved) return;
+      resolved = true;
+      cleanup();
+      try { videoEl.pause(); } catch (e) {}
+      const safe = (Number.isFinite(fps) && fps > 0 && fps < 240) ? fps : 30;
+      resolve(Math.round(safe * 100) / 100);
+    };
+
+    const cancelFn = () => {
+      finish(30);
+    };
+    activeFpsDetectorCancel = cancelFn;
+
+    // Safety timeout: 3500ms max
+    safetyTimer = setTimeout(() => {
+      log("video", "detectSourceFps safety timeout reached", { capturedCount: times.length });
+      if (times.length >= 6) {
+        const dt = times[times.length - 1] - times[0];
+        if (dt > 0) {
+          const est = (times.length - 1) / dt;
+          if (Number.isFinite(est) && est > 5 && est < 240) {
+            finish(est);
+            return;
+          }
+        }
+      }
+      finish(30);
+    }, 3500);
+
+    const handler = (now, metadata) => {
+      if (resolved) return;
+      if (metadata && typeof metadata.mediaTime === "number") {
+        times.push(metadata.mediaTime);
+      }
+      if (times.length >= 12) {
+        const dt = times[times.length - 1] - times[0];
+        if (dt > 0) finish((times.length - 1) / dt);
+        else finish(30);
+      } else {
+        try {
+          handle = videoEl.requestVideoFrameCallback(handler);
+        } catch (e) {
+          finish(30);
+        }
+      }
+    };
+
+    try {
+      handle = videoEl.requestVideoFrameCallback(handler);
+      videoEl.muted = true;
+      const playPromise = videoEl.play();
+      if (playPromise && typeof playPromise.then === "function") {
+        playPromise.catch(() => finish(30));
+      }
+    } catch (e) {
+      finish(30);
+    }
   });
 }
 
@@ -1548,13 +2099,6 @@ function getContourPts(b) { return b.pts || []; }
 // ============================
 // PLAYBACK + CURRENT FRAME PREVIEW
 // ============================
-const DETECTION_PARAM_KEYS = new Set([
-  "detector", "colorChannel", "useGPU",
-  "cannyLow", "cannyHigh", "blurKernel",
-  "blobMin", "blobMax",
-  "mergeKernel",
-]);
-
 function formatTime(seconds) {
   if (!Number.isFinite(seconds) || seconds < 0) seconds = 0;
   const total = Math.floor(seconds);
@@ -1587,15 +2131,30 @@ function hidePlaybackControls() {
 
 function updatePlaybackUi() {
   if (!video || !timeline || !timeReadout || !playToggle) return;
-  const dur = Number.isFinite(video.duration) ? video.duration : 0;
-  const time = Number.isFinite(video.currentTime) ? video.currentTime : 0;
+  const dur = (Number.isFinite(video.duration) && video.duration > 0) ? video.duration : 0;
+  const time = (Number.isFinite(video.currentTime) && video.currentTime > 0) ? Math.min(video.currentTime, dur) : 0;
   if (!timelineDragging) {
     timeline.value = dur > 0 ? String(Math.round((time / dur) * 1000)) : "0";
   }
   timeReadout.textContent = formatTime(time) + " / " + formatTime(dur);
-  playToggle.textContent = video.paused ? "▶" : "⏸";
-  playToggle.title = video.paused ? "Play" : "Pause";
-  playToggle.setAttribute("aria-label", playToggle.title);
+
+  const isPaused = video.paused;
+  playToggle.textContent = isPaused ? "▶" : "⏸";
+  const playTx = isPaused ? t("playAction") : t("pauseAction");
+  playToggle.title = playTx;
+  playToggle.setAttribute("aria-label", playTx);
+
+  if (stepBackBtn) {
+    const sbTx = t("stepBackAction");
+    stepBackBtn.title = sbTx;
+    stepBackBtn.setAttribute("aria-label", sbTx);
+  }
+  if (stepFwdBtn) {
+    const sfTx = t("stepFwdAction");
+    stepFwdBtn.title = sfTx;
+    stepFwdBtn.setAttribute("aria-label", sfTx);
+  }
+
   if (muteToggle) {
     const muted = !!video.muted;
     muteToggle.textContent = muted ? "🔇" : "🔊";
@@ -1649,6 +2208,7 @@ function renderPausedFrameSoon() {
 function handlePresetChanged(container) {
   if (container === "sensitivity-preset" || container === "object-size-preset") {
     scheduleCurrentFrameProbe();
+    updateDetectionActions();
   }
 }
 
@@ -1657,6 +2217,7 @@ function handleParamChanged(stateKey) {
   if (!currentVideoURL || isProcessing || isExporting) return;
   if (DETECTION_PARAM_KEYS.has(stateKey)) {
     scheduleCurrentFrameProbe();
+    updateDetectionActions();
     return;
   }
   renderPausedFrameSoon();
@@ -1709,19 +2270,67 @@ function runCurrentFrameProbe() {
   }
 }
 
+async function togglePlay() {
+  if (!video || !currentVideoURL || isProcessing || isExporting) return;
+  if (video.paused) {
+    clearCurrentFrameProbe();
+    await video.play().catch(e => log("video", "Play failed", { error: e.message }));
+  } else {
+    video.pause();
+    renderCurrentFrame();
+  }
+  updatePlaybackUi();
+}
+
+function stepVideo(forward = true, seconds = null) {
+  if (!video || !currentVideoURL || isProcessing || isExporting) return;
+  if (!video.paused) {
+    video.pause();
+  }
+  clearCurrentFrameProbe();
+  const fps = Math.max(1, sourceFps || 30);
+  const delta = (typeof seconds === "number" && seconds > 0) ? seconds : (1 / fps);
+  const dur = (Number.isFinite(video.duration) && video.duration > 0) ? video.duration : 0;
+  const cur = (Number.isFinite(video.currentTime) && video.currentTime > 0) ? video.currentTime : 0;
+  const target = forward
+    ? Math.min(Math.max(0, dur - 0.001), cur + delta)
+    : Math.max(0, cur - delta);
+  video.currentTime = target;
+  updatePlaybackUi();
+  renderPausedFrameSoon();
+}
+
+function toggleFullscreen() {
+  const target = document.getElementById("canvas-wrap") || document.documentElement;
+  if (!document.fullscreenElement) {
+    if (target.requestFullscreen) {
+      target.requestFullscreen().catch(() => {});
+    } else if (target.webkitRequestFullscreen) {
+      target.webkitRequestFullscreen();
+    }
+  } else {
+    if (document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {});
+    } else if (document.webkitExitFullscreen) {
+      document.webkitExitFullscreen();
+    }
+  }
+}
+
 function setupPlaybackControls() {
   if (!playToggle || !timeline) return;
-  playToggle.addEventListener("click", async () => {
-    if (!currentVideoURL || isProcessing || isExporting) return;
-    if (video.paused) {
-      clearCurrentFrameProbe();
-      await video.play().catch(e => log("video", "Play failed", { error: e.message }));
-    } else {
-      video.pause();
-      renderCurrentFrame();
-    }
-    updatePlaybackUi();
-  });
+  playToggle.addEventListener("click", togglePlay);
+
+  if (stepBackBtn) {
+    stepBackBtn.addEventListener("click", () => stepVideo(false));
+  }
+  if (stepFwdBtn) {
+    stepFwdBtn.addEventListener("click", () => stepVideo(true));
+  }
+  const fullscreenBtn = document.getElementById("fullscreen-btn");
+  if (fullscreenBtn) {
+    fullscreenBtn.addEventListener("click", toggleFullscreen);
+  }
 
   if (muteToggle) {
     muteToggle.addEventListener("click", () => {
@@ -1736,8 +2345,10 @@ function setupPlaybackControls() {
   timeline.addEventListener("input", () => {
     if (!currentVideoURL || isProcessing || isExporting) return;
     timelineDragging = true;
-    const dur = Number.isFinite(video.duration) ? video.duration : 0;
-    const nextTime = dur > 0 ? (Number(timeline.value) / 1000) * dur : 0;
+    const dur = (Number.isFinite(video.duration) && video.duration > 0) ? video.duration : 0;
+    const val = Number(timeline.value);
+    const ratio = (Number.isFinite(val) && val >= 0) ? Math.min(1000, val) / 1000 : 0;
+    const nextTime = dur > 0 ? ratio * dur : 0;
     video.pause();
     clearCurrentFrameProbe();
     video.currentTime = Math.min(Math.max(0, nextTime), Math.max(0, dur - 0.001));
@@ -1767,6 +2378,75 @@ function setupPlaybackControls() {
     timelineDragging = false;
     if (!isProcessing && !isExporting && video.paused) renderCurrentFrame();
     updatePlaybackUi();
+  });
+
+  video.addEventListener("error", () => {
+    if (!currentVideoURL) return;
+    const err = video.error;
+    const msg = err && err.message ? err.message : (err ? `Code ${err.code}` : "Unknown playback error");
+    log("video", "Playback runtime error", { error: msg });
+    recoverFromFatal(msg);
+    alert(t("videoPlaybackError", { msg }));
+  });
+
+  window.addEventListener("keydown", (e) => {
+    const activeEl = document.activeElement;
+    const tag = activeEl && activeEl.tagName ? activeEl.tagName.toLowerCase() : "";
+    const isInput = tag === "input" || tag === "textarea" || tag === "select" || tag === "button" || (activeEl && activeEl.isContentEditable);
+
+    if (e.key === "Escape") {
+      hideActiveTip();
+      clearTipHoverTimer();
+      clearTipHideTimer();
+      if (activeEl && typeof activeEl.blur === "function") {
+        activeEl.blur();
+      }
+      return;
+    }
+
+    if (!video || !currentVideoURL || isProcessing || isExporting) return;
+
+    if (e.key === " " || e.code === "Space") {
+      if (isInput) return;
+      e.preventDefault();
+      togglePlay();
+      return;
+    }
+
+    if (isInput) return;
+    if (e.ctrlKey || e.altKey || e.metaKey) return;
+
+    if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      stepVideo(false, e.shiftKey ? 1.0 : null);
+      return;
+    }
+    if (e.key === "ArrowRight") {
+      e.preventDefault();
+      stepVideo(true, e.shiftKey ? 1.0 : null);
+      return;
+    }
+
+    if (e.key === "k" || e.key === "K") {
+      e.preventDefault();
+      togglePlay();
+      return;
+    }
+    if (e.key === "j" || e.key === "J") {
+      e.preventDefault();
+      stepVideo(false, e.shiftKey ? 1.0 : null);
+      return;
+    }
+    if (e.key === "l" || e.key === "L") {
+      e.preventDefault();
+      stepVideo(true, e.shiftKey ? 1.0 : null);
+      return;
+    }
+    if (e.key === "f" || e.key === "F") {
+      e.preventDefault();
+      toggleFullscreen();
+      return;
+    }
   });
 }
 
@@ -1823,12 +2503,14 @@ function contoursFromMask(mask) {
   const hierarchy = new cv.Mat();
   cv.findContours(mask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
   const result = [];
+  const minArea = Math.min(Number.isFinite(P.blobMin) ? P.blobMin : 0, Number.isFinite(P.blobMax) ? P.blobMax : Infinity);
+  const maxArea = Math.max(Number.isFinite(P.blobMin) ? P.blobMin : 0, Number.isFinite(P.blobMax) ? P.blobMax : Infinity);
   for (let i = 0; i < contours.size(); i++) {
     const c = contours.get(i);
     const area = cv.contourArea(c);
     const rect = cv.boundingRect(c);
     const filterArea = Math.max(area, rect.width * rect.height);
-    if (filterArea < P.blobMin || filterArea > P.blobMax) continue;
+    if (filterArea < minArea || filterArea > maxArea) continue;
     const m = cv.moments(c);
     let cx, cy;
     if (m.m00 === 0) { cx = rect.x + rect.width / 2; cy = rect.y + rect.height / 2; }
@@ -1843,9 +2525,11 @@ function contoursFromMask(mask) {
 }
 
 function detectEdge(frameMat) {
+  const cannyLow = Math.min(Number.isFinite(P.cannyLow) ? P.cannyLow : 50, Number.isFinite(P.cannyHigh) ? P.cannyHigh : 150);
+  const cannyHigh = Math.max(Number.isFinite(P.cannyLow) ? P.cannyLow : 50, Number.isFinite(P.cannyHigh) ? P.cannyHigh : 150);
   if (P.useGPU && GPU.ready) {
     try {
-      const edgeMap = gpuCanny(tempCanvas, P.cannyLow, P.cannyHigh, P.blurKernel / 3.0);
+      const edgeMap = gpuCanny(tempCanvas, cannyLow, cannyHigh, P.blurKernel / 3.0);
       if (edgeMap) {
         const w = tempCanvas.width, h = tempCanvas.height;
         const mat = new cv.Mat(h, w, cv.CV_8UC1);
@@ -1909,7 +2593,7 @@ function detectEdge(frameMat) {
   const ksize = P.blurKernel % 2 === 0 ? P.blurKernel + 1 : P.blurKernel;
   cv.GaussianBlur(gray, blurred, new cv.Size(ksize, ksize), 0, 0);
   const edges = new cv.Mat();
-  cv.Canny(blurred, edges, P.cannyLow, P.cannyHigh);
+  cv.Canny(blurred, edges, cannyLow, cannyHigh);
   gray.delete(); blurred.delete();
 
   const kernelClose = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(3, 3));
@@ -2036,7 +2720,13 @@ async function detectBlobs() {
 // ============================
 async function prepareVideo(videoURL) {
   log("video", "prepareVideo called", { params: { ...P } });
-  if (currentVideoURL && currentVideoURL !== videoURL) URL.revokeObjectURL(currentVideoURL);
+  if (activeFpsDetectorCancel) {
+    try { activeFpsDetectorCancel(); } catch (e) {}
+    activeFpsDetectorCancel = null;
+  }
+  if (currentVideoURL && currentVideoURL !== videoURL && currentVideoURL.startsWith("blob:")) {
+    try { URL.revokeObjectURL(currentVideoURL); } catch (e) {}
+  }
   currentVideoURL = videoURL;
   all_frame_data = [];
   detectionReady = false;
@@ -2048,7 +2738,7 @@ async function prepareVideo(videoURL) {
   progressBar.classList.add("visible");
   progressFill.style.width = "0%";
   progressLabel.textContent = t("loadingVideo");
-  exportOverlay.classList.remove("visible");
+  if (exportOverlay) exportOverlay.classList.remove("visible");
   hidePlaybackControls();
   Telemetry.hide();
   Telemetry.reset();
@@ -2056,6 +2746,9 @@ async function prepareVideo(videoURL) {
     await loadVideoMetadata(video, videoURL);
     const vw = video.videoWidth, vh = video.videoHeight;
     if (!vw || !vh) throw new Error("Video has zero frame size — file may be corrupted.");
+    if (!Number.isFinite(video.duration) || video.duration <= 0) {
+      throw new Error(t("videoCorrupted") || "Video has zero or invalid duration — file may be corrupted.");
+    }
     const scale = MAX_PREVIEW_DIM / Math.min(vw, vh);
     const targetW = Math.round(vw * scale), targetH = Math.round(vh * scale);
     canvas.width = targetW;
@@ -2070,23 +2763,35 @@ async function prepareVideo(videoURL) {
     video.loop = false;
     video.pause();
     renderCurrentFrame();
-    exportOverlay.classList.add("visible");
+    if (exportOverlay) exportOverlay.classList.add("visible");
     showPlaybackControls();
     updateDetectionActions();
   } catch (e) {
     const msg = (e && e.message) || String(e);
     log("video", "prepareVideo failed", { error: msg });
+    if (videoURL && videoURL.startsWith("blob:")) {
+      try { URL.revokeObjectURL(videoURL); } catch (err) {}
+      if (currentVideoURL === videoURL) currentVideoURL = null;
+    }
     recoverFromFatal(msg);
     alert(t("failedProcess", { msg }));
   } finally {
     isProcessing = false;
     progressBar.classList.remove("visible");
+    updateDetectionActions();
   }
 }
 
 async function startProcessing(videoURL) {
   if (!cvReady) { alert(t("openCvLoading")); return; }
   log("video", "startProcessing called", { params: { ...P } });
+  if (activeFpsDetectorCancel) {
+    try { activeFpsDetectorCancel(); } catch (e) {}
+    activeFpsDetectorCancel = null;
+  }
+  if (currentVideoURL && currentVideoURL !== videoURL && currentVideoURL.startsWith("blob:")) {
+    try { URL.revokeObjectURL(currentVideoURL); } catch (e) {}
+  }
   currentVideoURL = videoURL;
   all_frame_data = [];
   detectionReady = false;
@@ -2099,7 +2804,7 @@ async function startProcessing(videoURL) {
   showCancelDetect();
   progressFill.style.width = "0%";
   progressLabel.textContent = t("loadingVideo");
-  exportOverlay.classList.remove("visible");
+  if (exportOverlay) exportOverlay.classList.remove("visible");
   hidePlaybackControls();
   Telemetry.hide();
   Telemetry.reset();
@@ -2107,6 +2812,9 @@ async function startProcessing(videoURL) {
     await loadVideoMetadata(video, videoURL);
     const vw = video.videoWidth, vh = video.videoHeight;
     if (!vw || !vh) throw new Error("Video has zero frame size — file may be corrupted.");
+    if (!Number.isFinite(video.duration) || video.duration <= 0) {
+      throw new Error(t("videoCorrupted") || "Video has zero or invalid duration — file may be corrupted.");
+    }
     const scale = MAX_PREVIEW_DIM / Math.min(vw, vh);
     const targetW = Math.round(vw * scale), targetH = Math.round(vh * scale);
     canvas.width = targetW;
@@ -2121,9 +2829,10 @@ async function startProcessing(videoURL) {
     const _effFps = getEffectiveFps();
     for (let i = 0; i < all_frame_data.length; i++) all_frame_data[i].time = i / _effFps;
     detectionReady = !cancelRequested && all_frame_data.length > 0;
+    if (detectionReady) saveDetectedParamsSnapshot();
     updateDetectionActions();
     await seekVideo(video, 0);
-    exportOverlay.classList.add("visible");
+    if (exportOverlay) exportOverlay.classList.add("visible");
     showPlaybackControls();
     video.play();
     video.loop = true;
@@ -2133,6 +2842,9 @@ async function startProcessing(videoURL) {
   } catch (e) {
     const msg = (e && e.message) || String(e);
     log("video", "startProcessing failed", { error: msg });
+    if (videoURL && videoURL.startsWith("blob:") && videoURL !== currentVideoURL) {
+      try { URL.revokeObjectURL(videoURL); } catch (err) {}
+    }
     recoverFromFatal(msg);
     alert(t("failedProcess", { msg }));
   } finally {
@@ -2140,6 +2852,7 @@ async function startProcessing(videoURL) {
     progressBar.classList.remove("visible");
     hideCancelDetect();
     if (currentVideoURL && video.readyState >= 2) showPlaybackControls();
+    updateDetectionActions();
   }
 }
 
@@ -2157,67 +2870,238 @@ function drawLoop() {
 // ============================
 // TOOLTIP SYSTEM
 // ============================
-function placeTip(popup, source) {
-  const pad = 12;
-  const gap = 14;
-  let x = window.innerWidth / 2;
-  let y = window.innerHeight / 2;
-  if (source && typeof source.clientX === "number" && typeof source.clientY === "number") {
-    x = source.clientX + gap;
-    y = source.clientY + gap;
-  } else if (source && typeof source.getBoundingClientRect === "function") {
-    const r = source.getBoundingClientRect();
-    x = r.right + gap;
-    y = r.top + Math.min(8, Math.max(0, r.height / 2));
+let tipHoverTimer = null;
+let tipHideTimer = null;
+let activeTipAnchor = null;
+let tooltipsInitialized = false;
+
+function clearTipHoverTimer() {
+  if (tipHoverTimer) {
+    clearTimeout(tipHoverTimer);
+    tipHoverTimer = null;
   }
+}
+
+function clearTipHideTimer() {
+  if (tipHideTimer) {
+    clearTimeout(tipHideTimer);
+    tipHideTimer = null;
+  }
+}
+
+function placeTip(popup, source) {
+  const pad = 12; // 8-12px safe margin from viewport edge
+  const gap = 10;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
   popup.style.left = "0px";
   popup.style.top = "0px";
   popup.style.transform = "none";
-  const rect = popup.getBoundingClientRect();
-  x = Math.min(Math.max(pad, x), window.innerWidth - rect.width - pad);
-  y = Math.min(Math.max(pad, y), window.innerHeight - rect.height - pad);
-  popup.style.left = x + "px";
-  popup.style.top = y + "px";
+  const tipRect = popup.getBoundingClientRect();
+  const tipW = tipRect.width;
+  const tipH = tipRect.height;
+
+  let anchorRect;
+  if (source && typeof source.getBoundingClientRect === "function") {
+    anchorRect = source.getBoundingClientRect();
+  } else if (source && typeof source.clientX === "number" && typeof source.clientY === "number") {
+    anchorRect = {
+      left: source.clientX,
+      right: source.clientX,
+      top: source.clientY,
+      bottom: source.clientY,
+      width: 0,
+      height: 0
+    };
+  } else {
+    anchorRect = {
+      left: vw / 2,
+      right: vw / 2,
+      top: vh / 2,
+      bottom: vh / 2,
+      width: 0,
+      height: 0
+    };
+  }
+
+  // --- Horizontal Placement ---
+  // If anchor is on right half of viewport (sidebar panel), place to the left if space permits
+  let x;
+  const spaceLeft = anchorRect.left - gap;
+  const spaceRight = vw - (anchorRect.right + gap);
+
+  if (anchorRect.left > vw / 2) {
+    if (spaceLeft >= tipW + pad) {
+      x = anchorRect.left - gap - tipW;
+    } else if (spaceRight >= tipW + pad) {
+      x = anchorRect.right + gap;
+    } else {
+      x = vw - tipW - pad;
+    }
+  } else {
+    if (spaceRight >= tipW + pad) {
+      x = anchorRect.right + gap;
+    } else if (spaceLeft >= tipW + pad) {
+      x = anchorRect.left - gap - tipW;
+    } else {
+      x = pad;
+    }
+  }
+  x = Math.max(pad, Math.min(x, vw - tipW - pad));
+
+  // --- Vertical Placement ---
+  let y = anchorRect.top;
+  if (y + tipH > vh - pad) {
+    const spaceAbove = anchorRect.top - gap;
+    if (spaceAbove >= tipH + pad) {
+      y = anchorRect.top - gap - tipH;
+    } else {
+      y = vh - tipH - pad;
+    }
+  }
+  y = Math.max(pad, Math.min(y, vh - tipH - pad));
+
+  popup.style.left = Math.round(x) + "px";
+  popup.style.top = Math.round(y) + "px";
 }
 
 function showTip(text, source) {
   const el = document.getElementById("tip-popup");
   const txt = document.getElementById("tip-popup-text");
   if (!el || !txt) return;
+  clearTipHideTimer();
+  activeTipAnchor = source;
   txt.textContent = text;
+  el.setAttribute("aria-hidden", "false");
   el.classList.add("visible");
-  clearTimeout(el._hideTimer);
   requestAnimationFrame(() => placeTip(el, source));
 }
 
-function hideTip() {
+function hideTip(immediate = false) {
+  clearTipHoverTimer();
   const el = document.getElementById("tip-popup");
   if (!el) return;
-  el._hideTimer = setTimeout(() => el.classList.remove("visible"), 200);
+  clearTipHideTimer();
+  if (immediate) {
+    el.classList.remove("visible");
+    el.setAttribute("aria-hidden", "true");
+    activeTipAnchor = null;
+  } else {
+    tipHideTimer = setTimeout(() => {
+      el.classList.remove("visible");
+      el.setAttribute("aria-hidden", "true");
+      activeTipAnchor = null;
+    }, 120);
+  }
 }
 
-document.querySelectorAll(".tip").forEach(el => {
-  if (!TIP_TEXTS.en[el.id]) return;
-  const text = () => (TIP_TEXTS[currentLang] || TIP_TEXTS.en)[el.id];
-  el.addEventListener("mouseenter", (e) => showTip(text(), e));
-  el.addEventListener("mousemove", (e) => {
-    const popup = document.getElementById("tip-popup");
-    if (popup && popup.classList.contains("visible")) placeTip(popup, e);
+function setupTooltips() {
+  if (tooltipsInitialized) return;
+  tooltipsInitialized = true;
+
+  document.querySelectorAll(".tip").forEach(el => {
+    if (!TIP_TEXTS.en[el.id]) return;
+    el.setAttribute("aria-describedby", "tip-popup-text");
+    const text = () => (TIP_TEXTS[currentLang] || TIP_TEXTS.en)[el.id];
+
+    // Hover intent: 260ms delay before opening to avoid accidental flashes
+    el.addEventListener("mouseenter", () => {
+      clearTipHoverTimer();
+      const popup = document.getElementById("tip-popup");
+      const isAlreadyVisible = popup && popup.classList.contains("visible");
+      if (isAlreadyVisible) {
+        showTip(text(), el);
+      } else {
+        tipHoverTimer = setTimeout(() => {
+          tipHoverTimer = null;
+          showTip(text(), el);
+        }, 260);
+      }
+    });
+
+    el.addEventListener("mouseleave", () => {
+      clearTipHoverTimer();
+      hideTip();
+    });
+
+    // Keyboard & focus accessibility
+    el.addEventListener("focus", () => {
+      clearTipHoverTimer();
+      showTip(text(), el);
+    });
+
+    el.addEventListener("blur", () => {
+      clearTipHoverTimer();
+      hideTip();
+    });
+
+    el.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        const popup = document.getElementById("tip-popup");
+        if (popup && popup.classList.contains("visible") && activeTipAnchor === el) {
+          hideTip(true);
+        } else {
+          showTip(text(), el);
+        }
+      } else if (e.key === "Escape") {
+        hideTip(true);
+      }
+    });
+
+    // Touch device support
+    el.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      const popup = document.getElementById("tip-popup");
+      if (popup && popup.classList.contains("visible") && activeTipAnchor === el) {
+        hideTip(true);
+        return;
+      }
+      clearTipHoverTimer();
+      showTip(text(), el);
+      clearTipHideTimer();
+      tipHideTimer = setTimeout(() => hideTip(true), 5000);
+    });
   });
-  el.addEventListener("mouseleave", hideTip);
-  el.addEventListener("focus", () => showTip(text(), el));
-  el.addEventListener("blur", hideTip);
-  // Touch support
-  el.addEventListener("pointerdown", (e) => {
-    e.preventDefault();
-    const popup = document.getElementById("tip-popup");
-    if (popup && popup.classList.contains("visible")) { hideTip(); return; }
-    showTip(text(), e);
-    // Auto-hide after 5 s
-    const el2 = document.getElementById("tip-popup");
-    if (el2) { clearTimeout(el2._hideTimer); el2._hideTimer = setTimeout(() => el2.classList.remove("visible"), 5000); }
+
+  // Global Escape key listener to instantly hide any visible tooltip
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      hideTip(true);
+    }
   });
-});
+
+  // Re-position tooltip on window resize if active
+  window.addEventListener("resize", () => {
+    const el = document.getElementById("tip-popup");
+    if (el && el.classList.contains("visible") && activeTipAnchor) {
+      placeTip(el, activeTipAnchor);
+    }
+  }, { passive: true });
+}
+
+// ============================
+// QUICK START PROGRESSIVE DISCLOSURE
+// ============================
+function initQuickStartCollapse() {
+  const qsCard = document.getElementById("quickstart-card");
+  if (!qsCard) return;
+  try {
+    const saved = localStorage.getItem("bt_quickstart_open");
+    if (saved === "false") {
+      qsCard.open = false;
+    } else if (saved === "true") {
+      qsCard.open = true;
+    }
+  } catch (_) {}
+
+  qsCard.addEventListener("toggle", () => {
+    try {
+      localStorage.setItem("bt_quickstart_open", qsCard.open ? "true" : "false");
+    } catch (_) {}
+  });
+}
 
 // ============================
 // RE-DETECT
@@ -2238,16 +3122,19 @@ async function reDetect() {
   showCancelDetect();
   progressFill.style.width = "0%";
   progressLabel.textContent = t(wasDetectionReady ? "redetecting" : "detecting");
-  exportOverlay.style.display = "none";
+  if (exportOverlay) exportOverlay.style.display = "none";
   try {
     await detectBlobs();
     const _effFps = getEffectiveFps();
     for (let i = 0; i < all_frame_data.length; i++) all_frame_data[i].time = i / _effFps;
     detectionReady = !cancelRequested && all_frame_data.length > 0;
+    if (detectionReady) saveDetectedParamsSnapshot();
     updateDetectionActions();
     await seekVideo(video, 0);
-    exportOverlay.classList.add("visible");
-    exportOverlay.style.display = "";
+    if (exportOverlay) {
+      exportOverlay.classList.add("visible");
+      exportOverlay.style.display = "";
+    }
     showPlaybackControls();
     video.play();
     video.loop = true;
@@ -2263,7 +3150,16 @@ async function reDetect() {
   log("detect", "Re-detect complete", { frames: all_frame_data.length, elapsed_s: "—", cancelled: cancelRequested });
 }
 
-exportBtn.addEventListener("click", startExport);
+exportBtn.addEventListener("click", () => {
+  if (isExporting || isProcessing) return;
+  if (!detectionReady) {
+    switchToTab("track");
+    return;
+  }
+  switchToTab("export");
+  startExport();
+});
+
 redetectBtn.addEventListener("click", async () => {
   if (isProcessing || !currentVideoURL) return;
   if (!video.src) return;
@@ -2365,6 +3261,8 @@ function initApp() {
   setupLanguageControls();
   setupPanelTabs();
   setupControls();
+  setupTooltips();
+  initQuickStartCollapse();
   setupPlaybackControls();
   applyLanguage();
   initGPU();

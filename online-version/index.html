@@ -9,7 +9,7 @@
   <meta property="og:url" content="https://alexjiganov179-lab.github.io/blob-tracker/" />
   <meta property="og:type" content="website" />
   <title>Blob Tracker — Everything looks better with blob tracking effect on it</title>
-  <link rel="stylesheet" href="styles.css?v=20260706-detecttips1" />
+  <link rel="stylesheet" href="styles.css?v=20261023-polish1" />
   <style>
     .app-dialog[hidden] { display: none !important; }
     .app-dialog { position: fixed; inset: 0; z-index: 900; }
@@ -29,7 +29,7 @@
       <div id="loading-spinner" class="spinner" style="width:40px;height:40px;border-width:4px;margin:0 auto 20px;"></div>
       <h2 data-i18n="loadingTitle" style="color:#fff;font-size:18px;margin-bottom:12px;">Loading Blob Tracker...</h2>
       <p id="loading-text" data-i18n="loadingText" style="color:#a0a0a8;font-size:14px;">Initializing OpenCV.js and preparing rendering pipeline...</p>
-      <p data-i18n="loadingTagline" style="color:#666;font-size:11px;margin-top:20px;font-style:italic;">Everything looks better with blob tracking effect on it</p>
+      <p data-i18n="loadingTagline" style="color:#a0a0a8;font-size:13px;margin-top:20px;font-style:italic;">Everything looks better with blob tracking effect on it</p>
       <div id="opencv-load-error" style="display:none; max-width:360px; margin:0 auto;">
         <p id="opencv-load-error-title" data-i18n="opencvErrorTitle" style="color:#f87171;font-size:14px;font-weight:700;margin:0 0 8px;">OpenCV.js failed to load</p>
         <p id="opencv-load-error-body" data-i18n="opencvErrorBody" style="color:#a0a0a8;font-size:13px;line-height:1.5;margin:0 0 16px;">Check your internet connection and try again.</p>
@@ -53,7 +53,7 @@
       </div>
     </div>
     <main class="stage">
-    <div id="drop-zone">
+    <div id="drop-zone" role="region" aria-label="Video drop zone" tabindex="0">
       <div class="drop-mark" aria-hidden="true">
         <svg viewBox="0 0 24 24" focusable="false">
           <path d="M12 4v11m0 0 4.5-4.5M12 15l-4.5-4.5" />
@@ -65,7 +65,10 @@
         <div class="drop-subtitle" data-i18n="dropSubtitle">MP4, WebM, MOV — max 500 MB</div>
         <div class="drop-hint" data-i18n="dropHint">or choose a file manually</div>
       </div>
-      <button type="button" id="upload-btn" data-i18n="uploadVideo">Upload Video</button>
+      <div class="drop-actions">
+        <button type="button" id="upload-btn" data-i18n="uploadVideo">Upload Video</button>
+        <button type="button" id="sample-video-btn" class="drop-secondary-btn" data-i18n-title="trySampleTitle" title="Generate and load a demo video with animated blobs"><svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor" aria-hidden="true" style="margin-right:6px;vertical-align:-1px;"><polygon points="4 3 13 8 4 13 4 3" /></svg><span data-i18n="trySample">Try Sample Video</span></button>
+      </div>
       <input type="file" id="file-input" accept="video/*" />
     </div>
 
@@ -79,17 +82,19 @@
         <button type="button" id="cancel-detect" title="Abort detection">✕</button>
         <button type="button" id="cancel-export" title="Abort export">✕</button>
       </div>
-      <div id="export-overlay">
-        <button type="button" id="redetect-btn" title="Start blob detection" data-i18n="startDetection" data-i18n-title="startDetectionTitle">Start detection</button>
-        <button type="button" id="export-btn" title="Export video">⬇ Export</button>
-      </div>
+      <!-- Deprecated floating canvas overlay placeholder for test harness compatibility -->
+      <div id="export-overlay" style="display:none!important;" hidden aria-hidden="true"></div>
       <div class="export-status" id="export-status"></div>
       <div id="probe-status" aria-live="polite"></div>
       <div id="playback-controls" aria-label="Playback controls">
-        <button type="button" id="play-toggle" title="Play / pause" aria-label="Play / pause">⏸</button>
-        <button type="button" id="mute-toggle" title="Mute" aria-label="Mute">🔊</button>
+        <button type="button" id="step-back-btn" class="playback-btn" data-i18n-title="stepBackTitle" title="Step Back 1 Frame (←)" aria-label="Step Back 1 Frame (←)">⏮</button>
+        <button type="button" id="play-toggle" class="playback-btn" data-i18n-title="playTitle" title="Play / pause (Space)" aria-label="Play / pause (Space)">⏸</button>
+        <button type="button" id="step-fwd-btn" class="playback-btn" data-i18n-title="stepFwdTitle" title="Step Forward 1 Frame (→)" aria-label="Step Forward 1 Frame (→)">⏭</button>
+        <button type="button" id="mute-toggle" class="playback-btn" title="Mute" aria-label="Mute">🔊</button>
         <input type="range" id="timeline" min="0" max="1000" step="1" value="0" aria-label="Video timeline" />
         <span id="time-readout">00:00 / 00:00</span>
+        <button type="button" id="change-video-btn" data-i18n-title="changeVideoTitle" title="Load a different video file"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-right:5px;vertical-align:-1px;"><path d="M2 8a6 6 0 0 1 10.24-4.24l1.76 1.76M14 2v4h-4" /><path d="M14 8a6 6 0 0 1-10.24 4.24l-1.76-1.76M2 14v-4h4" /></svg><span data-i18n="changeVideo">Change Video</span></button>
+        <button type="button" id="fullscreen-btn" class="playback-btn" data-i18n-title="fullscreenTitle" title="Toggle Fullscreen (F)" aria-label="Toggle Fullscreen (F)"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 5V2h3M14 5V2h-3M2 11v3h3M14 11v3h-3"/></svg></button>
       </div>
       <div id="telemetry"></div>
     </div>
@@ -109,27 +114,34 @@
           </div>
         </div>
         <div class="panel-tabs" role="tablist" aria-label="Control sections">
-          <button type="button" class="panel-tab active" data-tab-target="quick" data-i18n="tabQuick">Quick</button>
+          <button type="button" class="panel-tab active" data-tab-target="track" data-i18n="tabTrack">Track</button>
           <button type="button" class="panel-tab" data-tab-target="style" data-i18n="tabStyle">Style</button>
-          <button type="button" class="panel-tab" data-tab-target="detect" data-i18n="tabDetect">Detect</button>
           <button type="button" class="panel-tab" data-tab-target="export" data-i18n="tabExport">Export</button>
         </div>
       </div>
 
       <div class="panel-content">
-      <div class="card primary panel-section" data-panel-section="quick">
-        <div class="card-label" data-i18n="quickStart">Quick Start</div>
-        <div class="guide">
+      <!-- TAB 1: TRACK -->
+      <details class="card primary panel-section quickstart-card" data-panel-section="track" id="quickstart-card" open>
+        <summary class="card-label quickstart-summary" aria-label="Toggle Quick Start guide" data-i18n-aria="quickStartToggleAria">
+          <span data-i18n="quickStart">Quick Start</span>
+          <span class="quickstart-chevron" aria-hidden="true">
+            <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 6l4 4 4-4" />
+            </svg>
+          </span>
+        </summary>
+        <div class="guide" id="quickstart-guide">
           <div class="guide-row"><span class="guide-num">1</span><span data-i18n="guideUpload">Upload a video or drop it onto the stage.</span></div>
-          <div class="guide-row"><span class="guide-num">2</span><span data-i18n="guideFind">Choose how sensitive object detection should be.</span></div>
+          <div class="guide-row"><span class="guide-num">2</span><span data-i18n="guideFind">Choose detection sensitivity and object size.</span></div>
           <div class="guide-row"><span class="guide-num">3</span><span data-i18n="guideStyle">Pick a visual style.</span></div>
           <div class="guide-row"><span class="guide-num">4</span><span data-i18n="guideDetect">Click Start detection when settings are ready.</span></div>
           <div class="guide-row"><span class="guide-num">5</span><span data-i18n="guideExport">Review and export the tracked video.</span></div>
         </div>
-      </div>
+      </details>
 
-      <div class="card panel-section" data-panel-section="quick">
-        <div class="card-label"><span data-i18n="findObjects">Find Objects</span><span class="tip" id="tip-find" role="button" tabindex="0" aria-label="Help: Find Objects" data-i18n-aria="tipFindAria">?</span></div>
+      <div class="card panel-section" data-panel-section="track">
+        <div class="card-label"><span data-i18n="findObjects">Find Objects</span><span class="tip" id="tip-find" role="button" tabindex="0" aria-label="Help: Find Objects" data-i18n-aria="tipFindAria" aria-describedby="tip-popup-text">?</span></div>
         <div class="sub" data-i18n="sensitivity">Sensitivity</div>
         <div class="seg" id="sensitivity-preset">
           <button type="button" data-preset="low" data-i18n="low">Low</button>
@@ -144,8 +156,8 @@
         </div>
       </div>
 
-      <div class="card panel-section" data-panel-section="quick">
-        <div class="card-label"><span data-i18n="detector">Detector</span><span class="tip" id="tip-detector" role="button" tabindex="0" aria-label="Help: Detector" data-i18n-aria="tipDetectorAria">?</span></div>
+      <div class="card panel-section" data-panel-section="track">
+        <div class="card-label"><span data-i18n="detector">Detector</span><span class="tip" id="tip-detector" role="button" tabindex="0" aria-label="Help: Detector" data-i18n-aria="tipDetectorAria" aria-describedby="tip-popup-text">?</span></div>
         <div class="seg" id="detector-mode">
           <button type="button" data-val="edge" class="active" data-i18n="edge">Edge</button>
           <button type="button" data-val="motion" data-i18n="motion">Motion</button>
@@ -154,29 +166,125 @@
         </div>
       </div>
 
+      <div class="card panel-section" data-panel-section="track">
+        <div class="card-label"><span data-i18n="detection">Detection</span><span class="tip" id="tip-detect" role="button" tabindex="0" aria-label="Help: Detection" data-i18n-aria="tipDetectAria" aria-describedby="tip-popup-text">?</span></div>
+        <div class="sub sub-with-tip"><span data-i18n="colorChannel">Color Channel</span><span class="tip tip-inline" id="tip-color-channel" role="button" tabindex="0" aria-label="Help: Color Channel" data-i18n-aria="tipColorChannelAria" aria-describedby="tip-popup-text">?</span></div>
+        <div class="seg" id="color-channel">
+          <button type="button" data-val="0" class="active">Lum</button>
+          <button type="button" data-val="1" data-i18n="red">Red</button>
+          <button type="button" data-val="2" data-i18n="greenShort">Grn</button>
+          <button type="button" data-val="3" data-i18n="blueShort">Blu</button>
+        </div>
+        <div class="pro-row" style="margin-top:6px">
+          <span class="pro-label pro-label-with-tip"><span data-i18n="gpuAcceleration">GPU Acceleration</span><span class="tip tip-inline" id="tip-gpu" role="button" tabindex="0" aria-label="Help: GPU Acceleration" data-i18n-aria="tipGpuAria" aria-describedby="tip-popup-text">?</span></span>
+          <label class="sw"><input type="checkbox" id="gpu-toggle" checked><span class="sl"></span></label>
+        </div>
+        <div class="srow">
+          <span class="ctrl-label"><span data-i18n="edgeSensitivity">Edge Sensitivity</span><span class="tip tip-inline" id="tip-canny-low" role="button" tabindex="0" aria-label="Help: Edge Sensitivity" data-i18n-aria="tipCannyLowAria" aria-describedby="tip-popup-text">?</span></span>
+          <input type="range" id="canny-low" min="0" max="255" step="5" value="50"/>
+          <span class="sv" id="canny-low-val">50</span>
+        </div>
+        <div class="srow">
+          <span class="ctrl-label"><span data-i18n="edgeCrispness">Edge Crispness</span><span class="tip tip-inline" id="tip-canny-high" role="button" tabindex="0" aria-label="Help: Edge Crispness" data-i18n-aria="tipCannyHighAria" aria-describedby="tip-popup-text">?</span></span>
+          <input type="range" id="canny-high" min="0" max="255" step="5" value="150"/>
+          <span class="sv" id="canny-high-val">150</span>
+        </div>
+        <div class="srow">
+          <span class="ctrl-label"><span data-i18n="smoothing">Smoothing</span><span class="tip tip-inline" id="tip-blur" role="button" tabindex="0" aria-label="Help: Smoothing" data-i18n-aria="tipBlurAria" aria-describedby="tip-popup-text">?</span></span>
+          <input type="range" id="blur-kernel" min="1" max="31" step="2" value="5"/>
+          <span class="sv" id="blur-kernel-val">5</span>
+        </div>
+        <div class="sub" data-i18n="grouping">Grouping</div>
+        <div class="srow" style="margin-top:6px">
+          <span class="ctrl-label"><span data-i18n="clusterDistance">Cluster Distance</span><span class="tip tip-inline" id="tip-merge" role="button" tabindex="0" aria-label="Help: Cluster Distance" data-i18n-aria="tipMergeAria" aria-describedby="tip-popup-text">?</span></span>
+          <input type="range" id="merge-kernel" min="1" max="61" step="2" value="1"/>
+          <span class="sv" id="merge-kernel-val">1</span>
+        </div>
+      </div>
+
+      <div class="card panel-section" data-panel-section="track">
+        <div class="card-label"><span data-i18n="blobSize">Blob Size</span><span class="tip" id="tip-blob" role="button" tabindex="0" aria-label="Help: Blob Size" data-i18n-aria="tipBlobAria" aria-describedby="tip-popup-text">?</span></div>
+        <div class="srow">
+          <span class="ctrl-label ctrl-label-sm"><span data-i18n="min">Min</span><span class="tip tip-inline" id="tip-blob-min" role="button" tabindex="0" aria-label="Help: Minimum size" data-i18n-aria="tipBlobMinAria" aria-describedby="tip-popup-text">?</span></span>
+          <input type="range" id="blob-min" min="5" max="5000" step="5" value="300"/>
+          <span class="sv" id="blob-min-val">300</span>
+        </div>
+        <div class="srow">
+          <span class="ctrl-label ctrl-label-sm"><span data-i18n="max">Max</span><span class="tip tip-inline" id="tip-blob-max" role="button" tabindex="0" aria-label="Help: Maximum size" data-i18n-aria="tipBlobMaxAria" aria-describedby="tip-popup-text">?</span></span>
+          <input type="range" id="blob-max" min="5000" max="500000" step="5000" value="200000"/>
+          <span class="sv" id="blob-max-val">200k</span>
+        </div>
+      </div>
+
+      <!-- TAB 2: STYLE -->
       <div class="card panel-section" data-panel-section="style" hidden>
-        <div class="card-label"><span data-i18n="basicEffects">Basic Effects</span><span class="tip" id="tip-effects" role="button" tabindex="0" aria-label="Help: Basic Effects" data-i18n-aria="tipEffectsAria">?</span></div>
-        <div class="grid w3" id="basic-effects">
-          <button type="button" class="gbtn active" data-val="Basic" data-i18n="effectBasic">Contour</button>
-          <button type="button" class="gbtn" data-val="Cross" data-i18n="effectCross">Cross</button>
-          <button type="button" class="gbtn" data-val="Frame" data-i18n="effectFrame">Frame</button>
-          <button type="button" class="gbtn" data-val="L-Frame">L-Frame</button>
-          <button type="button" class="gbtn" data-val="X-Frame">X-Frame</button>
-          <button type="button" class="gbtn" data-val="Grid" data-i18n="effectGrid">Grid</button>
-          <button type="button" class="gbtn" data-val="Particle" data-i18n="effectParticle">Particle</button>
-          <button type="button" class="gbtn" data-val="Dash" data-i18n="effectDash">Dash</button>
-          <button type="button" class="gbtn" data-val="Scope" data-i18n="effectScope">Scope</button>
-          <button type="button" class="gbtn" data-val="Win2K">Win2K</button>
-          <button type="button" class="gbtn" data-val="Backdrop" data-i18n="effectBackdrop">Backdrop</button>
-          <button type="button" class="gbtn" data-val="Emojis" data-i18n="effectEmojis">Emojis</button>
-          <button type="button" class="gbtn" data-val="Heatmap" data-i18n="effectHeatmap">Heatmap</button>
-          <button type="button" class="gbtn" data-val="Voronoi">Voronoi</button>
-          <button type="button" class="gbtn" data-val="ConvexHull" data-i18n="effectHull">Hull</button>
+        <div class="card-label"><span data-i18n="visualStyle">Visual Style</span><span class="tip" id="tip-effects" role="button" tabindex="0" aria-label="Help: Visual Style" data-i18n-aria="tipEffectsAria" aria-describedby="tip-popup-text">?</span></div>
+        <div class="grid w3 style-grid" id="style-grid">
+          <button type="button" class="gbtn style-btn active" data-style="neon" data-val="neon" data-i18n-title="styleNeonTitle" title="Neon — Electric contour glow">
+            <svg class="style-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12c2.5-6 5.5-6 8 0s5.5 6 8 0"/><circle cx="12" cy="12" r="2"/></svg>
+            <span class="style-label" data-i18n="styleNeon">Neon</span>
+          </button>
+          <button type="button" class="gbtn style-btn" data-style="ghost" data-val="ghost" data-i18n-title="styleGhostTitle" title="Ghost — Translucent silhouette phantom">
+            <svg class="style-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20V10a7 7 0 0 1 14 0v10l-2.5-2-2 2-2.5-2-2 2-2.5-2-2.5 2z"/><circle cx="9" cy="10" r="1" fill="currentColor"/><circle cx="15" cy="10" r="1" fill="currentColor"/></svg>
+            <span class="style-label" data-i18n="styleGhost">Ghost</span>
+          </button>
+          <button type="button" class="gbtn style-btn" data-style="matrix" data-val="matrix" data-i18n-title="styleMatrixTitle" title="Matrix — Digital code cascade">
+            <svg class="style-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3v6m0 4v8M12 5v14M18 3v4m0 4v10"/><circle cx="6" cy="9" r="1" fill="currentColor"/><circle cx="12" cy="15" r="1" fill="currentColor"/><circle cx="18" cy="7" r="1" fill="currentColor"/></svg>
+            <span class="style-label" data-i18n="styleMatrix">Matrix</span>
+          </button>
+          <button type="button" class="gbtn style-btn" data-style="rainbow" data-val="rainbow" data-i18n-title="styleRainbowTitle" title="Rainbow — Chromatic spectrum glow">
+            <svg class="style-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19a8 8 0 0 1 16 0M7 19a5 5 0 0 1 10 0M10 19a2 2 0 0 1 4 0"/></svg>
+            <span class="style-label" data-i18n="styleRainbow">Rainbow</span>
+          </button>
+          <button type="button" class="gbtn style-btn" data-style="fire" data-val="fire" data-i18n-title="styleFireTitle" title="Fire — Rising flame embers">
+            <svg class="style-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2c.5 3-1 5-2.5 7-1.5 2-2.5 4.5-2.5 7.5a7 7 0 0 0 14 0c0-4.5-3.5-7.5-5-10.5-.5 2-1.5 3-3 4 .5-3 0-5.5-1-8z"/></svg>
+            <span class="style-label" data-i18n="styleFire">Fire</span>
+          </button>
+          <button type="button" class="gbtn style-btn" data-style="sparkles" data-val="sparkles" data-i18n-title="styleSparklesTitle" title="Sparkles — Glittering star particles">
+            <svg class="style-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2l2.2 6.3L20.5 10.5l-6.3 2.2L12 19l-2.2-6.3L3.5 10.5l6.3-2.2zM19 16l1 2.5 2.5 1-2.5 1-1 2.5-1-2.5-2.5-1 2.5-1z"/></svg>
+            <span class="style-label" data-i18n="styleSparkles">Sparkles</span>
+          </button>
+          <button type="button" class="gbtn style-btn" data-style="crt" data-val="crt" data-i18n-title="styleCrtTitle" title="CRT — Retro scanline display">
+            <svg class="style-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M7 20h10M12 17v3M7 8h10M7 11h10M7 14h10"/></svg>
+            <span class="style-label" data-i18n="styleCrt">CRT</span>
+          </button>
+          <button type="button" class="gbtn style-btn" data-style="halftone" data-val="halftone" data-i18n-title="styleHalftoneTitle" title="Halftone — Offset dot raster grid">
+            <svg class="style-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="1.5" fill="currentColor"/><circle cx="12" cy="6" r="2" fill="currentColor"/><circle cx="18" cy="6" r="2.5" fill="currentColor"/><circle cx="6" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><circle cx="18" cy="12" r="3" fill="currentColor"/><circle cx="6" cy="18" r="2.5" fill="currentColor"/><circle cx="12" cy="18" r="3" fill="currentColor"/><circle cx="18" cy="18" r="3.5" fill="currentColor"/></svg>
+            <span class="style-label" data-i18n="styleHalftone">Halftone</span>
+          </button>
+          <button type="button" class="gbtn style-btn" data-style="comic" data-val="comic" data-i18n-title="styleComicTitle" title="Comic — Pop-art graphic framing">
+            <svg class="style-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14l-2 6 6-2h10a4 4 0 0 0 4-4V6a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v8z"/><path d="M9 8h6M9 11h4"/></svg>
+            <span class="style-label" data-i18n="styleComic">Comic</span>
+          </button>
+          <button type="button" class="gbtn style-btn" data-style="thermal" data-val="thermal" data-i18n-title="styleThermalTitle" title="Thermal — Thermography heat gradient">
+            <svg class="style-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+            <span class="style-label" data-i18n="styleThermal">Thermal</span>
+          </button>
+          <button type="button" class="gbtn style-btn" data-style="blueprint" data-val="blueprint" data-i18n-title="styleBlueprintTitle" title="Blueprint — Technical drafting grid">
+            <svg class="style-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
+            <span class="style-label" data-i18n="styleBlueprint">Blueprint</span>
+          </button>
+          <button type="button" class="gbtn style-btn" data-style="glowEdge" data-val="glowEdge" data-i18n-title="styleGlowEdgeTitle" title="Glow Edge — High-contrast edge highlight">
+            <svg class="style-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3c-4.5 0-8 3.5-8 8a8 8 0 0 0 16 0c0-4.5-3.5-8-8-8z"/><path d="M12 7a4 4 0 0 0-4 4" stroke-width="2.2"/></svg>
+            <span class="style-label" data-i18n="styleGlowEdge">Glow Edge</span>
+          </button>
+          <button type="button" class="gbtn style-btn" data-style="starTrail" data-val="starTrail" data-i18n-title="styleStarTrailTitle" title="Star Trail — Cosmic shooting star path">
+            <svg class="style-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 4l-4.5 4.5M17 9l-4 4M13 14l-3 3M4 20l3-1-1-3z"/><circle cx="19" cy="5" r="1.5" fill="currentColor"/></svg>
+            <span class="style-label" data-i18n="styleStarTrail">Star Trail</span>
+          </button>
+          <button type="button" class="gbtn style-btn" data-style="wireframe" data-val="wireframe" data-i18n-title="styleWireframeTitle" title="Wireframe — 3D polygon mesh">
+            <svg class="style-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 2 8.5 12 15 22 8.5 12 2"/><polygon points="2 8.5 2 15.5 12 22 12 15 2 8.5"/><polygon points="22 8.5 22 15.5 12 22 12 15 22 8.5"/></svg>
+            <span class="style-label" data-i18n="styleWireframe">Wireframe</span>
+          </button>
+          <button type="button" class="gbtn style-btn" data-style="liquid" data-val="liquid" data-i18n-title="styleLiquidTitle" title="Liquid — Dynamic fluid wave morph">
+            <svg class="style-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 0 0-9 9c0 4.5 4 8 9 8s9-3.5 9-8c0-3.5-3-6-4.5-7.5L12 3z"/><path d="M8 13c0 2 1.8 3.5 4 3.5"/></svg>
+            <span class="style-label" data-i18n="styleLiquid">Liquid</span>
+          </button>
         </div>
       </div>
 
       <div class="card panel-section" data-panel-section="style" hidden>
-        <div class="card-label"><span data-i18n="connection">Connection</span><span class="tip" id="tip-connection" role="button" tabindex="0" aria-label="Help: Connection" data-i18n-aria="tipConnectionAria">?</span></div>
+        <div class="card-label"><span data-i18n="connection">Connection</span><span class="tip" id="tip-connection" role="button" tabindex="0" aria-label="Help: Connection" data-i18n-aria="tipConnectionAria" aria-describedby="tip-popup-text">?</span></div>
         <div class="sub" data-i18n="lineStyle">Line Style</div>
         <div class="line-row" id="connection-style">
           <button type="button" class="lbtn active" data-value="nearest" title="Nearest neighbors" data-i18n-title="nearestTitle">
@@ -200,65 +308,23 @@
           <button type="button" data-val="0.75">0.75</button>
           <button type="button" data-val="1" data-i18n="full">Full</button>
         </div>
-        <div class="sub" style="margin-top:8px" data-i18n="strokeWidth">Stroke Width</div>
-        <div class="srow">
+        <div class="srow" style="margin-top:8px">
+          <span class="ctrl-label"><span data-i18n="strokeWidth">Stroke Width</span></span>
           <input type="range" id="stroke-width" min="0.5" max="10" step="0.5" value="2"/>
           <span class="sv" id="stroke-width-val">2px</span>
         </div>
       </div>
 
-      <div class="card panel-section" data-panel-section="detect" hidden>
-        <div class="card-label"><span data-i18n="blobSize">Blob Size</span><span class="tip" id="tip-blob" role="button" tabindex="0" aria-label="Help: Blob Size" data-i18n-aria="tipBlobAria">?</span></div>
-        <div class="srow" style="margin-bottom:4px">
-          <span class="ctrl-label ctrl-label-sm"><span data-i18n="min">Min</span><span class="tip tip-inline" id="tip-blob-min" role="button" tabindex="0" aria-label="Help: Minimum size" data-i18n-aria="tipBlobMinAria">?</span></span>
-          <input type="range" id="blob-min" min="5" max="5000" step="5" value="300"/>
-          <span class="sv" id="blob-min-val">300</span>
-        </div>
-        <div class="srow">
-          <span class="ctrl-label ctrl-label-sm"><span data-i18n="max">Max</span><span class="tip tip-inline" id="tip-blob-max" role="button" tabindex="0" aria-label="Help: Maximum size" data-i18n-aria="tipBlobMaxAria">?</span></span>
-          <input type="range" id="blob-max" min="5000" max="500000" step="5000" value="200000"/>
-          <span class="sv" id="blob-max-val">200k</span>
-        </div>
-      </div>
-
-      <div class="card panel-section" data-panel-section="detect" hidden>
-        <div class="card-label"><span data-i18n="detection">Detection</span><span class="tip" id="tip-detect" role="button" tabindex="0" aria-label="Help: Detection" data-i18n-aria="tipDetectAria">?</span></div>
-        <div class="sub sub-with-tip"><span data-i18n="colorChannel">Color Channel</span><span class="tip tip-inline" id="tip-color-channel" role="button" tabindex="0" aria-label="Help: Color Channel" data-i18n-aria="tipColorChannelAria">?</span></div>
-        <div class="seg" id="color-channel">
-          <button type="button" data-val="0" class="active">Lum</button>
-          <button type="button" data-val="1" data-i18n="red">Red</button>
-          <button type="button" data-val="2" data-i18n="greenShort">Grn</button>
-          <button type="button" data-val="3" data-i18n="blueShort">Blu</button>
-        </div>
-        <div class="pro-row" style="margin-top:6px">
-          <span class="pro-label pro-label-with-tip"><span data-i18n="gpuAcceleration">GPU Acceleration</span><span class="tip tip-inline" id="tip-gpu" role="button" tabindex="0" aria-label="Help: GPU Acceleration" data-i18n-aria="tipGpuAria">?</span></span>
-          <label class="sw"><input type="checkbox" id="gpu-toggle" checked><span class="sl"></span></label>
-        </div>
-        <div class="srow" style="margin-bottom:4px">
-          <span class="ctrl-label"><span>C-Low</span><span class="tip tip-inline" id="tip-canny-low" role="button" tabindex="0" aria-label="Help: C-Low" data-i18n-aria="tipCannyLowAria">?</span></span>
-          <input type="range" id="canny-low" min="0" max="255" step="5" value="50"/>
-          <span class="sv" id="canny-low-val">50</span>
-        </div>
-        <div class="srow" style="margin-bottom:4px">
-          <span class="ctrl-label"><span>C-High</span><span class="tip tip-inline" id="tip-canny-high" role="button" tabindex="0" aria-label="Help: C-High" data-i18n-aria="tipCannyHighAria">?</span></span>
-          <input type="range" id="canny-high" min="0" max="255" step="5" value="150"/>
-          <span class="sv" id="canny-high-val">150</span>
-        </div>
-        <div class="srow">
-          <span class="ctrl-label"><span>Blur</span><span class="tip tip-inline" id="tip-blur" role="button" tabindex="0" aria-label="Help: Blur" data-i18n-aria="tipBlurAria">?</span></span>
-          <input type="range" id="blur-kernel" min="1" max="31" step="2" value="5"/>
-          <span class="sv" id="blur-kernel-val">5</span>
-        </div>
-        <div class="sub" data-i18n="grouping">Grouping</div>
-        <div class="srow" style="margin-top:6px;margin-bottom:4px">
-          <span class="ctrl-label"><span data-i18n="merge">Merge</span><span class="tip tip-inline" id="tip-merge" role="button" tabindex="0" aria-label="Help: Merge" data-i18n-aria="tipMergeAria">?</span></span>
-          <input type="range" id="merge-kernel" min="1" max="61" step="2" value="1"/>
-          <span class="sv" id="merge-kernel-val">1</span>
+      <div class="card panel-section" data-panel-section="style" hidden>
+        <div class="card-label"><span data-i18n="centroid">Centroid</span><span class="tip" id="tip-centroid" role="button" tabindex="0" aria-label="Help: Centroid" data-i18n-aria="tipCentroidAria" aria-describedby="tip-popup-text">?</span></div>
+        <div class="pro-row">
+          <span class="pro-label pro-label-with-tip"><span data-i18n="showDots">Show dots</span><span class="tip tip-inline" id="tip-show-dots" role="button" tabindex="0" aria-label="Help: Show dots" data-i18n-aria="tipShowDotsAria" aria-describedby="tip-popup-text">?</span></span>
+          <label class="sw"><input type="checkbox" id="centroid-enabled" data-feature="show-centroids"><span class="sl"></span></label>
         </div>
       </div>
 
       <div class="card panel-section" data-panel-section="style" hidden>
-        <div class="card-label"><span data-i18n="color">Color</span><span class="tip" id="tip-color" role="button" tabindex="0" aria-label="Help: Color" data-i18n-aria="tipColorAria">?</span></div>
+        <div class="card-label"><span data-i18n="color">Color</span><span class="tip" id="tip-color" role="button" tabindex="0" aria-label="Help: Color" data-i18n-aria="tipColorAria" aria-describedby="tip-popup-text">?</span></div>
         <div class="palette" id="color-palette"></div>
         <div class="color-input-row">
           <input type="color" id="color-picker" class="color-picker" value="#f3ac03" aria-label="Pick color">
@@ -267,7 +333,7 @@
       </div>
 
       <div class="card panel-section" data-panel-section="style" hidden>
-        <div class="card-label"><span data-i18n="text">Text</span><span class="tip" id="tip-text" role="button" tabindex="0" aria-label="Help: Text" data-i18n-aria="tipTextAria">?</span></div>
+        <div class="card-label"><span data-i18n="text">Text</span><span class="tip" id="tip-text" role="button" tabindex="0" aria-label="Help: Text" data-i18n-aria="tipTextAria" aria-describedby="tip-popup-text">?</span></div>
         <div class="checks">
           <label class="ck"><input type="checkbox" id="text-enabled" checked> <span data-i18n="textToggle">Show text</span></label>
         </div>
@@ -293,14 +359,7 @@
         </div>
       </div>
 
-      <div class="card panel-section" data-panel-section="detect" hidden>
-        <div class="card-label"><span data-i18n="centroid">Centroid</span><span class="tip" id="tip-centroid" role="button" tabindex="0" aria-label="Help: Centroid" data-i18n-aria="tipCentroidAria">?</span></div>
-        <div class="pro-row">
-          <span class="pro-label pro-label-with-tip"><span data-i18n="showDots">Show dots</span><span class="tip tip-inline" id="tip-show-dots" role="button" tabindex="0" aria-label="Help: Show dots" data-i18n-aria="tipShowDotsAria">?</span></span>
-          <label class="sw"><input type="checkbox" id="centroid-enabled"><span class="sl"></span></label>
-        </div>
-      </div>
-
+      <!-- TAB 3: EXPORT -->
       <div class="card panel-section" data-panel-section="export" hidden>
         <div class="card-label" data-i18n="output">Output</div>
         <div class="sub" data-i18n="outputFps">Output FPS</div>
@@ -309,7 +368,7 @@
           <button type="button" data-val="30">30</button>
           <button type="button" data-val="60">60</button>
         </div>
-        <div class="sub" id="output-fps-info" style="margin-top:4px;color:#666">Source FPS: —</div>
+        <div class="sub" id="output-fps-info" style="margin-top:4px">Source FPS: —</div>
         <div class="sub" data-i18n="codec">Codec</div>
         <div class="seg" id="output-codec">
           <button type="button" data-val="h264" class="active">MP4</button>
@@ -317,6 +376,17 @@
         </div>
         <div id="mobile-audio-notice" class="mobile-notice" hidden data-i18n="mobileAudioNotice"></div>
       </div>
+      </div>
+
+      <!-- ANCHORED ACTION BAR AT INSPECTOR BASE -->
+      <div class="panel-actions" id="panel-actions">
+        <button type="button" id="redetect-btn" class="action-btn action-btn--primary" title="Start blob detection" data-i18n-title="startDetectionTitle" disabled>
+          <span class="action-btn__text" data-i18n="startDetection">Start detection</span>
+          <span class="action-btn__badge" id="dirty-badge" hidden aria-label="Re-detection needed" title="Settings changed — re-detection recommended" data-i18n-title="redetectNeededTitle">●</span>
+        </button>
+        <button type="button" id="export-btn" class="action-btn action-btn--secondary" title="Export video" data-i18n-title="exportVideoTitle" disabled>
+          <span class="action-btn__text" data-i18n="exportVideoBtn">⬇ Export</span>
+        </button>
       </div>
 
       <div class="pfooter">
@@ -332,7 +402,7 @@
       </div>
     </div>
 
-    <div id="tip-popup"><span id="tip-popup-text"></span></div>
+    <div id="tip-popup" role="tooltip" aria-hidden="true"><span id="tip-popup-text"></span></div>
   </div>
 
   <!-- SCRIPTS: OpenCV.js -->
@@ -673,8 +743,8 @@
   </script>
 
   <!-- SCRIPTS: Application modules loaded after DOM -->
-  <script src="effects.js?v=20260704-colorhex1"></script>
-  <script src="export.js?v=20260705-iosaudio1"></script>
-  <script src="app.js?v=20260706-detecttips2"></script>
+  <script src="effects.js?v=20261023-polish1"></script>
+  <script src="export.js?v=20261023-polish1"></script>
+  <script src="app.js?v=20261023-polish1"></script>
 </body>
 </html>
