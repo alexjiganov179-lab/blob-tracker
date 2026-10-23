@@ -18,6 +18,7 @@ output.mp4
 .gstack/
 .superpowers/
 .playwright-mcp/
+.impeccable/
 .tmp/
 awesome-creative-coding/
 opencode.json
