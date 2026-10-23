@@ -436,7 +436,7 @@ async function startExportMP4() {
       } catch (e) {
         if (!isCodecReclaimedError(e)) throw e;
         log("export", "WebCodecs encoder reclaimed, retrying as WebM", { error: e.message, params: { ...P } });
-        progressLabel.textContent = "MP4 encoder timed out. Retrying as WebM...";
+        progressLabel.textContent = "MP4 encoder timed out. Retrying as WebM…";
         res = await runWebMExport();
       }
     } else {

@@ -1,14 +1,18 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" style="color-scheme: dark;">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#0d0d12" />
   <meta name="description" content="Blob detection and visual effects for video — everything looks better with blob tracking effect on it" />
   <meta property="og:title" content="Blob Tracker — Everything looks better with blob tracking effect on it" />
   <meta property="og:description" content="Blob detection and visual effects for video. Built for SHUM, free for everyone." />
   <meta property="og:url" content="https://alexjiganov179-lab.github.io/blob-tracker/" />
   <meta property="og:type" content="website" />
   <title>Blob Tracker — Everything looks better with blob tracking effect on it</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link rel="preconnect" href="https://unpkg.com" crossorigin />
   <link rel="stylesheet" href="styles.css?v=20261023-polish1" />
   <style>
     .app-dialog[hidden] { display: none !important; }
@@ -23,12 +27,13 @@
   </script>
 </head>
 <body>
+  <a href="#panel" class="skip-link">Skip to controls</a>
   <!-- LOADING SCREEN -->
   <div id="loading-screen" style="position: fixed; inset: 0; background: #0d0d12; z-index: 1000; display: flex; align-items: center; justify-content: center;">
     <div style="text-align: center;">
       <div id="loading-spinner" class="spinner" style="width:40px;height:40px;border-width:4px;margin:0 auto 20px;"></div>
-      <h2 data-i18n="loadingTitle" style="color:#fff;font-size:18px;margin-bottom:12px;">Loading Blob Tracker...</h2>
-      <p id="loading-text" data-i18n="loadingText" style="color:#a0a0a8;font-size:14px;">Initializing OpenCV.js and preparing rendering pipeline...</p>
+      <h2 data-i18n="loadingTitle" style="color:#fff;font-size:18px;margin-bottom:12px;">Loading Blob Tracker…</h2>
+      <p id="loading-text" data-i18n="loadingText" style="color:#a0a0a8;font-size:14px;">Initializing OpenCV.js and preparing rendering pipeline…</p>
       <p data-i18n="loadingTagline" style="color:#a0a0a8;font-size:13px;margin-top:20px;font-style:italic;">Everything looks better with blob tracking effect on it</p>
       <div id="opencv-load-error" style="display:none; max-width:360px; margin:0 auto;">
         <p id="opencv-load-error-title" data-i18n="opencvErrorTitle" style="color:#f87171;font-size:14px;font-weight:700;margin:0 0 8px;">OpenCV.js failed to load</p>
@@ -62,14 +67,14 @@
       </div>
       <div class="drop-copy">
         <div class="drop-title" data-i18n="dropTitle">Drop a video file anywhere</div>
-        <div class="drop-subtitle" data-i18n="dropSubtitle">MP4, WebM, MOV — max 500 MB</div>
+        <div class="drop-subtitle" data-i18n="dropSubtitle">MP4, WebM, MOV — max 500&nbsp;MB</div>
         <div class="drop-hint" data-i18n="dropHint">or choose a file manually</div>
       </div>
       <div class="drop-actions">
         <button type="button" id="upload-btn" data-i18n="uploadVideo">Upload Video</button>
         <button type="button" id="sample-video-btn" class="drop-secondary-btn" data-i18n-title="trySampleTitle" title="Generate and load a demo video with animated blobs"><svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor" aria-hidden="true" style="margin-right:6px;vertical-align:-1px;"><polygon points="4 3 13 8 4 13 4 3" /></svg><span data-i18n="trySample">Try Sample Video</span></button>
       </div>
-      <input type="file" id="file-input" accept="video/*" />
+      <input type="file" id="file-input" accept="video/*" aria-label="Upload video file" />
     </div>
 
     <div id="canvas-wrap">
@@ -79,8 +84,8 @@
         <div class="spinner"></div>
         <span id="progress-label">Detecting…</span>
         <div id="progress-track"><div id="progress-fill"></div></div>
-        <button type="button" id="cancel-detect" title="Abort detection">✕</button>
-        <button type="button" id="cancel-export" title="Abort export">✕</button>
+        <button type="button" id="cancel-detect" title="Abort detection" aria-label="Abort detection">✕</button>
+        <button type="button" id="cancel-export" title="Abort export" aria-label="Abort export">✕</button>
       </div>
       <!-- Deprecated floating canvas overlay placeholder for test harness compatibility -->
       <div id="export-overlay" style="display:none!important;" hidden aria-hidden="true"></div>
@@ -96,7 +101,7 @@
         <button type="button" id="change-video-btn" data-i18n-title="changeVideoTitle" title="Load a different video file"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-right:5px;vertical-align:-1px;"><path d="M2 8a6 6 0 0 1 10.24-4.24l1.76 1.76M14 2v4h-4" /><path d="M14 8a6 6 0 0 1-10.24 4.24l-1.76-1.76M2 14v-4h4" /></svg><span data-i18n="changeVideo">Change Video</span></button>
         <button type="button" id="fullscreen-btn" class="playback-btn" data-i18n-title="fullscreenTitle" title="Toggle Fullscreen (F)" aria-label="Toggle Fullscreen (F)"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 5V2h3M14 5V2h-3M2 11v3h3M14 11v3h-3"/></svg></button>
       </div>
-      <div id="telemetry"></div>
+      <div id="telemetry" aria-live="polite"></div>
     </div>
     </main>
 
@@ -105,7 +110,7 @@
       <div class="panel-header">
         <div class="brand-row">
           <div>
-            <div class="panel-title" data-i18n="appTitle">Blob Tracker</div>
+            <h1 class="panel-title" data-i18n="appTitle">Blob Tracker</h1>
             <div class="panel-subtitle" data-i18n="appSubtitle">Everything looks better with blob tracking effect on it</div>
           </div>
           <div class="lang-bar" aria-label="Language">
@@ -114,9 +119,9 @@
           </div>
         </div>
         <div class="panel-tabs" role="tablist" aria-label="Control sections">
-          <button type="button" class="panel-tab active" data-tab-target="track" data-i18n="tabTrack">Track</button>
-          <button type="button" class="panel-tab" data-tab-target="style" data-i18n="tabStyle">Style</button>
-          <button type="button" class="panel-tab" data-tab-target="export" data-i18n="tabExport">Export</button>
+          <button type="button" class="panel-tab active" role="tab" id="tab-track" aria-selected="true" aria-controls="section-track" data-tab-target="track" data-i18n="tabTrack">Track</button>
+          <button type="button" class="panel-tab" role="tab" id="tab-style" aria-selected="false" aria-controls="section-style" data-tab-target="style" data-i18n="tabStyle">Style</button>
+          <button type="button" class="panel-tab" role="tab" id="tab-export" aria-selected="false" aria-controls="section-export" data-tab-target="export" data-i18n="tabExport">Export</button>
         </div>
       </div>
 
@@ -141,7 +146,7 @@
       </details>
 
       <div class="card panel-section" data-panel-section="track">
-        <div class="card-label"><span data-i18n="findObjects">Find Objects</span><span class="tip" id="tip-find" role="button" tabindex="0" aria-label="Help: Find Objects" data-i18n-aria="tipFindAria" aria-describedby="tip-popup-text">?</span></div>
+        <div class="card-label"><span data-i18n="findObjects">Find Objects</span><button type="button" class="tip" id="tip-find" aria-label="Help: Find Objects" data-i18n-aria="tipFindAria" aria-describedby="tip-popup-text">?</button></div>
         <div class="sub" data-i18n="sensitivity">Sensitivity</div>
         <div class="seg" id="sensitivity-preset">
           <button type="button" data-preset="low" data-i18n="low">Low</button>
@@ -157,7 +162,7 @@
       </div>
 
       <div class="card panel-section" data-panel-section="track">
-        <div class="card-label"><span data-i18n="detector">Detector</span><span class="tip" id="tip-detector" role="button" tabindex="0" aria-label="Help: Detector" data-i18n-aria="tipDetectorAria" aria-describedby="tip-popup-text">?</span></div>
+        <div class="card-label"><span data-i18n="detector">Detector</span><button type="button" class="tip" id="tip-detector" aria-label="Help: Detector" data-i18n-aria="tipDetectorAria" aria-describedby="tip-popup-text">?</button></div>
         <div class="seg" id="detector-mode">
           <button type="button" data-val="edge" class="active" data-i18n="edge">Edge</button>
           <button type="button" data-val="motion" data-i18n="motion">Motion</button>
@@ -167,8 +172,8 @@
       </div>
 
       <div class="card panel-section" data-panel-section="track">
-        <div class="card-label"><span data-i18n="detection">Detection</span><span class="tip" id="tip-detect" role="button" tabindex="0" aria-label="Help: Detection" data-i18n-aria="tipDetectAria" aria-describedby="tip-popup-text">?</span></div>
-        <div class="sub sub-with-tip"><span data-i18n="colorChannel">Color Channel</span><span class="tip tip-inline" id="tip-color-channel" role="button" tabindex="0" aria-label="Help: Color Channel" data-i18n-aria="tipColorChannelAria" aria-describedby="tip-popup-text">?</span></div>
+        <div class="card-label"><span data-i18n="detection">Detection</span><button type="button" class="tip" id="tip-detect" aria-label="Help: Detection" data-i18n-aria="tipDetectAria" aria-describedby="tip-popup-text">?</button></div>
+        <div class="sub sub-with-tip"><span data-i18n="colorChannel">Color Channel</span><button type="button" class="tip tip-inline" id="tip-color-channel" aria-label="Help: Color Channel" data-i18n-aria="tipColorChannelAria" aria-describedby="tip-popup-text">?</button></div>
         <div class="seg" id="color-channel">
           <button type="button" data-val="0" class="active">Lum</button>
           <button type="button" data-val="1" data-i18n="red">Red</button>
@@ -176,49 +181,49 @@
           <button type="button" data-val="3" data-i18n="blueShort">Blu</button>
         </div>
         <div class="pro-row" style="margin-top:6px">
-          <span class="pro-label pro-label-with-tip"><span data-i18n="gpuAcceleration">GPU Acceleration</span><span class="tip tip-inline" id="tip-gpu" role="button" tabindex="0" aria-label="Help: GPU Acceleration" data-i18n-aria="tipGpuAria" aria-describedby="tip-popup-text">?</span></span>
-          <label class="sw"><input type="checkbox" id="gpu-toggle" checked><span class="sl"></span></label>
+          <span class="pro-label pro-label-with-tip"><span data-i18n="gpuAcceleration">GPU Acceleration</span><button type="button" class="tip tip-inline" id="tip-gpu" aria-label="Help: GPU Acceleration" data-i18n-aria="tipGpuAria" aria-describedby="tip-popup-text">?</button></span>
+          <label class="sw" for="gpu-toggle"><input type="checkbox" id="gpu-toggle" checked aria-label="GPU Acceleration"><span class="sl"></span></label>
         </div>
         <div class="srow">
-          <span class="ctrl-label"><span data-i18n="edgeSensitivity">Edge Sensitivity</span><span class="tip tip-inline" id="tip-canny-low" role="button" tabindex="0" aria-label="Help: Edge Sensitivity" data-i18n-aria="tipCannyLowAria" aria-describedby="tip-popup-text">?</span></span>
-          <input type="range" id="canny-low" min="0" max="255" step="5" value="50"/>
+          <span class="ctrl-label"><span data-i18n="edgeSensitivity">Edge Sensitivity</span><button type="button" class="tip tip-inline" id="tip-canny-low" aria-label="Help: Edge Sensitivity" data-i18n-aria="tipCannyLowAria" aria-describedby="tip-popup-text">?</button></span>
+          <input type="range" id="canny-low" min="0" max="255" step="5" value="50" aria-label="Edge Sensitivity"/>
           <span class="sv" id="canny-low-val">50</span>
         </div>
         <div class="srow">
-          <span class="ctrl-label"><span data-i18n="edgeCrispness">Edge Crispness</span><span class="tip tip-inline" id="tip-canny-high" role="button" tabindex="0" aria-label="Help: Edge Crispness" data-i18n-aria="tipCannyHighAria" aria-describedby="tip-popup-text">?</span></span>
-          <input type="range" id="canny-high" min="0" max="255" step="5" value="150"/>
+          <span class="ctrl-label"><span data-i18n="edgeCrispness">Edge Crispness</span><button type="button" class="tip tip-inline" id="tip-canny-high" aria-label="Help: Edge Crispness" data-i18n-aria="tipCannyHighAria" aria-describedby="tip-popup-text">?</button></span>
+          <input type="range" id="canny-high" min="0" max="255" step="5" value="150" aria-label="Edge Crispness"/>
           <span class="sv" id="canny-high-val">150</span>
         </div>
         <div class="srow">
-          <span class="ctrl-label"><span data-i18n="smoothing">Smoothing</span><span class="tip tip-inline" id="tip-blur" role="button" tabindex="0" aria-label="Help: Smoothing" data-i18n-aria="tipBlurAria" aria-describedby="tip-popup-text">?</span></span>
-          <input type="range" id="blur-kernel" min="1" max="31" step="2" value="5"/>
+          <span class="ctrl-label"><span data-i18n="smoothing">Smoothing</span><button type="button" class="tip tip-inline" id="tip-blur" aria-label="Help: Smoothing" data-i18n-aria="tipBlurAria" aria-describedby="tip-popup-text">?</button></span>
+          <input type="range" id="blur-kernel" min="1" max="31" step="2" value="5" aria-label="Smoothing"/>
           <span class="sv" id="blur-kernel-val">5</span>
         </div>
         <div class="sub" data-i18n="grouping">Grouping</div>
         <div class="srow" style="margin-top:6px">
-          <span class="ctrl-label"><span data-i18n="clusterDistance">Cluster Distance</span><span class="tip tip-inline" id="tip-merge" role="button" tabindex="0" aria-label="Help: Cluster Distance" data-i18n-aria="tipMergeAria" aria-describedby="tip-popup-text">?</span></span>
-          <input type="range" id="merge-kernel" min="1" max="61" step="2" value="1"/>
+          <span class="ctrl-label"><span data-i18n="clusterDistance">Cluster Distance</span><button type="button" class="tip tip-inline" id="tip-merge" aria-label="Help: Cluster Distance" data-i18n-aria="tipMergeAria" aria-describedby="tip-popup-text">?</button></span>
+          <input type="range" id="merge-kernel" min="1" max="61" step="2" value="1" aria-label="Cluster Distance"/>
           <span class="sv" id="merge-kernel-val">1</span>
         </div>
       </div>
 
       <div class="card panel-section" data-panel-section="track">
-        <div class="card-label"><span data-i18n="blobSize">Blob Size</span><span class="tip" id="tip-blob" role="button" tabindex="0" aria-label="Help: Blob Size" data-i18n-aria="tipBlobAria" aria-describedby="tip-popup-text">?</span></div>
+        <div class="card-label"><span data-i18n="blobSize">Blob Size</span><button type="button" class="tip" id="tip-blob" aria-label="Help: Blob Size" data-i18n-aria="tipBlobAria" aria-describedby="tip-popup-text">?</button></div>
         <div class="srow">
-          <span class="ctrl-label ctrl-label-sm"><span data-i18n="min">Min</span><span class="tip tip-inline" id="tip-blob-min" role="button" tabindex="0" aria-label="Help: Minimum size" data-i18n-aria="tipBlobMinAria" aria-describedby="tip-popup-text">?</span></span>
-          <input type="range" id="blob-min" min="5" max="5000" step="5" value="300"/>
+          <span class="ctrl-label ctrl-label-sm"><span data-i18n="min">Min</span><button type="button" class="tip tip-inline" id="tip-blob-min" aria-label="Help: Minimum size" data-i18n-aria="tipBlobMinAria" aria-describedby="tip-popup-text">?</button></span>
+          <input type="range" id="blob-min" min="5" max="5000" step="5" value="300" aria-label="Minimum blob size"/>
           <span class="sv" id="blob-min-val">300</span>
         </div>
         <div class="srow">
-          <span class="ctrl-label ctrl-label-sm"><span data-i18n="max">Max</span><span class="tip tip-inline" id="tip-blob-max" role="button" tabindex="0" aria-label="Help: Maximum size" data-i18n-aria="tipBlobMaxAria" aria-describedby="tip-popup-text">?</span></span>
-          <input type="range" id="blob-max" min="5000" max="500000" step="5000" value="200000"/>
+          <span class="ctrl-label ctrl-label-sm"><span data-i18n="max">Max</span><button type="button" class="tip tip-inline" id="tip-blob-max" aria-label="Help: Maximum size" data-i18n-aria="tipBlobMaxAria" aria-describedby="tip-popup-text">?</button></span>
+          <input type="range" id="blob-max" min="5000" max="500000" step="5000" value="200000" aria-label="Maximum blob size"/>
           <span class="sv" id="blob-max-val">200k</span>
         </div>
       </div>
 
       <!-- TAB 2: STYLE -->
       <div class="card panel-section" data-panel-section="style" hidden>
-        <div class="card-label"><span data-i18n="visualStyle">Visual Style</span><span class="tip" id="tip-effects" role="button" tabindex="0" aria-label="Help: Visual Style" data-i18n-aria="tipEffectsAria" aria-describedby="tip-popup-text">?</span></div>
+        <div class="card-label"><span data-i18n="visualStyle">Visual Style</span><button type="button" class="tip" id="tip-effects" aria-label="Help: Visual Style" data-i18n-aria="tipEffectsAria" aria-describedby="tip-popup-text">?</button></div>
         <div class="grid w3 style-grid" id="style-grid">
           <button type="button" class="gbtn style-btn active" data-style="neon" data-val="neon" data-i18n-title="styleNeonTitle" title="Neon — Electric contour glow">
             <svg class="style-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12c2.5-6 5.5-6 8 0s5.5 6 8 0"/><circle cx="12" cy="12" r="2"/></svg>
@@ -284,19 +289,19 @@
       </div>
 
       <div class="card panel-section" data-panel-section="style" hidden>
-        <div class="card-label"><span data-i18n="connection">Connection</span><span class="tip" id="tip-connection" role="button" tabindex="0" aria-label="Help: Connection" data-i18n-aria="tipConnectionAria" aria-describedby="tip-popup-text">?</span></div>
+        <div class="card-label"><span data-i18n="connection">Connection</span><button type="button" class="tip" id="tip-connection" aria-label="Help: Connection" data-i18n-aria="tipConnectionAria" aria-describedby="tip-popup-text">?</button></div>
         <div class="sub" data-i18n="lineStyle">Line Style</div>
         <div class="line-row" id="connection-style">
-          <button type="button" class="lbtn active" data-value="nearest" title="Nearest neighbors" data-i18n-title="nearestTitle">
+          <button type="button" class="lbtn active" data-value="nearest" title="Nearest neighbors" data-i18n-title="nearestTitle" aria-label="Nearest neighbors">
             <svg viewBox="0 0 24 20"><line x1="4" y1="4" x2="10" y2="16"/><line x1="10" y1="16" x2="20" y2="6"/></svg>
           </button>
-          <button type="button" class="lbtn" data-value="all" title="All connections" data-i18n-title="allTitle">
+          <button type="button" class="lbtn" data-value="all" title="All connections" data-i18n-title="allTitle" aria-label="All connections">
             <svg viewBox="0 0 24 20"><line x1="4" y1="4" x2="12" y2="4"/><line x1="4" y1="4" x2="12" y2="16"/><line x1="4" y1="4" x2="20" y2="10"/><line x1="12" y1="4" x2="12" y2="16"/><line x1="12" y1="4" x2="20" y2="10"/><line x1="12" y1="16" x2="20" y2="10"/></svg>
           </button>
-          <button type="button" class="lbtn" data-value="chain" title="Chain" data-i18n-title="chainTitle">
+          <button type="button" class="lbtn" data-value="chain" title="Chain" data-i18n-title="chainTitle" aria-label="Chain">
             <svg viewBox="0 0 24 20"><polyline points="2,10 8,4 14,16 22,8"/></svg>
           </button>
-          <button type="button" class="lbtn" data-value="wave" title="Waveform" data-i18n-title="waveTitle">
+          <button type="button" class="lbtn" data-value="wave" title="Waveform" data-i18n-title="waveTitle" aria-label="Waveform">
             <svg viewBox="0 0 24 20"><path d="M2,10 Q6,2 12,10 T22,10"/></svg>
           </button>
         </div>
@@ -310,30 +315,30 @@
         </div>
         <div class="srow" style="margin-top:8px">
           <span class="ctrl-label"><span data-i18n="strokeWidth">Stroke Width</span></span>
-          <input type="range" id="stroke-width" min="0.5" max="10" step="0.5" value="2"/>
+          <input type="range" id="stroke-width" min="0.5" max="10" step="0.5" value="2" aria-label="Stroke Width"/>
           <span class="sv" id="stroke-width-val">2px</span>
         </div>
       </div>
 
       <div class="card panel-section" data-panel-section="style" hidden>
-        <div class="card-label"><span data-i18n="centroid">Centroid</span><span class="tip" id="tip-centroid" role="button" tabindex="0" aria-label="Help: Centroid" data-i18n-aria="tipCentroidAria" aria-describedby="tip-popup-text">?</span></div>
+        <div class="card-label"><span data-i18n="centroid">Centroid</span><button type="button" class="tip" id="tip-centroid" aria-label="Help: Centroid" data-i18n-aria="tipCentroidAria" aria-describedby="tip-popup-text">?</button></div>
         <div class="pro-row">
-          <span class="pro-label pro-label-with-tip"><span data-i18n="showDots">Show dots</span><span class="tip tip-inline" id="tip-show-dots" role="button" tabindex="0" aria-label="Help: Show dots" data-i18n-aria="tipShowDotsAria" aria-describedby="tip-popup-text">?</span></span>
-          <label class="sw"><input type="checkbox" id="centroid-enabled" data-feature="show-centroids"><span class="sl"></span></label>
+          <span class="pro-label pro-label-with-tip"><span data-i18n="showDots">Show dots</span><button type="button" class="tip tip-inline" id="tip-show-dots" aria-label="Help: Show dots" data-i18n-aria="tipShowDotsAria" aria-describedby="tip-popup-text">?</button></span>
+          <label class="sw" for="centroid-enabled"><input type="checkbox" id="centroid-enabled" data-feature="show-centroids" aria-label="Show dots"><span class="sl"></span></label>
         </div>
       </div>
 
       <div class="card panel-section" data-panel-section="style" hidden>
-        <div class="card-label"><span data-i18n="color">Color</span><span class="tip" id="tip-color" role="button" tabindex="0" aria-label="Help: Color" data-i18n-aria="tipColorAria" aria-describedby="tip-popup-text">?</span></div>
+        <div class="card-label"><span data-i18n="color">Color</span><button type="button" class="tip" id="tip-color" aria-label="Help: Color" data-i18n-aria="tipColorAria" aria-describedby="tip-popup-text">?</button></div>
         <div class="palette" id="color-palette"></div>
         <div class="color-input-row">
           <input type="color" id="color-picker" class="color-picker" value="#f3ac03" aria-label="Pick color">
-          <input type="text" id="color-hex" class="color-hex" value="#f3ac03" maxlength="7" spellcheck="false" autocomplete="off" aria-label="Hex color code">
+          <input type="text" id="color-hex" name="colorHex" class="color-hex" value="#f3ac03" maxlength="7" spellcheck="false" autocomplete="off" aria-label="Hex color code">
         </div>
       </div>
 
       <div class="card panel-section" data-panel-section="style" hidden>
-        <div class="card-label"><span data-i18n="text">Text</span><span class="tip" id="tip-text" role="button" tabindex="0" aria-label="Help: Text" data-i18n-aria="tipTextAria" aria-describedby="tip-popup-text">?</span></div>
+        <div class="card-label"><span data-i18n="text">Text</span><button type="button" class="tip" id="tip-text" aria-label="Help: Text" data-i18n-aria="tipTextAria" aria-describedby="tip-popup-text">?</button></div>
         <div class="checks">
           <label class="ck"><input type="checkbox" id="text-enabled" checked> <span data-i18n="textToggle">Show text</span></label>
         </div>
@@ -430,14 +435,14 @@
       const initialLang = savedLang || "en";
       const TEXT = {
         en: {
-          loading: "Loading OpenCV.js from CDN {attempt}/{total}...",
-          retrying: "Retrying OpenCV.js download...",
+          loading: "Loading OpenCV.js from CDN {attempt}/{total}…",
+          retrying: "Retrying OpenCV.js download…",
           title: "OpenCV.js failed to load",
           body: "All OpenCV CDNs are unavailable. Check your internet connection and try again.",
         },
         ru: {
-          loading: "Загружаем OpenCV.js с CDN {attempt}/{total}...",
-          retrying: "Повторяем загрузку OpenCV.js...",
+          loading: "Загружаем OpenCV.js с CDN {attempt}/{total}…",
+          retrying: "Повторяем загрузку OpenCV.js…",
           title: "Не удалось загрузить OpenCV.js",
           body: "Все CDN OpenCV недоступны. Проверьте подключение к интернету и попробуйте снова.",
         },

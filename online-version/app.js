@@ -42,10 +42,10 @@ let sourceFps = null;
 const I18N = {
   en: {
     title: "Blob Tracker",
-    loadingTitle: "Loading Blob Tracker...",
-    loadingText: "Initializing OpenCV.js and preparing rendering pipeline...",
+    loadingTitle: "Loading Blob Tracker…",
+    loadingText: "Initializing OpenCV.js and preparing rendering pipeline…",
     loadingTagline: "Everything looks better with blob tracking effect on it",
-    opencvLoadingAttempt: "Loading OpenCV.js from CDN {attempt}/{total}...",
+    opencvLoadingAttempt: "Loading OpenCV.js from CDN {attempt}/{total}…",
     opencvErrorTitle: "OpenCV.js failed to load",
     opencvErrorBody: "All OpenCV CDNs are unavailable. Check your internet connection and try again.",
     retryOpenCv: "Retry",
@@ -56,7 +56,7 @@ const I18N = {
     uploadVideo: "Upload Video",
     trySample: "Try Sample Video",
     trySampleTitle: "Generate and load a demo video with animated blobs",
-    generatingSample: "Creating demo...",
+    generatingSample: "Creating demo…",
     changeVideo: "Change Video",
     changeVideoTitle: "Load a different video file",
     sampleNotSupported: "Media recording is not supported in this browser. Please upload a video file instead.",
@@ -147,7 +147,7 @@ const I18N = {
     redetectNeededTitle: "Settings changed — re-detection recommended",
     exportVideoBtn: "⬇ Export",
     exportVideoTitle: "Export video with tracked effects",
-    sourceFpsLoading: "Source FPS: - (loading...)",
+    sourceFpsLoading: "Source FPS: - (loading…)",
     sourceFpsEmpty: "Source FPS: -",
     sourceFpsValue: "Source FPS: {fps}",
     sourceFpsExport: "Source FPS: {fps} -> Export: {exportFps} fps",
@@ -163,14 +163,14 @@ const I18N = {
     openCvLoading: "OpenCV.js is still loading - wait then retry.",
     failedProcess: "Failed to process video:\n{msg}",
     redetectFailed: "Re-detect failed: {msg}",
-    cancelling: "Cancelling...",
-    cancellingExport: "Cancelling export...",
-    detecting: "Detecting...",
+    cancelling: "Cancelling…",
+    cancellingExport: "Cancelling export…",
+    detecting: "Detecting…",
     detectionCancelled: "Detection cancelled",
-    loadingVideo: "Loading video...",
-    detectingFps: "Detecting source frame rate...",
-    redetecting: "Re-detecting...",
-    probingFrame: "Probing current frame...",
+    loadingVideo: "Loading video…",
+    detectingFps: "Detecting source frame rate…",
+    redetecting: "Re-detecting…",
+    probingFrame: "Probing current frame…",
     probeReady: "Current frame preview: {count} blobs",
     probeSkippedMotion: "Motion detector needs full Re-detect",
     probeUnavailable: "Pause playback to preview detection changes",
@@ -255,13 +255,14 @@ const I18N = {
     videoPlaybackError: "Video playback error: {msg}",
     videoCorrupted: "The video could not be loaded or has invalid duration.",
     videoTimeout: "Video failed to load within timeout period.",
+    resetConfirmMessage: "Reset all tracking and styling settings to default values?",
   },
   ru: {
     title: "Blob Tracker",
-    loadingTitle: "Загружаем Blob Tracker...",
-    loadingText: "Запускаем OpenCV.js и готовим рендеринг...",
+    loadingTitle: "Загружаем Blob Tracker…",
+    loadingText: "Запускаем OpenCV.js и готовим рендеринг…",
     loadingTagline: "Everything looks better with blob tracking effect on it",
-    opencvLoadingAttempt: "Загружаем OpenCV.js с CDN {attempt}/{total}...",
+    opencvLoadingAttempt: "Загружаем OpenCV.js с CDN {attempt}/{total}…",
     opencvErrorTitle: "Не удалось загрузить OpenCV.js",
     opencvErrorBody: "Все CDN OpenCV недоступны. Проверьте подключение к интернету и попробуйте снова.",
     retryOpenCv: "Повторить",
@@ -272,7 +273,7 @@ const I18N = {
     uploadVideo: "Загрузить видео",
     trySample: "Демо-видео",
     trySampleTitle: "Сгенерировать и открыть демо-видео с анимированными объектами",
-    generatingSample: "Создание демо...",
+    generatingSample: "Создание демо…",
     changeVideo: "Сменить видео",
     changeVideoTitle: "Выбрать другой видеофайл",
     sampleNotSupported: "Запись видео не поддерживается в этом браузере. Пожалуйста, загрузите видеофайл.",
@@ -363,7 +364,7 @@ const I18N = {
     redetectNeededTitle: "Параметры изменены — рекомендуется повторный детект",
     exportVideoBtn: "⬇ Экспорт",
     exportVideoTitle: "Экспортировать видео с эффектами трекинга",
-    sourceFpsLoading: "FPS источника: - (определяем...)",
+    sourceFpsLoading: "FPS источника: - (определяем…)",
     sourceFpsEmpty: "FPS источника: -",
     sourceFpsValue: "FPS источника: {fps}",
     sourceFpsExport: "FPS источника: {fps} -> экспорт: {exportFps} fps",
@@ -379,14 +380,14 @@ const I18N = {
     openCvLoading: "OpenCV.js еще загружается - подождите и попробуйте снова.",
     failedProcess: "Не удалось обработать видео:\n{msg}",
     redetectFailed: "Повторная детекция не удалась: {msg}",
-    cancelling: "Отменяем...",
-    cancellingExport: "Отменяем экспорт...",
-    detecting: "Детекция...",
+    cancelling: "Отменяем…",
+    cancellingExport: "Отменяем экспорт…",
+    detecting: "Детекция…",
     detectionCancelled: "Детекция отменена",
-    loadingVideo: "Загружаем видео...",
-    detectingFps: "Определяем частоту кадров...",
-    redetecting: "Повторная детекция...",
-    probingFrame: "Пробуем текущий кадр...",
+    loadingVideo: "Загружаем видео…",
+    detectingFps: "Определяем частоту кадров…",
+    redetecting: "Повторная детекция…",
+    probingFrame: "Пробуем текущий кадр…",
     probeReady: "Превью текущего кадра: {count} объектов",
     probeSkippedMotion: "Детектор движения требует полного Re-detect",
     probeUnavailable: "Поставьте видео на паузу для превью детекции",
@@ -471,6 +472,7 @@ const I18N = {
     videoPlaybackError: "Ошибка воспроизведения видео: {msg}",
     videoCorrupted: "Не удалось загрузить видео или файл имеет некорректную длительность.",
     videoTimeout: "Время ожидания загрузки видео истекло.",
+    resetConfirmMessage: "Сбросить все параметры трекинга и стилей на значения по умолчанию?",
   },
 };
 
@@ -517,9 +519,35 @@ const TIP_TEXTS = {
   },
 };
 
-const savedLang = localStorage.getItem("blobTrackerLang");
-let currentLang = savedLang || "en";
+function detectBrowserLanguage() {
+  const navLangs = (typeof navigator !== "undefined" && navigator.languages && navigator.languages.length)
+    ? navigator.languages
+    : [typeof navigator !== "undefined" ? (navigator.language || "en") : "en"];
+  return navLangs.some(l => typeof l === "string" && l.toLowerCase().startsWith("ru")) ? "ru" : "en";
+}
+
+const savedLang = typeof localStorage !== "undefined" ? localStorage.getItem("blobTrackerLang") : null;
+let currentLang = savedLang || detectBrowserLanguage();
 if (!I18N[currentLang]) currentLang = "en";
+
+const numberFormatCache = new Map();
+function formatNumber(num, fractionDigits = 0) {
+  if (!Number.isFinite(num)) return "0";
+  const key = `${currentLang || "en"}-${fractionDigits}`;
+  let formatter = numberFormatCache.get(key);
+  if (!formatter) {
+    try {
+      formatter = new Intl.NumberFormat(currentLang || "en", {
+        minimumFractionDigits: fractionDigits,
+        maximumFractionDigits: fractionDigits,
+      });
+      numberFormatCache.set(key, formatter);
+    } catch {
+      return num.toFixed(fractionDigits);
+    }
+  }
+  return formatter.format(num);
+}
 
 function t(key, vars = {}) {
   let text = (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key;
@@ -595,11 +623,28 @@ function setupLanguageControls() {
   });
 }
 
+function updateUrlParams(updates = {}) {
+  try {
+    if (typeof window === "undefined" || !window.location || typeof history === "undefined") return;
+    const url = new URL(window.location.href);
+    for (const [k, v] of Object.entries(updates)) {
+      if (v === null || v === undefined || v === "") url.searchParams.delete(k);
+      else url.searchParams.set(k, String(v));
+    }
+    window.history.replaceState(null, "", url.toString());
+  } catch {}
+}
+
 function switchToTab(target) {
   const tabs = document.querySelectorAll(".panel-tab");
   const sections = document.querySelectorAll("[data-panel-section]");
-  tabs.forEach(t => t.classList.toggle("active", t.dataset.tabTarget === target));
+  tabs.forEach(t => {
+    const isActive = t.dataset.tabTarget === target;
+    t.classList.toggle("active", isActive);
+    t.setAttribute("aria-selected", isActive ? "true" : "false");
+  });
   sections.forEach(section => { section.hidden = section.dataset.panelSection !== target; });
+  updateUrlParams({ tab: target });
 }
 
 function setupPanelTabs() {
@@ -621,10 +666,10 @@ function updateOutputFpsInfo() {
   const el = document.getElementById("output-fps-info");
   if (!el) return;
   if (P.outputFps === "source") {
-    el.textContent = sourceFps ? t("sourceFpsValue", { fps: sourceFps.toFixed(2) }) : t("sourceFpsLoading");
+    el.textContent = sourceFps ? t("sourceFpsValue", { fps: formatNumber(sourceFps, 2) }) : t("sourceFpsLoading");
   } else {
     el.textContent = sourceFps
-      ? t("sourceFpsExport", { fps: sourceFps.toFixed(2), exportFps: P.outputFps })
+      ? t("sourceFpsExport", { fps: formatNumber(sourceFps, 2), exportFps: P.outputFps })
       : t("sourceFpsExport", { fps: "-", exportFps: P.outputFps });
   }
 }
@@ -1025,9 +1070,9 @@ const Telemetry = {
     const dropPct = this.total > 0 ? (this.dropped / this.total) * 100 : 0;
     this.el.innerHTML =
       '<span id="track-status" class="telemetry-badge"><span class="telemetry-dot"></span>LIVE</span>' +
-      '<span id="fps-badge" class="telemetry-badge"><b>' + fps.toFixed(1) + '</b> fps</span>' +
-      '<span id="active-blobs-badge" class="telemetry-badge">blobs <b>' + avgBlobs.toFixed(1) + '</b> <span class="t-dim">(peak ' + this.peak + ')</span></span>' +
-      (dropPct > 0 ? '<span id="drop-badge" class="telemetry-badge t-dim">drop <b>' + dropPct.toFixed(0) + '%</b></span>' : '');
+      '<span id="fps-badge" class="telemetry-badge"><b>' + formatNumber(fps, 1) + '</b> fps</span>' +
+      '<span id="active-blobs-badge" class="telemetry-badge">blobs <b>' + formatNumber(avgBlobs, 1) + '</b> <span class="t-dim">(peak ' + this.peak + ')</span></span>' +
+      (dropPct > 0 ? '<span id="drop-badge" class="telemetry-badge t-dim">drop <b>' + formatNumber(dropPct, 0) + '%</b></span>' : '');
   },
 };
 
@@ -1093,6 +1138,7 @@ function showAppConfirm(message) {
   const cancelEls = dialog?.querySelectorAll("[data-dialog-cancel]");
   if (!dialog || !messageEl || !confirmBtn || !cancelEls) return Promise.resolve(confirm(message));
 
+  const previousFocus = document.activeElement;
   messageEl.textContent = message;
   dialog.hidden = false;
   dialog.setAttribute("aria-hidden", "false");
@@ -1105,6 +1151,9 @@ function showAppConfirm(message) {
       confirmBtn.removeEventListener("click", onConfirm);
       cancelEls.forEach(el => el.removeEventListener("click", onCancel));
       document.removeEventListener("keydown", onKeydown);
+      if (previousFocus && typeof previousFocus.focus === "function") {
+        previousFocus.focus();
+      }
       resolve(result);
     };
     const onConfirm = () => close(true);
@@ -1131,7 +1180,7 @@ function setupOutputFpsControls() {
       if (currentVideoURL && Number.isFinite(targetFps) && Number.isFinite(currentFps) && Math.abs(currentFps - targetFps) > 0.01) {
         const direction = targetFps > currentFps ? t("outputFpsIncrease") : t("outputFpsDecrease");
         const confirmed = await showAppConfirm(t("outputFpsConfirm", {
-          current: currentFps.toFixed(2),
+          current: formatNumber(currentFps, 2),
           target: targetFps,
           direction,
         }));
@@ -1513,7 +1562,10 @@ function setupControls() {
   buildPalette();
   setupColorInput();
 
-  document.getElementById("reset-btn")?.addEventListener("click", () => {
+  document.getElementById("reset-btn")?.addEventListener("click", async () => {
+    const confirmed = await showAppConfirm(t("resetConfirmMessage"));
+    if (!confirmed) return;
+    History.commit();
     document.querySelectorAll(".seg button:first-child, .icon-btn:first-child, .gbtn:first-child, .lbtn:first-child, .style-btn:first-child").forEach(b => {
       b.parentElement.querySelectorAll("button").forEach(bb => bb.classList.remove("active"));
       b.classList.add("active");
@@ -2711,7 +2763,7 @@ async function detectBlobs() {
     if (now - lastTs > 10000) { log("detect", "Still running after 10s", { frame: i, total: tf, pct: pc }); lastTs = now; }
   }
   if (cancelRequested) { progressLabel.textContent = t("detectionCancelled"); }
-  const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
+  const elapsed = formatNumber((performance.now() - t0) / 1000, 1);
   log("detect", "detectBlobs complete", { frames: all_frame_data.length, blobs_total: all_frame_data.reduce((s, f) => s + f.blobs.length, 0), elapsed_s: elapsed, cancelled: cancelRequested });
 }
 
@@ -3269,6 +3321,24 @@ function initApp() {
   revealMobileAudioNotice();
   Telemetry.el = document.getElementById("telemetry");
   Telemetry.setTargetFps(PROCESSING_FPS_DEFAULT);
+
+  // Warn before navigation if processing or exporting
+  window.addEventListener("beforeunload", (e) => {
+    if (isProcessing || (typeof isExporting !== "undefined" && isExporting)) {
+      e.preventDefault();
+      e.returnValue = "";
+      return "";
+    }
+  });
+
+  // Deep linking: restore state from URL query parameters
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const initialTab = params.get("tab");
+    if (initialTab && ["track", "style", "export"].includes(initialTab)) {
+      switchToTab(initialTab);
+    }
+  } catch {}
 
   if (location.protocol === "file:") {
     console.warn("Running from file:// — use a local server (e.g. `npx serve .`).");
