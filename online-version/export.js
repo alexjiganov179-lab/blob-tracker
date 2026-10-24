@@ -133,6 +133,7 @@ function startExportUiBusy(label) {
   if (cancelExportBtn) cancelExportBtn.disabled = false;
   progressLabel.textContent = label;
   progressFill.style.width = "0%";
+  document.getElementById("progress-track")?.setAttribute("aria-valuenow", "0");
 }
 
 function endExportUi(label) {
@@ -198,6 +199,7 @@ async function runWebCodecsExport() {
 
     const p = Math.round((i + 1) / totalFrames * 100);
     progressFill.style.width = p + "%";
+    document.getElementById("progress-track")?.setAttribute("aria-valuenow", p);
     progressLabel.textContent = "Encoding MP4 " + ew + "×" + eh + "… " + p + "% (frame " + (i + 1) + "/" + totalFrames + ")";
   }
 
@@ -256,6 +258,7 @@ async function runWebMExport() {
 
     const p = Math.round((i + 1) / totalFrames * 100);
     progressFill.style.width = p + "%";
+    document.getElementById("progress-track")?.setAttribute("aria-valuenow", p);
     progressLabel.textContent = "Encoding WebM " + ew + "×" + eh + "… " + p + "% (frame " + (i + 1) + "/" + totalFrames + ")";
   }
 
@@ -358,6 +361,7 @@ async function runMediabunnyExport() {
 
     const p = Math.round((i + 1) / totalFrames * 100);
     progressFill.style.width = p + "%";
+    document.getElementById("progress-track")?.setAttribute("aria-valuenow", p);
     progressLabel.textContent = "Encoding " + (isMp4 ? "MP4" : "WebM") + " " + ew + "×" + eh + "… " + p + "%";
   }
 

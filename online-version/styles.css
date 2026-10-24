@@ -1,6 +1,16 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
   color-scheme: dark;
+  --bt-bg: #090b0d;
+  --bt-panel: #0e1116;
+  --bt-card: #101419;
+  --bt-card-2: #171d24;
+  --bt-line: rgba(255,255,255,.08);
+  --bt-line-strong: rgba(255,255,255,.16);
+  --bt-text: #eef2f6;
+  --bt-muted: #95a0ad;
+  --bt-quiet: #8492a2;
+  --bt-accent: #f3ac03;
 }
 @media (pointer: fine) {
   html {
@@ -27,22 +37,24 @@
 body {
   background: #0d0d12; color: #e0e0e0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.4;
-  display: flex; height: 100vh; overflow: hidden;
+  display: flex; height: 100vh; height: 100dvh; overflow: hidden;
   color-scheme: dark;
 }
 #viewer {
   flex: 1; display: flex; align-items: center; justify-content: center;
-  position: relative; min-width: 0; height: 100vh; overflow: hidden;
+  position: relative; min-width: 0; height: 100vh; height: 100dvh; overflow: hidden;
 }
-.app-dialog[hidden] { display: none; }
 .app-dialog {
-  position: fixed; inset: 0; z-index: 900;
-  display: flex; align-items: center; justify-content: center;
+  border: none;
+  background: transparent;
   padding: 18px;
+  margin: auto;
   overscroll-behavior: contain;
+  max-width: 100vw;
+  max-height: 100dvh;
+  overflow: visible;
 }
-.app-dialog__backdrop {
-  position: absolute; inset: 0;
+.app-dialog::backdrop {
   background:
     radial-gradient(circle at 50% 35%, rgba(243,172,3,.13), transparent 30%),
     rgba(0,0,0,.72);
@@ -497,10 +509,8 @@ canvas { display: block; max-height: 94vh; max-width: 100%; border-radius: 4px; 
 #tip-popup {
   position: fixed;
   top: 0;
-  right: auto;
-  bottom: auto;
   left: 0;
-  transform: none;
+  margin: 0;
   background: #0a0d10;
   color: var(--bt-text);
   border: 1px solid rgba(255,255,255,.14);
@@ -515,7 +525,18 @@ canvas { display: block; max-height: 94vh; max-width: 100%; border-radius: 4px; 
   z-index: 200;
   display: none;
 }
-#tip-popup.visible { display: block; }
+#tip-popup:popover-open,
+#tip-popup.visible {
+  display: block;
+}
+@supports (anchor-name: --active-tip) {
+  #tip-popup {
+    position-anchor: --active-tip;
+    inset: auto;
+    position-area: top left;
+    position-try-fallbacks: flip-block, flip-inline;
+  }
+}
 
 .pfooter {
   margin: 8px; padding: 8px; border-top: 1px solid #1a1a22;
@@ -577,19 +598,6 @@ input:focus:not(:focus-visible) { outline: none; }
 .lang-bar button.active { border-color: #f3ac03; color: #f3ac03; background: rgba(249,115,22,.08); }
 
 /* 2026 online UI refresh */
-:root {
-  --bt-bg: #090b0d;
-  --bt-panel: #0e1116;
-  --bt-card: #101419;
-  --bt-card-2: #171d24;
-  --bt-line: rgba(255,255,255,.08);
-  --bt-line-strong: rgba(255,255,255,.16);
-  --bt-text: #eef2f6;
-  --bt-muted: #95a0ad;
-  --bt-quiet: #8492a2;
-  --bt-accent: #f3ac03;
-}
-
 body {
   background:
     linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px),
@@ -1269,9 +1277,10 @@ canvas {
 }
 
 @media (max-width: 980px) {
-  body { height: auto; min-height: 100vh; overflow: auto; }
+  body { height: auto; min-height: 100vh; min-height: 100dvh; overflow: auto; }
   #viewer {
     min-height: 100vh;
+    min-height: 100dvh;
     height: auto;
     grid-template-columns: 1fr;
     grid-template-rows: minmax(48vh, auto) auto;

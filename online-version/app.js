@@ -935,6 +935,7 @@ const dropZone = document.getElementById("drop-zone");
 const dropTitle = document.querySelector(".drop-title");
 const canvasWrap = document.getElementById("canvas-wrap");
 const progressBar = document.getElementById("progress-bar");
+const progressTrack = document.getElementById("progress-track");
 const progressFill = document.getElementById("progress-fill");
 const progressLabel = document.getElementById("progress-label");
 const exportOverlay = document.getElementById("export-overlay");
@@ -1136,35 +1137,48 @@ function showAppConfirm(message) {
   const messageEl = document.getElementById("fps-confirm-message");
   const confirmBtn = dialog?.querySelector("[data-dialog-confirm]");
   const cancelEls = dialog?.querySelectorAll("[data-dialog-cancel]");
-  if (!dialog || !messageEl || !confirmBtn || !cancelEls) return Promise.resolve(confirm(message));
+  if (!dialog || !messageEl || !confirmBtn || !cancelEls || typeof dialog.showModal !== "function") {
+    return Promise.resolve(confirm(message));
+  }
 
   const previousFocus = document.activeElement;
   messageEl.textContent = message;
-  dialog.hidden = false;
-  dialog.setAttribute("aria-hidden", "false");
-  confirmBtn.focus();
 
   return new Promise(resolve => {
+    let settled = false;
     const close = (result) => {
-      dialog.hidden = true;
-      dialog.setAttribute("aria-hidden", "true");
+      if (settled) return;
+      settled = true;
       confirmBtn.removeEventListener("click", onConfirm);
       cancelEls.forEach(el => el.removeEventListener("click", onCancel));
-      document.removeEventListener("keydown", onKeydown);
+      dialog.removeEventListener("cancel", onCancelEvent);
+      dialog.removeEventListener("click", onBackdropClick);
+      if (dialog.open) {
+        dialog.close();
+      }
       if (previousFocus && typeof previousFocus.focus === "function") {
         previousFocus.focus();
       }
       resolve(result);
     };
+
     const onConfirm = () => close(true);
     const onCancel = () => close(false);
-    const onKeydown = (e) => {
-      if (e.key === "Escape") close(false);
-      if (e.key === "Enter") close(true);
+    const onCancelEvent = (e) => {
+      e.preventDefault();
+      close(false);
     };
+    const onBackdropClick = (e) => {
+      if (e.target === dialog) close(false);
+    };
+
     confirmBtn.addEventListener("click", onConfirm);
     cancelEls.forEach(el => el.addEventListener("click", onCancel));
-    document.addEventListener("keydown", onKeydown);
+    dialog.addEventListener("cancel", onCancelEvent);
+    dialog.addEventListener("click", onBackdropClick);
+
+    dialog.showModal();
+    confirmBtn.focus();
   });
 }
 
@@ -2740,31 +2754,131 @@ async function detectBlobs() {
   const t0 = performance.now();
   const fps = getEffectiveFps();
   log("detect", "detectBlobs started", { params: { ...P }, dim: canvas.width + "x" + canvas.height, effectiveFps: fps });
-  const tf = Math.floor(video.duration * fps);
+  const tf = Number.isFinite(video.duration) && video.duration > 0 ? Math.floor(video.duration * fps) : 0;
   all_frame_data = [];
   let lastTs = Date.now();
   const tracker = new CentroidTracker(Math.hypot(canvas.width, canvas.height));
-  for (let i = 0; i <= tf; i++) {
-    if (cancelRequested) { log("detect", "detectBlobs cancelled by user", { frame: i, total: tf }); break; }
-    video.currentTime = i / fps;
-    await new Promise(r => { let a = 0; const ch = () => { if (!video.seeking) r(); else if (a++ > 500) r(); else setTimeout(ch, 10); }; video.onseeked = ch; ch(); });
-    if (cancelRequested) { log("detect", "detectBlobs cancelled by user", { frame: i, total: tf }); break; }
-    tempCtx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    let mat;
-    try { mat = cv.imread(tempCanvas); } catch (e) { log("detect", "cv.imread failed frame " + i); continue; }
-    const cts = detectContours(mat);
-    mat.delete();
-    const blobs = tracker.update(cts);
-    all_frame_data.push({ time: i / fps, blobs: structuredClone(blobs), frameIndex: i });
-    const pc = Math.round(i / tf * 100);
-    progressFill.style.width = pc + "%";
-    progressLabel.textContent = t("detecting") + " " + pc + "%";
-    const now = Date.now();
-    if (now - lastTs > 10000) { log("detect", "Still running after 10s", { frame: i, total: tf, pct: pc }); lastTs = now; }
+
+  let fastSink = null;
+  let sampleIterator = null;
+  let useFastDecoder = false;
+  if (window.MediaCodecs && currentVideoFile) {
+    try {
+      const input = new window.MediaCodecs.Input({
+        source: new window.MediaCodecs.BlobSource(currentVideoFile),
+        formats: window.MediaCodecs.ALL_FORMATS,
+      });
+      const videoTrack = await input.getPrimaryVideoTrack();
+      const decodable = videoTrack && (typeof videoTrack.canDecode !== "function" || await videoTrack.canDecode());
+      if (videoTrack && decodable) {
+        fastSink = new window.MediaCodecs.VideoSampleSink(videoTrack);
+        const timestamps = Array.from({ length: tf + 1 }, (_, k) => k / fps);
+        sampleIterator = fastSink.samplesAtTimestamps(timestamps)[Symbol.asyncIterator]();
+        useFastDecoder = true;
+        log("detect", "WebCodecs fast decoder initialized", { tf, fps });
+      }
+    } catch (err) {
+      log("detect", "Fast decoder init failed, using video seek fallback", { error: String(err) });
+      useFastDecoder = false;
+    }
   }
-  if (cancelRequested) { progressLabel.textContent = t("detectionCancelled"); }
+
+  try {
+    for (let i = 0; i <= tf; i++) {
+      if (cancelRequested) {
+        log("detect", "detectBlobs cancelled by user", { frame: i, total: tf });
+        break;
+      }
+
+      let frameDrawn = false;
+      if (useFastDecoder && sampleIterator) {
+        try {
+          const next = await sampleIterator.next();
+          const sample = next && next.value;
+          if (sample) {
+            try {
+              sample.draw(tempCtx, 0, 0, canvas.width, canvas.height);
+              frameDrawn = true;
+            } finally {
+              sample.close();
+            }
+          }
+        } catch (err) {
+          log("detect", "Error reading fast sample frame " + i + ", falling back to video seek", { error: String(err) });
+          useFastDecoder = false;
+        }
+      }
+
+      if (!frameDrawn) {
+        video.currentTime = i / fps;
+        await new Promise(r => {
+          let a = 0;
+          const ch = () => {
+            if (!video.seeking) r();
+            else if (a++ > 500) r();
+            else setTimeout(ch, 10);
+          };
+          video.onseeked = ch;
+          ch();
+        });
+        if (cancelRequested) {
+          log("detect", "detectBlobs cancelled by user", { frame: i, total: tf });
+          break;
+        }
+        tempCtx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      }
+
+      if (cancelRequested) {
+        log("detect", "detectBlobs cancelled by user", { frame: i, total: tf });
+        break;
+      }
+
+      let mat;
+      try {
+        mat = cv.imread(tempCanvas);
+      } catch (e) {
+        log("detect", "cv.imread failed frame " + i);
+        continue;
+      }
+      const cts = detectContours(mat);
+      mat.delete();
+      const blobs = tracker.update(cts);
+      all_frame_data.push({ time: i / fps, blobs: structuredClone(blobs), frameIndex: i });
+      const pc = Math.round(i / tf * 100);
+      progressFill.style.width = pc + "%";
+      if (progressTrack) progressTrack.setAttribute("aria-valuenow", String(Math.max(0, Math.min(100, pc))));
+      progressLabel.textContent = t("detecting") + " " + pc + "%";
+
+      if (i % 4 === 0) {
+        await new Promise(r => setTimeout(r, 0));
+      }
+
+      const now = Date.now();
+      if (now - lastTs > 10000) {
+        log("detect", "Still running after 10s", { frame: i, total: tf, pct: pc });
+        lastTs = now;
+      }
+    }
+  } finally {
+    isProcessing = false;
+    if (sampleIterator && typeof sampleIterator.return === "function") {
+      try {
+        await sampleIterator.return();
+      } catch (e) {}
+    }
+  }
+
+  if (cancelRequested) {
+    progressLabel.textContent = t("detectionCancelled");
+  }
   const elapsed = formatNumber((performance.now() - t0) / 1000, 1);
-  log("detect", "detectBlobs complete", { frames: all_frame_data.length, blobs_total: all_frame_data.reduce((s, f) => s + f.blobs.length, 0), elapsed_s: elapsed, cancelled: cancelRequested });
+  log("detect", "detectBlobs complete", {
+    frames: all_frame_data.length,
+    blobs_total: all_frame_data.reduce((s, f) => s + f.blobs.length, 0),
+    elapsed_s: elapsed,
+    cancelled: cancelRequested,
+    decoder: useFastDecoder ? "webcodecs" : "video-seek",
+  });
 }
 
 // ============================
@@ -2789,6 +2903,7 @@ async function prepareVideo(videoURL) {
   canvasWrap.style.display = "block";
   progressBar.classList.add("visible");
   progressFill.style.width = "0%";
+  if (progressTrack) progressTrack.setAttribute("aria-valuenow", "0");
   progressLabel.textContent = t("loadingVideo");
   if (exportOverlay) exportOverlay.classList.remove("visible");
   hidePlaybackControls();
@@ -2855,6 +2970,7 @@ async function startProcessing(videoURL) {
   progressBar.classList.add("visible");
   showCancelDetect();
   progressFill.style.width = "0%";
+  if (progressTrack) progressTrack.setAttribute("aria-valuenow", "0");
   progressLabel.textContent = t("loadingVideo");
   if (exportOverlay) exportOverlay.classList.remove("visible");
   hidePlaybackControls();
@@ -3018,16 +3134,50 @@ function placeTip(popup, source) {
   popup.style.top = Math.round(y) + "px";
 }
 
+function isPopoverOpen(el) {
+  if (!el) return false;
+  try {
+    return typeof el.matches === "function" && el.matches(":popover-open");
+  } catch (_) {
+    return false;
+  }
+}
+
 function showTip(text, source) {
   const el = document.getElementById("tip-popup");
   const txt = document.getElementById("tip-popup-text");
   if (!el || !txt) return;
   clearTipHideTimer();
+
+  if (activeTipAnchor && activeTipAnchor !== source && activeTipAnchor.style) {
+    try { activeTipAnchor.style.anchorName = ""; } catch (_) {}
+  }
   activeTipAnchor = source;
+  if (source && source.style) {
+    try { source.style.anchorName = "--active-tip"; } catch (_) {}
+  }
+
   txt.textContent = text;
   el.setAttribute("aria-hidden", "false");
   el.classList.add("visible");
-  requestAnimationFrame(() => placeTip(el, source));
+
+  if (typeof el.showPopover === "function") {
+    try {
+      if (!isPopoverOpen(el)) {
+        el.showPopover();
+      }
+    } catch (_) {
+      try { el.showPopover(); } catch (_) {}
+    }
+  }
+
+  const supportsAnchor = typeof CSS !== "undefined" && typeof CSS.supports === "function" && (CSS.supports("anchor-name", "--a") || CSS.supports("anchor-name: --a"));
+  if (supportsAnchor) {
+    el.style.left = "";
+    el.style.top = "";
+  } else {
+    requestAnimationFrame(() => placeTip(el, source));
+  }
 }
 
 function hideTip(immediate = false) {
@@ -3035,16 +3185,30 @@ function hideTip(immediate = false) {
   const el = document.getElementById("tip-popup");
   if (!el) return;
   clearTipHideTimer();
-  if (immediate) {
+
+  const doHide = () => {
+    if (activeTipAnchor && activeTipAnchor.style && activeTipAnchor.style.anchorName) {
+      try { activeTipAnchor.style.anchorName = ""; } catch (_) {}
+    }
+    activeTipAnchor = null;
+
+    if (typeof el.hidePopover === "function") {
+      try {
+        if (isPopoverOpen(el)) {
+          el.hidePopover();
+        }
+      } catch (_) {
+        try { el.hidePopover(); } catch (_) {}
+      }
+    }
     el.classList.remove("visible");
     el.setAttribute("aria-hidden", "true");
-    activeTipAnchor = null;
+  };
+
+  if (immediate) {
+    doHide();
   } else {
-    tipHideTimer = setTimeout(() => {
-      el.classList.remove("visible");
-      el.setAttribute("aria-hidden", "true");
-      activeTipAnchor = null;
-    }, 120);
+    tipHideTimer = setTimeout(doHide, 120);
   }
 }
 
@@ -3061,7 +3225,7 @@ function setupTooltips() {
     el.addEventListener("mouseenter", () => {
       clearTipHoverTimer();
       const popup = document.getElementById("tip-popup");
-      const isAlreadyVisible = popup && popup.classList.contains("visible");
+      const isAlreadyVisible = popup && (popup.classList.contains("visible") || isPopoverOpen(popup));
       if (isAlreadyVisible) {
         showTip(text(), el);
       } else {
@@ -3092,7 +3256,7 @@ function setupTooltips() {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
         const popup = document.getElementById("tip-popup");
-        if (popup && popup.classList.contains("visible") && activeTipAnchor === el) {
+        if (popup && (popup.classList.contains("visible") || isPopoverOpen(popup)) && activeTipAnchor === el) {
           hideTip(true);
         } else {
           showTip(text(), el);
@@ -3106,7 +3270,7 @@ function setupTooltips() {
     el.addEventListener("pointerdown", (e) => {
       e.preventDefault();
       const popup = document.getElementById("tip-popup");
-      if (popup && popup.classList.contains("visible") && activeTipAnchor === el) {
+      if (popup && (popup.classList.contains("visible") || isPopoverOpen(popup)) && activeTipAnchor === el) {
         hideTip(true);
         return;
       }
@@ -3126,8 +3290,10 @@ function setupTooltips() {
 
   // Re-position tooltip on window resize if active
   window.addEventListener("resize", () => {
+    const supportsAnchor = typeof CSS !== "undefined" && typeof CSS.supports === "function" && (CSS.supports("anchor-name", "--a") || CSS.supports("anchor-name: --a"));
+    if (supportsAnchor) return;
     const el = document.getElementById("tip-popup");
-    if (el && el.classList.contains("visible") && activeTipAnchor) {
+    if (el && (el.classList.contains("visible") || isPopoverOpen(el)) && activeTipAnchor) {
       placeTip(el, activeTipAnchor);
     }
   }, { passive: true });
@@ -3173,6 +3339,7 @@ async function reDetect() {
   progressBar.classList.add("visible");
   showCancelDetect();
   progressFill.style.width = "0%";
+  if (progressTrack) progressTrack.setAttribute("aria-valuenow", "0");
   progressLabel.textContent = t(wasDetectionReady ? "redetecting" : "detecting");
   if (exportOverlay) exportOverlay.style.display = "none";
   try {

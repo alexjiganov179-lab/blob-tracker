@@ -41,8 +41,8 @@ for (const k of requiredKeys) {
 console.log(`✅ Required accelerator and error keys verified in both languages`);
 
 // 3. Cache Busting Check
-assert(indexHtml.includes('styles.css?v=20261023-polish1') || indexHtml.includes('styles.css?v=20261023-harden1'), "styles.css cache bust updated");
-assert(indexHtml.includes('app.js?v=20261023-polish1') || indexHtml.includes('app.js?v=20261023-harden1'), "app.js cache bust updated");
+assert(indexHtml.includes('styles.css?v=20261023-phase3') || indexHtml.includes('styles.css?v=20261023-phase2') || indexHtml.includes('styles.css?v=20261023-phase1') || indexHtml.includes('styles.css?v=20261023-polish1') || indexHtml.includes('styles.css?v=20261023-harden1'), "styles.css cache bust updated");
+assert(indexHtml.includes('app.js?v=20261023-phase3') || indexHtml.includes('app.js?v=20261023-phase2') || indexHtml.includes('app.js?v=20261023-phase1') || indexHtml.includes('app.js?v=20261023-polish1') || indexHtml.includes('app.js?v=20261023-harden1'), "app.js cache bust updated");
 console.log("✅ Cache busting tags verified in index.html");
 
 // 4. Buttons and DOM IDs check in index.html
